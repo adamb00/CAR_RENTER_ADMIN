@@ -6,6 +6,12 @@
 export const publicRoutes = ['/auth/login'];
 
 /**
+ * API routes that do not require authentication
+ * @type {string[]}
+ */
+export const publicApiRoutes = ['/api/user'];
+
+/**
  * An array of routes that are used for authentication
  * This routes will redirect logged in users to /
  * @type {string[]}

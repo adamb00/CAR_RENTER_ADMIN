@@ -4,26 +4,36 @@ import bcryptjs from 'bcryptjs';
 import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
-   const { password, email } = await req.json();
+  const { password, email } = await req.json();
+  console.log('Received email:', email);
 
-   if (!email || !password) {
-      return NextResponse.json({ message: 'Email and password are required' }, { status: 400 });
-   }
+  if (!email || !password) {
+    return NextResponse.json(
+      { message: 'Email and password are required' },
+      { status: 400 }
+    );
+  }
 
-   const hashedPassword = await bcryptjs.hash(password, 10);
+  const hashedPassword = await bcryptjs.hash(password, 10);
 
-   const existingUser = await getUserByEmail(email);
+  const existingUser = await getUserByEmail(email);
 
-   if (existingUser) {
-      return NextResponse.json({ message: 'Email already in use' }, { status: 400 });
-   }
+  if (existingUser) {
+    return NextResponse.json(
+      { message: 'Email already in use' },
+      { status: 400 }
+    );
+  }
 
-   await db.user.create({
-      data: {
-         email: email,
-         password: hashedPassword,
-      },
-   });
+  await db.user.create({
+    data: {
+      email: email,
+      password: hashedPassword,
+    },
+  });
 
-   return NextResponse.json({ message: 'User successfully created' }, { status: 201 });
+  return NextResponse.json(
+    { message: 'User successfully created' },
+    { status: 201 }
+  );
 }
