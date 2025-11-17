@@ -11,16 +11,24 @@ import {
   SortingState,
   useReactTable,
 } from '@tanstack/react-table';
-import type { Car, CarStatus } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import type { CarStatusOption } from '@/lib/car-options';
 import { cn } from '@/lib/utils';
 
-type CarWithComputed = Car;
+type CarListEntry = {
+  manufacturer: string;
+  model: string;
+  licensePlate: string;
+  status: CarStatusOption;
+  odometer: number;
+};
 
-const STATUS_ROW_CLASSES: Record<CarStatus, string> = {
+type CarWithComputed = CarListEntry;
+
+const STATUS_ROW_CLASSES: Record<CarStatusOption, string> = {
   available: 'bg-emerald-100',
   rented: 'bg-blue-100',
   maintenance: 'bg-purple-100',
@@ -109,9 +117,9 @@ const buildColumns = (): ColumnDef<CarWithComputed>[] => [
   },
 ];
 
-export function CarsTable({ data }: { data: Car[] }) {
+export function CarsTable({ data }: { data: CarListEntry[] }) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | CarStatus>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | CarStatusOption>('all');
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'manufacturer', desc: false },
   ]);
@@ -179,7 +187,7 @@ export function CarsTable({ data }: { data: Car[] }) {
             className='h-10 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:border-slate-600 focus:outline-none focus:ring-1 focus:ring-slate-600'
             value={statusFilter}
             onChange={(event) =>
-              setStatusFilter(event.target.value as 'all' | CarStatus)
+              setStatusFilter(event.target.value as 'all' | CarStatusOption)
             }
           >
             <option value='all'>Összes</option>
