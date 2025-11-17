@@ -1,18 +1,9 @@
-import type {
-  CarBodyType,
-  CarCategory,
-  CarFuel,
-  CarStatus,
-  CarTireType,
-  CarTransmission,
-} from '@prisma/client';
-
-export const CAR_CATEGORIES = ['small', 'medium', 'large', 'suv'] as const satisfies readonly CarCategory[];
-export const CAR_TRANSMISSIONS = ['manual', 'automatic'] as const satisfies readonly CarTransmission[];
-export const CAR_FUELS = ['petrol', 'diesel', 'electric', 'hybrid'] as const satisfies readonly CarFuel[];
-export const CAR_STATUSES = ['available', 'rented', 'maintenance', 'inactive', 'reserved'] as const satisfies readonly CarStatus[];
-export const CAR_BODY_TYPES = ['sedan', 'hatchback', 'suv', 'wagon', 'van', 'pickup', 'coupe'] as const satisfies readonly CarBodyType[];
-export const CAR_TIRE_TYPES = ['summer', 'winter', 'all_season'] as const satisfies readonly CarTireType[];
+export const CAR_CATEGORIES = ['small', 'medium', 'large', 'suv'] as const;
+export const CAR_TRANSMISSIONS = ['manual', 'automatic'] as const;
+export const CAR_FUELS = ['petrol', 'diesel', 'electric', 'hybrid'] as const;
+export const CAR_STATUSES = ['available', 'rented', 'maintenance', 'inactive', 'reserved'] as const;
+export const CAR_BODY_TYPES = ['sedan', 'hatchback', 'suv', 'wagon', 'van', 'pickup', 'coupe'] as const;
+export const CAR_TIRE_TYPES = ['summer', 'winter', 'all_season'] as const;
 export const CAR_COLORS = ['milky_beige', 'white', 'silver_metal', 'blue', 'metal_blue', 'gray'] as const;
 
 export type CarCategoryOption = (typeof CAR_CATEGORIES)[number];
