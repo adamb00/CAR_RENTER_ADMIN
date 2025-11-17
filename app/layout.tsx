@@ -13,6 +13,14 @@ export default async function RootLayout({
 }>) {
   const session = await auth();
 
+  if (!session) {
+    return (
+      <html lang='en'>
+        <body className='antialiased'>{children}</body>
+      </html>
+    );
+  }
+
   return (
     <html lang='en'>
       <body className='antialiased'>
