@@ -18,16 +18,21 @@ function syncPrismaClient() {
     return;
   }
 
-  const targetDir = path.resolve(process.cwd(), 'node_modules/.prisma');
+  const targetDirs = [
+    path.resolve(process.cwd(), 'node_modules/.prisma'),
+    path.resolve(process.cwd(), 'node_modules/@prisma/client/.prisma'),
+  ];
 
-  try {
-    fs.rmSync(targetDir, { recursive: true, force: true });
-    fs.mkdirSync(path.dirname(targetDir), { recursive: true });
-    fs.cpSync(sourceDir, targetDir, { recursive: true });
-    console.log(`[prisma-sync] Synced Prisma client to ${targetDir}`);
-  } catch (error) {
-    console.error('[prisma-sync] Failed to sync Prisma client', error);
-    process.exit(1);
+  for (const targetDir of targetDirs) {
+    try {
+      fs.rmSync(targetDir, { recursive: true, force: true });
+      fs.mkdirSync(path.dirname(targetDir), { recursive: true });
+      fs.cpSync(sourceDir, targetDir, { recursive: true });
+      console.log(`[prisma-sync] Synced Prisma client to ${targetDir}`);
+    } catch (error) {
+      console.error('[prisma-sync] Failed to sync Prisma client', error);
+      process.exit(1);
+    }
   }
 }
 

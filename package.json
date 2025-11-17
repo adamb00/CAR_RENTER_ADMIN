@@ -9,7 +9,7 @@
     "lint": "next lint",
     "prisma:sync": "node scripts/sync-prisma-client.cjs",
     "prisma:generate": "pnpm prisma generate && pnpm prisma:sync",
-    "postinstall": "pnpm prisma:sync"
+    "postinstall": "pnpm prisma:generate"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.8.0",
