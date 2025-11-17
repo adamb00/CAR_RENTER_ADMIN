@@ -45,3 +45,80 @@ model Account {
   @@id([provider, providerAccountId])
   @@map("Accounts")
 }
+
+enum CarCategory {
+  small
+  medium
+  large
+  suv
+}
+
+enum CarTransmission {
+  manual
+  automatic
+}
+
+enum CarFuel {
+  petrol
+  diesel
+  electric
+  hybrid
+}
+
+enum CarStatus {
+  available
+  rented
+  maintenance
+  inactive
+  reserved
+}
+
+enum CarBodyType {
+  sedan
+  hatchback
+  suv
+  wagon
+  van
+  pickup
+  coupe
+}
+
+enum CarTireType {
+  summer
+  winter
+  all_season
+}
+
+model Car {
+  licensePlate         String          @id
+  category             CarCategory
+  manufacturer         String
+  model                String
+  year                 Int
+  firstRegistration    DateTime
+  bodyType             CarBodyType
+  colors               String[]
+  dailyPrices          Int[]
+  images               String[]
+  description          String?
+  odometer             Int
+  seats                Int
+  smallLuggage         Int
+  largeLuggage         Int
+  transmission         CarTransmission
+  fuel                 CarFuel
+  vin                  String          @unique
+  engineNumber         String          @unique
+  fleetJoinedAt        DateTime        @default(now())
+  status               CarStatus       @default(available)
+  inspectionValidUntil DateTime
+  tires                CarTireType
+  nextServiceAt        DateTime?
+  serviceNotes         String?
+  notes                String?
+  knownDamages         String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@map("Cars")
+}

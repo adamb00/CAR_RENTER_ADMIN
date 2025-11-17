@@ -1,18 +1,26 @@
+import type { ReactNode } from 'react';
+
+import { auth } from '@/auth';
+import { AppSidebar } from '@/components/app-sidebar';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+
 import './_styles/globals.css';
 
-export default function RootLayout({
-   children,
+export default async function RootLayout({
+  children,
 }: Readonly<{
-   children: React.ReactNode;
+  children: ReactNode;
 }>) {
-   return (
-      <html lang='en'>
-         <body className={`antialiased`}>{children}</body>
-      </html>
-   );
-}
+  const session = await auth();
 
-// TODO ADD FAVICON TO APP FOLDER
-// TODO ADD DATABASE AND DIRECT URL
-// TODO PNPM DLX PRISMA GENERATE
-// TODO PNPM DLX AUTH SECRET
+  return (
+    <html lang='en'>
+      <body className='antialiased'>
+        <SidebarProvider>
+          <AppSidebar user={session?.user ?? undefined} />
+          <SidebarInset>{children}</SidebarInset>
+        </SidebarProvider>
+      </body>
+    </html>
+  );
+}

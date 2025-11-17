@@ -7,20 +7,31 @@ interface InputProps extends React.ComponentProps<'input'> {
    className?: string;
 }
 
-const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, type = 'text', label, ...props }, ref) => {
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type = 'text', label, value, defaultValue, onChange, onBlur, ...props }, ref) => {
    const [isPasswordVisible, setIsPasswordVisible] = React.useState(false);
    const [hasValue, setHasValue] = React.useState<boolean>();
    const isPassword = type === 'password';
 
    React.useEffect(() => {
-      if (props.value || props.defaultValue) setHasValue(true);
-   }, [props.defaultValue, props.value]);
+      if (value !== undefined) {
+        setHasValue(String(value).length > 0);
+      } else if (defaultValue) {
+        setHasValue(String(defaultValue).length > 0);
+      }
+    }, [defaultValue, value]);
 
-   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-      setHasValue(e.target.value.length > 0);
-   };
+    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      setHasValue(event.target.value.length > 0);
+      onChange?.(event);
+    };
 
-   return (
+    const handleBlur = (event: React.FocusEvent<HTMLInputElement>) => {
+      setHasValue(event.target.value.length > 0);
+      onBlur?.(event);
+    };
+
+    return (
       <div className='relative w-full'>
          {/* Input Field */}
          <input
@@ -33,7 +44,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, type 
                'placeholder-transparent',
                className
             )}
-            onChange={e => setHasValue(e.target.value.length > 0)}
+            value={value}
+            defaultValue={value === undefined ? defaultValue : undefined}
+            onChange={handleChange}
             onBlur={handleBlur}
             {...props}
          />
