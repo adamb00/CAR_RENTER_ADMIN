@@ -22,7 +22,7 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang='en'>
+    <html lang='en' suppressHydrationWarning>
       <body className='antialiased'>
         <SidebarProvider>
           <AppSidebar user={session?.user ?? undefined} />
