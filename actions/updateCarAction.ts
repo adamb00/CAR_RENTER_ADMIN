@@ -39,6 +39,8 @@ export const updateCarAction = async ({ id, values }: UpdateCarInput) => {
 
     revalidatePath('/cars');
     void triggerPublicRevalidate({ carId: id });
+    console.log('updateCarAction success');
+
     return { success: 'Az autó adatai frissültek.' };
   } catch (error) {
     console.error('updateCarAction', error);
