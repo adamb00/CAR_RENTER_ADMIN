@@ -11,10 +11,7 @@ interface UpdateCarInput {
   values: CreateCarInput;
 }
 
-export const updateCarAction = async ({
-  id,
-  values,
-}: UpdateCarInput) => {
+export const updateCarAction = async ({ id, values }: UpdateCarInput) => {
   const validated = await CreateCarSchema.safeParseAsync(values);
 
   if (!validated.success) {
