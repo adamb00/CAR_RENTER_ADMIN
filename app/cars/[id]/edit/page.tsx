@@ -8,9 +8,9 @@ import type { CreateCarFormValues } from '@/schemas/carSchema';
 export default async function EditCarPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = params;
+  const { id } = await params;
   const car = await db.car.findUnique({
     where: { id },
     include: {
