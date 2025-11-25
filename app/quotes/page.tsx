@@ -111,7 +111,11 @@ export default async function QuotesPage() {
                     className='block'
                     prefetch={false}
                   >
-                    {quote.carId || '—'}
+                    {quote.carName
+                      ? quote.carName
+                      : quote.carId
+                        ? `#${quote.carId}`
+                        : '—'}
                   </Link>
                 </td>
                 <td className='px-4 py-3 align-top text-muted-foreground'>
