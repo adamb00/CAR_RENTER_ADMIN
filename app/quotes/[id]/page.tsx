@@ -33,9 +33,10 @@ const STATUS_LABELS: Record<string, string> = {
 export default async function QuoteDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const quote = await getQuoteById(params.id);
+  const { id } = await params;
+  const quote = await getQuoteById(id);
 
   if (!quote) {
     notFound();

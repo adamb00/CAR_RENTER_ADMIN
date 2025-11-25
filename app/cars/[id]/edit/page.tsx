@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 
 import { deleteCarAction } from '@/actions/updateCarAction';
 import { NewCarForm } from '@/components/new-car-form';
+import { CAR_COLORS, type CarColorOption } from '@/lib/car-options';
 import { db } from '@/lib/db';
 import type { CreateCarFormValues } from '@/schemas/carSchema';
 
@@ -43,7 +44,11 @@ export default async function EditCarPage({
     fuel: car.fuel,
     transmission: car.transmission,
     monthlyPrices: car.monthlyPrices,
-    colors: car.colors.map((color) => color.name),
+    colors: car.colors
+      .map((color) => color.name)
+      .filter((name): name is CarColorOption =>
+        (CAR_COLORS as readonly string[]).includes(name)
+      ),
     images: car.images,
   };
 
