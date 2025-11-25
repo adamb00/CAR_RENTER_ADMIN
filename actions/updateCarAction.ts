@@ -6,12 +6,12 @@ import { db } from '@/lib/db';
 import { CreateCarSchema, type CreateCarInput } from '@/schemas/carSchema';
 
 interface UpdateCarInput {
-  originalLicensePlate: string;
+  id: string;
   values: CreateCarInput;
 }
 
 export const updateCarAction = async ({
-  originalLicensePlate,
+  id,
   values,
 }: UpdateCarInput) => {
   const validated = await CreateCarSchema.safeParseAsync(values);
@@ -20,12 +20,23 @@ export const updateCarAction = async ({
     return { error: 'Hibás adatok, kérjük ellenőrizd az űrlapot.' };
   }
 
-  console.log('validated data', validated);
+  const { colors, monthlyPrices, ...carData } = validated.data;
+  const uniqueColors = Array.from(new Set(colors));
 
   try {
     await db.car.update({
-      where: { licensePlate: originalLicensePlate },
-      data: validated.data,
+      where: { id },
+      data: {
+        ...carData,
+        monthlyPrices,
+        colors: {
+          set: [],
+          connectOrCreate: uniqueColors.map((color) => ({
+            where: { name: color },
+            create: { name: color },
+          })),
+        },
+      },
     });
 
     revalidatePath('/cars');
@@ -38,42 +49,10 @@ export const updateCarAction = async ({
   }
 };
 
-export const deactivateCarAction = async (licensePlate: string) => {
-  try {
-    await db.car.update({
-      where: { licensePlate },
-      data: { status: 'inactive' },
-    });
-    revalidatePath('/cars');
-    return { success: 'Az autó inaktiválva lett.' };
-  } catch (error) {
-    console.error('deactivateCarAction', error);
-    return {
-      error: 'Nem sikerült inaktiválni az autót. Próbáld meg később.',
-    };
-  }
-};
-
-export const activateCarAction = async (licensePlate: string) => {
-  try {
-    await db.car.update({
-      where: { licensePlate },
-      data: { status: 'available' },
-    });
-    revalidatePath('/cars');
-    return { success: 'Az autó aktiválva lett.' };
-  } catch (error) {
-    console.error('activateCarAction', error);
-    return {
-      error: 'Nem sikerült aktiválni az autót. Próbáld meg később.',
-    };
-  }
-};
-
-export const deleteCarAction = async (licensePlate: string) => {
+export const deleteCarAction = async (id: string) => {
   try {
     await db.car.delete({
-      where: { licensePlate },
+      where: { id },
     });
     revalidatePath('/cars');
     return { success: 'Az autó törlésre került.' };

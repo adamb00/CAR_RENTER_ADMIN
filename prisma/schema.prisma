@@ -1,25 +1,18 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DIRECT_URL")
 }
 
 model User {
   id        String    @id @default(cuid())
   email     String    @unique
   password  String
-  accounts  Account[]
   createdAt DateTime  @default(now())
+  accounts  Account[]
 
   @@map("Users")
 }
@@ -36,41 +29,66 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([provider, providerAccountId])
   @@map("Accounts")
 }
 
-enum CarCategory {
-  small
-  medium
-  large
-  suv
+model Car {
+  id            String          @id @default(cuid())
+  manufacturer  String
+  model         String
+  seats         Int
+  images        String[]        @default([])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  smallLuggage  Int             @default(0)
+  largeLuggage  Int             @default(0)
+  bodyType      CarBodyType     @default(sedan)
+  fuel          CarFuel         @default(petrol)
+  transmission  CarTransmission @default(manual)
+  monthlyPrices Int[]           @default(dbgenerated("array_fill(0, ARRAY[12])"))
+  colors        Color[]         @relation("CarColors")
+
+  @@map("Cars")
 }
 
-enum CarTransmission {
-  manual
-  automatic
+model Color {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  cars      Car[]    @relation("CarColors")
+
+  @@map("Colors")
 }
 
-enum CarFuel {
-  petrol
-  diesel
-  electric
-  hybrid
-}
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ContactQuotes {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locale           String
+  name             String
+  email            String
+  phone            String
+  preferredchannel String
+  rentalstart      DateTime? @db.Date
+  rentalend        DateTime? @db.Date
+  arrivalflight    String?
+  departureflight  String?
+  partysize        String?
+  children         String?
+  carid            String?
+  carname          String?
+  status           String    @default("new")
+  updated          String?
+  createdAt        DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updatedAt        DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
 
-enum CarStatus {
-  available
-  rented
-  maintenance
-  inactive
-  reserved
+  @@index([createdAt], map: "idx_contactquotes_created_at")
+  @@index([status], map: "idx_contactquotes_status")
 }
 
 enum CarBodyType {
@@ -83,42 +101,14 @@ enum CarBodyType {
   coupe
 }
 
-enum CarTireType {
-  summer
-  winter
-  all_season
+enum CarFuel {
+  petrol
+  diesel
+  electric
+  hybrid
 }
 
-model Car {
-  licensePlate         String          @id
-  category             CarCategory
-  manufacturer         String
-  model                String
-  year                 Int
-  firstRegistration    DateTime
-  bodyType             CarBodyType
-  colors               String[]
-  dailyPrices          Int[]
-  images               String[]
-  description          String?
-  odometer             Int
-  seats                Int
-  smallLuggage         Int
-  largeLuggage         Int
-  transmission         CarTransmission
-  fuel                 CarFuel
-  vin                  String          @unique
-  engineNumber         String          @unique
-  fleetJoinedAt        DateTime        @default(now())
-  status               CarStatus       @default(available)
-  inspectionValidUntil DateTime
-  tires                CarTireType
-  nextServiceAt        DateTime?
-  serviceNotes         String?
-  notes                String?
-  knownDamages         String?
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
-
-  @@map("Cars")
+enum CarTransmission {
+  manual
+  automatic
 }

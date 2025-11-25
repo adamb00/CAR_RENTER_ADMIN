@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
 import {
   ColumnDef,
   flexRender,
@@ -12,29 +11,32 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import type { CarStatusOption } from '@/lib/car-options';
+import {
+  CAR_BODY_TYPE_LABELS,
+  CAR_COLOR_LABELS,
+  CAR_FUEL_LABELS,
+  CAR_TRANSMISSION_LABELS,
+} from '@/lib/car-options';
 import { cn } from '@/lib/utils';
 
 type CarListEntry = {
+  id: string;
   manufacturer: string;
   model: string;
-  licensePlate: string;
-  status: CarStatusOption;
-  odometer: number;
+  seats: number;
+  smallLuggage: number;
+  largeLuggage: number;
+  bodyType: string;
+  fuel: string;
+  transmission: string;
+  monthlyPrices: number[];
+  colors: string[];
 };
 
 type CarWithComputed = CarListEntry;
-
-const STATUS_ROW_CLASSES: Record<CarStatusOption, string> = {
-  available: 'bg-emerald-100',
-  rented: 'bg-blue-100',
-  maintenance: 'bg-purple-100',
-  inactive: 'bg-rose-100',
-  reserved: 'bg-amber-100',
-};
 
 const SortIndicator = ({
   direction,
@@ -71,55 +73,114 @@ const buildColumns = (): ColumnDef<CarWithComputed>[] => [
     ),
   },
   {
-    accessorKey: 'licensePlate',
+    accessorKey: 'seats',
     header: ({ column }) => (
       <button
         type='button'
         className='flex items-center gap-1'
         onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
       >
-        Rendszám
+        Férőhely
         <SortIndicator direction={column.getIsSorted()} />
       </button>
     ),
+    cell: ({ getValue }) => `${getValue<number>()} fő`,
   },
   {
-    accessorKey: 'status',
+    accessorKey: 'smallLuggage',
     header: ({ column }) => (
       <button
         type='button'
         className='flex items-center gap-1'
         onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
       >
-        Státusz
+        Kis bőrönd
         <SortIndicator direction={column.getIsSorted()} />
       </button>
     ),
-    cell: ({ getValue }) => (
-      <Badge variant='secondary' className='capitalize'>
-        {getValue<string>()}
-      </Badge>
-    ),
+    cell: ({ getValue }) => `${getValue<number>()} db`,
   },
   {
-    accessorKey: 'odometer',
+    accessorKey: 'largeLuggage',
     header: ({ column }) => (
       <button
         type='button'
         className='flex items-center gap-1'
         onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
       >
-        Km óra
+        Nagy bőrönd
         <SortIndicator direction={column.getIsSorted()} />
       </button>
     ),
-    cell: ({ getValue }) => `${getValue<number>().toLocaleString('hu-HU')} km`,
+    cell: ({ getValue }) => `${getValue<number>()} db`,
+  },
+  {
+    accessorKey: 'bodyType',
+    header: ({ column }) => (
+      <button
+        type='button'
+        className='flex items-center gap-1'
+        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+      >
+        Kivitel
+        <SortIndicator direction={column.getIsSorted()} />
+      </button>
+    ),
+    cell: ({ getValue }) =>
+      CAR_BODY_TYPE_LABELS[
+        getValue<string>() as keyof typeof CAR_BODY_TYPE_LABELS
+      ] ?? getValue<string>(),
+  },
+  {
+    accessorKey: 'fuel',
+    header: ({ column }) => (
+      <button
+        type='button'
+        className='flex items-center gap-1'
+        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+      >
+        Üzemanyag
+        <SortIndicator direction={column.getIsSorted()} />
+      </button>
+    ),
+    cell: ({ getValue }) =>
+      CAR_FUEL_LABELS[getValue<string>() as keyof typeof CAR_FUEL_LABELS] ??
+      getValue<string>(),
+  },
+  {
+    accessorKey: 'transmission',
+    header: ({ column }) => (
+      <button
+        type='button'
+        className='flex items-center gap-1'
+        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+      >
+        Váltó
+        <SortIndicator direction={column.getIsSorted()} />
+      </button>
+    ),
+    cell: ({ getValue }) =>
+      CAR_TRANSMISSION_LABELS[
+        getValue<string>() as keyof typeof CAR_TRANSMISSION_LABELS
+      ] ?? getValue<string>(),
+  },
+  {
+    accessorKey: 'monthlyPrices',
+    header: 'Aktuális havi ár',
+    enableSorting: false,
+    cell: ({ getValue }) => {
+      const prices = getValue<number[]>() ?? [];
+      const monthIndex = new Date().getMonth(); // 0-11
+      const currentPrice = prices[monthIndex];
+      return currentPrice != null
+        ? `${currentPrice.toLocaleString()} EUR`
+        : '—';
+    },
   },
 ];
 
 export function CarsTable({ data }: { data: CarListEntry[] }) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | CarStatusOption>('all');
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'manufacturer', desc: false },
   ]);
@@ -133,25 +194,30 @@ export function CarsTable({ data }: { data: CarListEntry[] }) {
 
   const columns = useMemo(() => buildColumns(), []);
 
-  const availableStatuses = useMemo(
-    () => Array.from(new Set(data.map((car) => car.status))),
-    [data]
-  );
-
   const filteredData = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     return augmentedData.filter((car) => {
-      const matchesStatus =
-        statusFilter === 'all' || car.status === statusFilter;
+      const colorText = (car.colors ?? [])
+        .map(
+          (color) =>
+            CAR_COLOR_LABELS[color as keyof typeof CAR_COLOR_LABELS] ?? color
+        )
+        .join(' ')
+        .toLowerCase();
+
+      const priceText = (car.monthlyPrices ?? [])
+        .map((price) => (price ?? '').toString())
+        .join(' ');
+
       const matchesSearch =
         normalizedSearch.length === 0 ||
-        [car.manufacturer, car.model, car.licensePlate]
+        [car.manufacturer, car.model, colorText, priceText]
           .join(' ')
           .toLowerCase()
           .includes(normalizedSearch);
-      return matchesStatus && matchesSearch;
+      return matchesSearch;
     });
-  }, [augmentedData, searchTerm, statusFilter]);
+  }, [augmentedData, searchTerm]);
 
   const table = useReactTable({
     data: filteredData,
@@ -166,7 +232,7 @@ export function CarsTable({ data }: { data: CarListEntry[] }) {
 
   useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm]);
 
   return (
     <div className='space-y-4'>
@@ -174,29 +240,10 @@ export function CarsTable({ data }: { data: CarListEntry[] }) {
         <div className='w-full md:w-1/3 lg:w-1/4'>
           <Input
             label='Keresés'
-            placeholder='Keresés gyártó, típus vagy rendszám alapján'
+            placeholder='Keresés gyártó vagy típus alapján'
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
           />
-        </div>
-        <div className='flex flex-col gap-1 text-sm'>
-          <label className='text-xs font-semibold uppercase text-muted-foreground'>
-            Státusz
-          </label>
-          <select
-            className='h-10 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:border-slate-600 focus:outline-none focus:ring-1 focus:ring-slate-600'
-            value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(event.target.value as 'all' | CarStatusOption)
-            }
-          >
-            <option value='all'>Összes</option>
-            {availableStatuses.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
         </div>
         <div className='flex flex-col gap-1 text-sm'>
           <label className='text-xs font-semibold uppercase text-muted-foreground'>
@@ -246,14 +293,10 @@ export function CarsTable({ data }: { data: CarListEntry[] }) {
             <tr
               key={row.id}
               onClick={() =>
-                router.push(
-                  `/cars/${encodeURIComponent(row.original.licensePlate)}/edit`
-                )
+                router.push(`/cars/${encodeURIComponent(row.original.id)}/edit`)
               }
               className={cn(
-                'group cursor-pointer transition-all duration-200 border-b border-border/70',
-                STATUS_ROW_CLASSES[row.original.status],
-                'hover:bg-primary/20 hover:shadow-sm'
+                'group cursor-pointer transition-all duration-200 border-b border-border/70 hover:bg-primary/20 hover:shadow-sm'
               )}
             >
               {row.getVisibleCells().map((cell) => (

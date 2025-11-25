@@ -12,9 +12,21 @@ export const createCarAction = async (values: CreateCarInput) => {
       return { error: 'Hibás adatok, kérjük ellenőrizd az űrlapot.' };
    }
 
+   const { colors, monthlyPrices, ...carData } = validated.data;
+   const uniqueColors = Array.from(new Set(colors));
+
    try {
       await db.car.create({
-         data: validated.data,
+         data: {
+            ...carData,
+            monthlyPrices,
+            colors: {
+               connectOrCreate: uniqueColors.map((color) => ({
+                  where: { name: color },
+                  create: { name: color },
+               })),
+            },
+         },
       });
 
       revalidatePath('/cars');

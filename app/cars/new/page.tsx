@@ -8,7 +8,8 @@ export default function NewCarPage() {
           Új autó hozzáadása
         </h1>
         <p className='text-muted-foreground'>
-          Töltsd ki az űrlapot az autó adatainak rögzítéséhez.
+          Csak a fotókat, a márkát, a típust, a férőhelyet, a kis/nagy bőröndök számát,
+          a kivitelt, az üzemanyagot, a váltót, az elérhető színeket és a havi árakat kell megadnod.
         </p>
       </div>
       <NewCarForm />

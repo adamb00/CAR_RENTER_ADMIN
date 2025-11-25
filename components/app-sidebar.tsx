@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, Car } from 'lucide-react';
+import { BookOpen, Car, Inbox } from 'lucide-react';
 import * as React from 'react';
 
 import { NavMain } from '@/components/nav-main';
@@ -27,6 +27,11 @@ const data = {
       title: 'Foglalások',
       url: '/',
       icon: BookOpen,
+    },
+    {
+      title: 'Ajánlatkérések',
+      url: '/quotes',
+      icon: Inbox,
     },
 
     {

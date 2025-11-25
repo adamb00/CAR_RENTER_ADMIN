@@ -1,4 +1,5 @@
 {
   "WillLuke.nextjs.addTypesOnSave": true,
-  "WillLuke.nextjs.hasPrompted": true
+  "WillLuke.nextjs.hasPrompted": true,
+  "prisma.prismaFmtBinaryPath": "./node_modules/.pnpm/prisma@6.19.0_typescript@5.8.2/node_modules/prisma/prisma-fmt-darwin-arm64"
 }
