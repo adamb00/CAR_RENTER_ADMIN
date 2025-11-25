@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 
 import { db } from '@/lib/db';
+import { triggerPublicRevalidate } from '@/lib/public-revalidate';
 import { CreateCarSchema, type CreateCarInput } from '@/schemas/carSchema';
 
 interface UpdateCarInput {
@@ -40,6 +41,7 @@ export const updateCarAction = async ({
     });
 
     revalidatePath('/cars');
+    void triggerPublicRevalidate({ carId: id });
     return { success: 'Az autó adatai frissültek.' };
   } catch (error) {
     console.error('updateCarAction', error);

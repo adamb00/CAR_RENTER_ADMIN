@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 
 import { db } from '@/lib/db';
+import { triggerPublicRevalidate } from '@/lib/public-revalidate';
 import { CreateCarSchema, type CreateCarInput } from '@/schemas/carSchema';
 
 export const createCarAction = async (values: CreateCarInput) => {
@@ -16,7 +17,7 @@ export const createCarAction = async (values: CreateCarInput) => {
    const uniqueColors = Array.from(new Set(colors));
 
    try {
-      await db.car.create({
+      const created = await db.car.create({
          data: {
             ...carData,
             monthlyPrices,
@@ -30,6 +31,7 @@ export const createCarAction = async (values: CreateCarInput) => {
       });
 
       revalidatePath('/cars');
+      void triggerPublicRevalidate({ carId: created.id });
       return { success: 'Az autó sikeresen felvételre került.' };
    } catch (error) {
       console.error('createCarAction', error);
