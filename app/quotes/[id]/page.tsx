@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 
 import { getQuoteById } from '@/data-service/quotes';
+import { db } from '@/lib/db';
+import { BookingRequestButton } from './booking-request-button';
 
 const LOCALE_LABELS: Record<string, string> = {
   hu: 'Magyar',
@@ -24,8 +26,9 @@ const STATUS_LABELS: Record<string, string> = {
   in_progress: 'Folyamatban',
   pending: 'Folyamatban',
   closed: 'Lezárva',
-  done: 'Lezárva',
-  resolved: 'Lezárva',
+  answered: 'Ajánlatkérés feldolgozva',
+  done: 'Ajánlatkérés feldolgozva',
+  resolved: 'Ajánlatkérés feldolgozva',
   canceled: 'Lemondva',
   cancelled: 'Lemondva',
 };
@@ -42,6 +45,14 @@ export default async function QuoteDetailPage({
     notFound();
   }
 
+  const carForPricing = quote.carId
+    ? await db.car.findUnique({
+        where: { id: quote.carId },
+        select: { monthlyPrices: true },
+      })
+    : null;
+  const monthlyPrice = carForPricing?.monthlyPrices?.[new Date().getMonth()] ?? null;
+
   const formatDate = (value: string | null | undefined) => {
     if (!value) return '—';
     const date = new Date(value);
@@ -56,11 +67,25 @@ export default async function QuoteDetailPage({
 
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
-      <div className='space-y-1'>
-        <h1 className='text-2xl font-semibold tracking-tight'>Ajánlatkérés</h1>
-        <p className='text-muted-foreground'>
-          Beérkezett megkeresés részletei.
-        </p>
+      <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6'>
+        <div className='space-y-1'>
+          <h1 className='text-2xl font-semibold tracking-tight'>Ajánlatkérés</h1>
+          <p className='text-muted-foreground'>
+            Beérkezett megkeresés részletei.
+          </p>
+        </div>
+
+        <BookingRequestButton
+          quoteId={quote.id}
+          email={quote.email}
+          name={quote.name}
+          locale={quote.locale}
+          carId={quote.carId}
+          carName={quote.carName}
+          rentalStart={quote.rentalStart}
+          rentalEnd={quote.rentalEnd}
+          monthlyPrice={monthlyPrice}
+        />
       </div>
 
       <div className='grid gap-6 lg:grid-cols-[2fr,1fr]'>
