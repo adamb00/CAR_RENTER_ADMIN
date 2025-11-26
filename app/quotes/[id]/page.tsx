@@ -52,6 +52,9 @@ export default async function QuoteDetailPage({
       })
     : null;
   const monthlyPrice = carForPricing?.monthlyPrices?.[new Date().getMonth()] ?? null;
+  const allCars = await db.car.findMany({
+    select: { id: true, manufacturer: true, model: true, monthlyPrices: true },
+  });
 
   const formatDate = (value: string | null | undefined) => {
     if (!value) return '—';
@@ -85,6 +88,11 @@ export default async function QuoteDetailPage({
           rentalStart={quote.rentalStart}
           rentalEnd={quote.rentalEnd}
           monthlyPrice={monthlyPrice}
+          carOptions={allCars.map((car) => ({
+            id: car.id,
+            label: `${car.manufacturer} ${car.model}`,
+            monthlyPrices: car.monthlyPrices,
+          }))}
         />
       </div>
 

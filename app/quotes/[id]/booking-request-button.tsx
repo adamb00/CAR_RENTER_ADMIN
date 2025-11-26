@@ -28,6 +28,7 @@ import {
 
 const pricingSchema = z.object({
   adminName: z.string().min(1, 'Név kötelező'),
+  carId: z.string().min(1, 'Autó kiválasztása kötelező'),
   rentalFee: z
     .string()
     .optional()
@@ -60,6 +61,7 @@ type BookingRequestButtonProps = {
   rentalStart?: string | null;
   rentalEnd?: string | null;
   monthlyPrice?: number | null;
+  carOptions?: { id: string; label: string; monthlyPrices: number[] }[];
 };
 
 export const BookingRequestButton = ({
@@ -72,6 +74,7 @@ export const BookingRequestButton = ({
   rentalStart,
   rentalEnd,
   monthlyPrice,
+  carOptions = [],
 }: BookingRequestButtonProps) => {
   const [status, setStatus] = useState<{
     type: 'success' | 'error';
@@ -84,17 +87,18 @@ export const BookingRequestButton = ({
     resolver: zodResolver(pricingSchema),
     defaultValues: {
       adminName: '',
-      rentalFee: monthlyPrice != null ? `${monthlyPrice}` : '',
+      carId: carId ?? '',
+      rentalFee: '',
       deposit: '',
       insurance: '',
     },
   });
 
   const missingEmail = !email;
-  const missingCar = !carId;
+  const missingCar = carOptions.length === 0;
 
   const onSubmit = (values: PricingFormValues) => {
-    if (missingEmail || missingCar) return;
+    if (missingEmail) return;
     setStatus(null);
     startTransition(async () => {
       const rentalFee = values.rentalFee ?? undefined;
@@ -106,7 +110,7 @@ export const BookingRequestButton = ({
         email,
         name,
         locale,
-        carId,
+        carId: values.carId,
         carName,
         rentalStart,
         rentalEnd,
@@ -128,6 +132,22 @@ export const BookingRequestButton = ({
       setOpen(false);
     });
   };
+
+const currentMonthIndex = new Date().getMonth();
+
+const handleCarChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  const selectedId = event.target.value;
+  form.setValue('carId', selectedId);
+};
+
+  const selectedCar = form.watch('carId');
+  const selectedCarWeekly = (() => {
+    const found = carOptions.find((c) => c.id === selectedCar);
+    if (!found) return null;
+    const monthly = found.monthlyPrices?.[currentMonthIndex];
+    if (monthly == null) return null;
+    return Math.round(monthly);
+  })();
 
   return (
     <Sheet
@@ -155,8 +175,7 @@ export const BookingRequestButton = ({
         )}
         {missingCar && (
           <p className='text-sm text-destructive'>
-            Nincs autó társítva ehhez az ajánlatkéréshez, így nem küldhető ki az
-            e-mail.
+            Nincs elérhető autó a listában, így nem küldhető ki az e-mail.
           </p>
         )}
         {status && (
@@ -194,6 +213,46 @@ export const BookingRequestButton = ({
             onSubmit={form.handleSubmit(onSubmit)}
             className='flex flex-col gap-4 p-4'
           >
+            <FormField
+              control={form.control}
+              name='carId'
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <div className='space-y-2'>
+                      <label className='text-sm font-semibold text-foreground'>
+                        Autó kiválasztása
+                      </label>
+                      <select
+                        className='w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
+                        value={field.value}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          handleCarChange(e);
+                        }}
+                      >
+                        <option value=''>Válassz autót</option>
+                        {carOptions.map((car) => (
+                          <option key={car.id} value={car.id}>
+                            {car.label}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedCarWeekly != null && (
+                        <p className='text-xs text-muted-foreground'>
+                          Aktuális heti díj (emlékeztető):{' '}
+                          <span className='font-semibold'>
+                            {selectedCarWeekly.toLocaleString()} EUR
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name='adminName'
