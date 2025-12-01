@@ -1,9 +1,6 @@
 'use server';
 
 import { db } from '@/lib/db';
-import fs from 'fs';
-import path from 'path';
-import nodemailer from 'nodemailer';
 import { revalidatePath } from 'next/cache';
 
 type SendBookingRequestEmailInput = {
@@ -18,6 +15,8 @@ type SendBookingRequestEmailInput = {
   rentalFee?: string;
   deposit?: string;
   insurance?: string;
+  deliveryFee?: string;
+  extrasFee?: string;
   adminName?: string | null;
 };
 
@@ -66,18 +65,21 @@ const formatFromAddress = () => {
 };
 const BOOKING_FROM_ADDRESS = formatFromAddress();
 let cachedLogoDataUrl: string | null | undefined;
-const getLogoDataUrl = () => {
+const getLogoDataUrl = async () => {
   // Prefer an external hosted logo so clients don't block large inline images.
   if (LOGO_URL) return LOGO_URL;
   if (cachedLogoDataUrl !== undefined) return cachedLogoDataUrl;
 
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+
   const logoPaths = ['logo_white.png', 'logo_black.png'].map((file) =>
-    path.join(process.cwd(), 'public', file)
+    join(process.cwd(), 'public', file)
   );
 
   for (const logoPath of logoPaths) {
     try {
-      const buffer = fs.readFileSync(logoPath);
+      const buffer = readFileSync(logoPath);
       cachedLogoDataUrl = `data:image/png;base64,${buffer.toString('base64')}`;
       return cachedLogoDataUrl;
     } catch (error) {
@@ -119,7 +121,10 @@ const LOCALIZED_STATIC: Record<
     slogans: string[];
     extrasNote: string;
     extrasLabel: string;
+    deliveryFeeLabel: string;
+    extrasFeeLabel: string;
     daysSuffix: string;
+    deliveryNote: string;
   }
 > = {
   en: {
@@ -132,7 +137,11 @@ const LOCALIZED_STATIC: Record<
     slogans: ['Freedom leads.', 'Comfort follows.'],
     extrasNote: 'Selecting extras may incur additional costs.',
     extrasLabel: 'Other costs',
+    deliveryFeeLabel: 'Delivery fee',
+    extrasFeeLabel: 'Extras fee',
     daysSuffix: 'days',
+    deliveryNote:
+      'You can request delivery to your preferred location (e.g. airport or hotel).',
   },
   hu: {
     rentalFeeLabel: 'Bérleti díj',
@@ -145,7 +154,11 @@ const LOCALIZED_STATIC: Record<
     slogans: ['A szabadság vezet.', 'A kényelem elkísér.'],
     extrasNote: 'Az extrák kiválasztásakor további költségek merülhetnek fel.',
     extrasLabel: 'Egyéb költségek',
+    deliveryFeeLabel: 'Kiszállítás díja',
+    extrasFeeLabel: 'Extrák díja',
     daysSuffix: 'napra',
+    deliveryNote:
+      'Kérheted az autó kiszállítását a választott helyszínre (pl. reptérre vagy szállásra).',
   },
   de: {
     rentalFeeLabel: 'Mietpreis',
@@ -159,7 +172,11 @@ const LOCALIZED_STATIC: Record<
     extrasNote:
       'Bei der Auswahl von Extras können zusätzliche Kosten anfallen.',
     extrasLabel: 'Weitere Kosten',
+    deliveryFeeLabel: 'Liefergebühr',
+    extrasFeeLabel: 'Aufpreis für Extras',
     daysSuffix: 'Tage',
+    deliveryNote:
+      'Du kannst das Auto an deinen Wunschort liefern lassen (z. B. Flughafen oder Unterkunft).',
   },
   ro: {
     rentalFeeLabel: 'Taxă de închiriere',
@@ -173,7 +190,11 @@ const LOCALIZED_STATIC: Record<
     extrasNote:
       'La selectarea extraopțiunilor pot apărea costuri suplimentare.',
     extrasLabel: 'Costuri suplimentare',
+    deliveryFeeLabel: 'Taxă de livrare',
+    extrasFeeLabel: 'Taxă pentru extraopțiuni',
     daysSuffix: 'zile',
+    deliveryNote:
+      'Poți solicita livrarea mașinii la locația dorită (de ex. aeroport sau cazare).',
   },
   fr: {
     rentalFeeLabel: 'Frais de location',
@@ -187,7 +208,11 @@ const LOCALIZED_STATIC: Record<
     extrasNote:
       'Le choix des options peut entraîner des coûts supplémentaires.',
     extrasLabel: 'Autres coûts',
+    deliveryFeeLabel: 'Frais de livraison',
+    extrasFeeLabel: 'Frais des options',
     daysSuffix: 'jours',
+    deliveryNote:
+      "Vous pouvez demander la livraison de la voiture à l'endroit de votre choix (ex. aéroport ou hébergement).",
   },
   es: {
     rentalFeeLabel: 'Tarifa de alquiler',
@@ -199,7 +224,11 @@ const LOCALIZED_STATIC: Record<
     slogans: ['La libertad te conduce.', 'La comodidad te acompaña.'],
     extrasNote: 'Elegir extras puede generar costes adicionales.',
     extrasLabel: 'Costes adicionales',
+    deliveryFeeLabel: 'Tarifa de entrega',
+    extrasFeeLabel: 'Coste de extras',
     daysSuffix: 'días',
+    deliveryNote:
+      'Puedes solicitar la entrega del coche en el lugar que prefieras (p. ej., aeropuerto o alojamiento).',
   },
   it: {
     rentalFeeLabel: 'Tariffa di noleggio',
@@ -211,7 +240,11 @@ const LOCALIZED_STATIC: Record<
     slogans: ['La libertà ti guida.', 'Il comfort ti accompagna.'],
     extrasNote: 'La scelta di extra può comportare costi aggiuntivi.',
     extrasLabel: 'Altri costi',
+    deliveryFeeLabel: 'Costo consegna',
+    extrasFeeLabel: 'Costo extra',
     daysSuffix: 'giorni',
+    deliveryNote:
+      "Puoi richiedere la consegna dell'auto nel luogo che preferisci (es. aeroporto o alloggio).",
   },
   sk: {
     rentalFeeLabel: 'Prenájomné',
@@ -223,7 +256,11 @@ const LOCALIZED_STATIC: Record<
     slogans: ['Sloboda vedie.', 'Komfort sprevádza.'],
     extrasNote: 'Výber extra služieb môže priniesť dodatočné náklady.',
     extrasLabel: 'Ďalšie náklady',
+    deliveryFeeLabel: 'Poplatok za doručenie',
+    extrasFeeLabel: 'Poplatok za extra služby',
     daysSuffix: 'dní',
+    deliveryNote:
+      'Môžeš si vyžiadať doručenie auta na zvolené miesto (napr. letisko alebo ubytovanie).',
   },
   cz: {
     rentalFeeLabel: 'Nájemné',
@@ -235,7 +272,11 @@ const LOCALIZED_STATIC: Record<
     slogans: ['Svoboda vede.', 'Komfort provází.'],
     extrasNote: 'Výběr doplňků může znamenat další náklady.',
     extrasLabel: 'Další náklady',
+    deliveryFeeLabel: 'Poplatek za doručení',
+    extrasFeeLabel: 'Poplatek za doplňky',
     daysSuffix: 'dní',
+    deliveryNote:
+      'Auto si můžete nechat doručit na vámi zvolené místo (např. letiště nebo ubytování).',
   },
   se: {
     rentalFeeLabel: 'Hyresavgift',
@@ -247,7 +288,11 @@ const LOCALIZED_STATIC: Record<
     slogans: ['Friheten leder.', 'Komforten följer med.'],
     extrasNote: 'Val av extra kan medföra ytterligare kostnader.',
     extrasLabel: 'Övriga kostnader',
+    deliveryFeeLabel: 'Leveranskostnad',
+    extrasFeeLabel: 'Kostnad för tillval',
     daysSuffix: 'dagar',
+    deliveryNote:
+      'Du kan be om leverans till valfri plats (t.ex. flygplats eller boende).',
   },
   no: {
     rentalFeeLabel: 'Leiepris',
@@ -259,7 +304,11 @@ const LOCALIZED_STATIC: Record<
     slogans: ['Frihet leder.', 'Komfort følger med.'],
     extrasNote: 'Valg av ekstrautstyr kan medføre ekstra kostnader.',
     extrasLabel: 'Andre kostnader',
+    deliveryFeeLabel: 'Leveringsgebyr',
+    extrasFeeLabel: 'Kostnad for ekstrautstyr',
     daysSuffix: 'dager',
+    deliveryNote:
+      'Du kan be om levering til ønsket sted (f.eks. flyplass eller overnatting).',
   },
   dk: {
     rentalFeeLabel: 'Lejepris',
@@ -272,7 +321,11 @@ const LOCALIZED_STATIC: Record<
     slogans: ['Frihed leder.', 'Komfort følger med.'],
     extrasNote: 'Valg af ekstraudstyr kan medføre ekstra omkostninger.',
     extrasLabel: 'Andre omkostninger',
+    deliveryFeeLabel: 'Leveringsgebyr',
+    extrasFeeLabel: 'Pris for ekstraudstyr',
     daysSuffix: 'dage',
+    deliveryNote:
+      'Du kan bede om levering til det ønskede sted (f.eks. lufthavn eller overnatning).',
   },
   pl: {
     rentalFeeLabel: 'Opłata za wynajem',
@@ -285,7 +338,11 @@ const LOCALIZED_STATIC: Record<
     slogans: ['Wolność prowadzi.', 'Komfort towarzyszy.'],
     extrasNote: 'Wybranie dodatków może wiązać się z dodatkowymi kosztami.',
     extrasLabel: 'Inne koszty',
+    deliveryFeeLabel: 'Opłata za dostawę',
+    extrasFeeLabel: 'Opłata za dodatki',
     daysSuffix: 'dni',
+    deliveryNote:
+      'Możesz poprosić o dostawę auta pod wskazany adres (np. lotnisko lub nocleg).',
   },
 };
 
@@ -430,8 +487,10 @@ const hasMailerConfig = () =>
       MAIL_PASS
   );
 
-const createTransporter = () =>
-  nodemailer.createTransport({
+const createTransporter = async () => {
+  const module = await import('nodemailer');
+  const nodemailer = module.default ?? module;
+  return nodemailer.createTransport({
     host: MAIL_HOST,
     port: MAIL_PORT,
     secure: MAIL_PORT === 465,
@@ -440,12 +499,14 @@ const createTransporter = () =>
       pass: MAIL_PASS,
     },
   });
+};
 
-let cachedTransporter: ReturnType<typeof createTransporter> | null = null;
+let cachedTransporter: Awaited<ReturnType<typeof createTransporter>> | null =
+  null;
 
-const getTransporter = () => {
+const getTransporter = async () => {
   if (!cachedTransporter) {
-    cachedTransporter = createTransporter();
+    cachedTransporter = await createTransporter();
   }
   return cachedTransporter;
 };
@@ -512,6 +573,8 @@ const buildTextBody = (
   const rentalFee = formatPrice(input.rentalFee);
   const deposit = formatPrice(input.deposit);
   const insurancePrice = formatPrice(input.insurance);
+  const deliveryFee = formatPrice(input.deliveryFee);
+  const extrasFee = formatPrice(input.extrasFee);
   const insuranceNote =
     insurancePrice && deposit ? staticText.insuranceNote : null;
   const signerName = sanitizeName(input.adminName) ?? 'Zodiacs Rent a Car';
@@ -535,8 +598,13 @@ ${deposit ? `${staticText.depositLabel}: ${deposit}` : ''}
 
 ${insurancePrice ? `${insuranceNote ?? ''}` : ''}
 ${insurancePrice ? `${staticText.insuranceLabel}: ${insurancePrice}` : ''}
+${deliveryFee ? `${staticText.deliveryFeeLabel}: ${deliveryFee}` : ''}
+${extrasFee ? `${staticText.extrasFeeLabel}: ${extrasFee}` : ''}
 
 ${copy.cta}: ${bookingLink}
+
+${staticText.extrasNote}
+${staticText.deliveryNote}
 
 ${copy.signature}
 
@@ -551,14 +619,14 @@ Helyszín: ${ADMIN_SIGNATURE.locations}
 ${slogans.join('\n')}`;
 };
 
-const buildHtmlBody = (
+const buildHtmlBody = async (
   copy: EmailCopy,
   input: SendBookingRequestEmailInput,
   bookingLink: string
 ) => {
   const safeName = sanitizeName(input.name);
   const safeNameForHtml = safeName ? escapeHtml(safeName) : undefined;
-  const logoSrc = getLogoDataUrl();
+  const logoSrc = await getLogoDataUrl();
 
   const heading = escapeHtml(copy.subject);
   const greeting = copy.greeting(safeNameForHtml);
@@ -577,6 +645,8 @@ const buildHtmlBody = (
   const rentalFee = formatPrice(input.rentalFee);
   const deposit = formatPrice(input.deposit);
   const insurancePrice = formatPrice(input.insurance);
+  const deliveryFee = formatPrice(input.deliveryFee);
+  const extrasFee = formatPrice(input.extrasFee);
   const insuranceNote = insurancePrice ? staticText.insuranceNote : null;
   const signerName = sanitizeName(input.adminName) ?? 'Zodiacs Rent a Car';
   const signerNameHtml = escapeHtml(signerName);
@@ -727,6 +797,30 @@ const buildHtmlBody = (
                             BRAND.navyLight
                           }; line-height:1.5;">
                             ${escapeHtml(staticText.extrasNote)}
+                            <br />
+                            ${escapeHtml(staticText.deliveryNote)}
+                            ${
+                              deliveryFee || extrasFee
+                                ? `<div style="margin-top:10px; font-size:14px; font-weight:700; color:${
+                                    BRAND.navy
+                                  };">
+                                    ${
+                                      deliveryFee
+                                        ? `<div>${escapeHtml(
+                                            staticText.deliveryFeeLabel
+                                          )}: ${escapeHtml(deliveryFee)}</div>`
+                                        : ''
+                                    }
+                                    ${
+                                      extrasFee
+                                        ? `<div>${escapeHtml(
+                                            staticText.extrasFeeLabel
+                                          )}: ${escapeHtml(extrasFee)}</div>`
+                                        : ''
+                                    }
+                                  </div>`
+                                : ''
+                            }
                           </div>
                         </div>
                       </div>`
@@ -734,7 +828,7 @@ const buildHtmlBody = (
                 }
                 ${
                   insuranceNote
-                    ? `<div style="font-size:14px; line-height:1.6; color:${BRAND.navyLight}; margin:-6px 0 18px;">
+                    ? `<div style="font-size:14px; line-height:1.6; font-weight:bold; text-align:center; color:${BRAND.navyLight}; margin:-6px 0 18px;">
                         ${insuranceNote}
                       </div>`
                     : ''
@@ -830,10 +924,10 @@ export const sendBookingRequestEmailAction = async (
   const bookingLink = buildBookingLink(locale, input.carId, input.quoteId);
 
   const text = buildTextBody(copy, input, bookingLink);
-  const html = buildHtmlBody(copy, input, bookingLink);
+  const html = await buildHtmlBody(copy, input, bookingLink);
 
   try {
-    const transporter = getTransporter();
+    const transporter = await getTransporter();
     await transporter.sendMail({
       from: BOOKING_FROM_ADDRESS,
       to: recipient,
@@ -864,9 +958,3 @@ export const sendBookingRequestEmailAction = async (
 
   return { success: copy.successMessage ?? 'Foglaláskérés e-mail elküldve.' };
 };
-// <div style="font-weight:700; margin-bottom:6px;">${signature}</div>
-// <div style="color:${
-//   BRAND.navyLight
-// };">Zodiacs Rent a Car · <a href="${localizedSiteUrl}" style="color:${
-// BRAND.blue
-// }; text-decoration:none; font-weight:600;">${localizedSiteUrl}</a></div>

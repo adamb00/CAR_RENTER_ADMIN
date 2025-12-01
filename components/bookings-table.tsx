@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+
 import { useEffect, useMemo, useState } from 'react';
 import {
   ColumnDef,
@@ -7,10 +7,26 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table';
+import { useRouter } from 'next/navigation';
 
-import { getQuotes } from '@/data-service/quotes';
+import type { Booking } from '@/data-service/bookings';
 import { getStatusMeta } from '@/lib/status';
-import { cn } from '@/lib/utils';
+
+const LOCALE_LABELS: Record<string, string> = {
+  hu: 'Magyar',
+  en: 'Angol',
+  de: 'Német',
+  ro: 'Román',
+  fr: 'Francia',
+  es: 'Spanyol',
+  it: 'Olasz',
+  sk: 'Szlovák',
+  cz: 'Cseh',
+  se: 'Svéd',
+  no: 'Norvég',
+  dk: 'Dán',
+  pl: 'Lengyel',
+};
 
 const formatDate = (value: string | null | undefined) => {
   if (!value) return '—';
@@ -18,110 +34,66 @@ const formatDate = (value: string | null | undefined) => {
   return isNaN(date.getTime()) ? value : date.toLocaleString('hu-HU');
 };
 
-export default async function QuotesPage() {
-  const quotes = await getQuotes();
+const formatLocale = (locale: string | null | undefined) =>
+  locale ? LOCALE_LABELS[locale] ?? locale : '—';
 
-  if (quotes.length === 0) {
-    return (
-      <div className='flex h-full flex-col gap-4 p-6'>
-        <div>
-          <h1 className='text-2xl font-semibold tracking-tight'>
-            Ajánlatkérések
-          </h1>
-          <p className='text-muted-foreground'>
-            Itt jelennek meg az érkező megkeresések.
-          </p>
-        </div>
-        <div className='flex flex-1 items-center justify-center rounded-lg border border-dashed p-12 text-muted-foreground'>
-          Még nincs beérkezett ajánlatkérés.
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className='flex h-full flex-1 flex-col gap-6 p-6'>
-      <div className='space-y-1'>
-        <h1 className='text-2xl font-semibold tracking-tight'>
-          Ajánlatkérések
-        </h1>
-      </div>
-
-      <QuotesTable data={quotes} />
-    </div>
-  );
-}
-
-type QuoteRow = Awaited<ReturnType<typeof getQuotes>>[number];
-
-const formatPeriod = (quote: QuoteRow) => {
-  if (quote.rentalStart || quote.rentalEnd) {
-    return `${quote.rentalStart ?? '—'} → ${quote.rentalEnd ?? '—'}`;
-  }
-  return '—';
+const formatPeriod = (booking: Booking) => {
+  const start = booking.rentalStart ?? booking.payload?.rentalPeriod?.startDate;
+  const end = booking.rentalEnd ?? booking.payload?.rentalPeriod?.endDate;
+  return start || end ? `${start ?? '—'} → ${end ?? '—'}` : '—';
 };
 
-function QuotesTable({ data }: { data: QuoteRow[] }) {
+export function BookingsTable({ data }: { data: Booking[] }) {
   const [search, setSearch] = useState('');
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
-  const columns = useMemo<ColumnDef<QuoteRow>[]>(
+  const router = useRouter();
+
+  const columns = useMemo<ColumnDef<Booking>[]>(
     () => [
       {
-        header: 'Név',
-        accessorKey: 'name',
+        header: 'Foglaló',
         cell: ({ row }) => (
-          <Link
-            href={`/quotes/${row.original.id}`}
-            className='block'
-            prefetch={false}
-          >
-            <div className='flex flex-col'>
-              <div className='font-semibold text-foreground text-lg '>
-                {row.original.name || '—'}
-              </div>
-              <div className='font-semibold text-foreground/87 text-sm'>
-                {row.original.humanId}
-              </div>
+          <div className='flex flex-col gap-1'>
+            <div className='text-base font-semibold text-foreground'>
+              {row.original.contactName || '—'}
             </div>
-          </Link>
-        ),
-      },
-      {
-        header: 'Elérhetőség',
-        cell: ({ row }) => (
-          <Link
-            href={`/quotes/${row.original.id}`}
-            className='block'
-            prefetch={false}
-          >
-            <div className='text-foreground'>{row.original.email || '—'}</div>
-            <div className='text-muted-foreground'>
-              {row.original.phone || '—'}
+            <div className='text-base font-semibold text-foreground'>
+              {row.original.humanId || '—'}
             </div>
-          </Link>
+            <div className='text-sm text-muted-foreground'>
+              {row.original.contactEmail || '—'}
+            </div>
+            <div className='text-xs text-muted-foreground'>
+              {row.original.contactPhone || '—'}
+            </div>
+          </div>
         ),
       },
       {
         header: 'Időszak',
         cell: ({ row }) => (
-          <Link
-            href={`/quotes/${row.original.id}`}
-            className='block whitespace-nowrap text-muted-foreground'
-            prefetch={false}
-          >
+          <div className='whitespace-nowrap text-muted-foreground'>
             {formatPeriod(row.original)}
-          </Link>
+          </div>
+        ),
+      },
+      {
+        header: 'Autó',
+        cell: ({ row }) => (
+          <div className='text-muted-foreground'>
+            {row.original.carLabel ||
+              row.original.carId ||
+              row.original.payload?.carId ||
+              row.original.quoteId ||
+              '—'}
+          </div>
         ),
       },
       {
         header: 'Állapot',
         cell: ({ row }) => (
-          <Link
-            href={`/quotes/${row.original.id}`}
-            className='block text-muted-foreground'
-            prefetch={false}
-          >
+          <div className='text-muted-foreground'>
             {(() => {
               const meta = getStatusMeta(row.original.status);
               return (
@@ -132,36 +104,24 @@ function QuotesTable({ data }: { data: QuoteRow[] }) {
                 </span>
               );
             })()}
-          </Link>
+          </div>
         ),
       },
       {
-        header: 'Autó',
+        header: 'Nyelv',
         cell: ({ row }) => (
-          <Link
-            href={`/quotes/${row.original.id}`}
-            className='block text-muted-foreground'
-            prefetch={false}
-          >
-            {row.original.carName
-              ? row.original.carName
-              : row.original.carId
-              ? `#${row.original.carId}`
-              : '—'}
-          </Link>
+          <div className='text-muted-foreground'>
+            {formatLocale(row.original.locale)}
+          </div>
         ),
       },
       {
         header: 'Beérkezett',
         accessorKey: 'createdAt',
         cell: ({ row }) => (
-          <Link
-            href={`/quotes/${row.original.id}`}
-            className='block text-muted-foreground whitespace-nowrap'
-            prefetch={false}
-          >
+          <div className='whitespace-nowrap text-muted-foreground'>
             {formatDate(row.original.createdAt)}
-          </Link>
+          </div>
         ),
       },
     ],
@@ -171,15 +131,21 @@ function QuotesTable({ data }: { data: QuoteRow[] }) {
   const filteredData = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return data;
-    return data.filter((q) => {
+
+    return data.filter((booking) => {
+      const driver = booking.payload?.driver?.[0];
+      const delivery = booking.payload?.delivery;
       const haystack = [
-        q.name,
-        q.email,
-        q.phone,
-        q.carName,
-        q.carId,
-        q.arrivalFlight,
-        q.departureFlight,
+        booking.contactName,
+        booking.contactEmail,
+        booking.contactPhone,
+        booking.carId,
+        booking.status,
+        booking.quoteId,
+        driver?.email,
+        driver?.phoneNumber,
+        delivery?.arrivalFlight,
+        delivery?.departureFlight,
       ]
         .filter(Boolean)
         .join(' ')
@@ -197,8 +163,7 @@ function QuotesTable({ data }: { data: QuoteRow[] }) {
 
   useEffect(() => {
     if (pageIndex !== safePageIndex) setPageIndex(safePageIndex);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [safePageIndex]);
+  }, [pageIndex, safePageIndex]);
 
   const paginatedData = useMemo(() => {
     const start = safePageIndex * pageSize;
@@ -219,12 +184,12 @@ function QuotesTable({ data }: { data: QuoteRow[] }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder='Keresés név, email, telefon, autó alapján...'
-          className='w-full sm:w-80 rounded-md border border-input bg-background px-3 py-2 text-sm'
+          className='w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:w-80'
         />
         <div className='flex items-center gap-3 text-sm text-muted-foreground'>
-          <label htmlFor='page-size'>Oldalanként:</label>
+          <label htmlFor='booking-page-size'>Oldalanként:</label>
           <select
-            id='page-size'
+            id='booking-page-size'
             className='rounded-md border border-input bg-background px-2 py-1 text-sm'
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value) || 10)}
@@ -259,18 +224,32 @@ function QuotesTable({ data }: { data: QuoteRow[] }) {
           ))}
         </thead>
         <tbody>
-          {table.getRowModel().rows.map((row) => (
-            <tr
-              key={row.id}
-              className={cn('border-t transition-colors hover:bg-primary/10')}
-            >
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className='px-4 py-3 align-top'>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
+          {table.getRowModel().rows.length === 0 ? (
+            <tr>
+              <td
+                colSpan={columns.length}
+                className='px-4 py-6 text-center text-muted-foreground'
+              >
+                Nincs találat a jelenlegi szűrőkkel.
+              </td>
             </tr>
-          ))}
+          ) : (
+            table.getRowModel().rows.map((row) => (
+              <tr
+                key={row.id}
+                onClick={() =>
+                  router.push(`/${encodeURIComponent(row.original.id)}`)
+                }
+                className='cursor-pointer border-t transition-colors hover:bg-primary/5'
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <td key={cell.id} className='px-4 py-3 align-top'>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
 

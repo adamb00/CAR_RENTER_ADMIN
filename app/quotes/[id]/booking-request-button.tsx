@@ -47,6 +47,18 @@ const pricingSchema = z.object({
     .transform((val) =>
       val && val.trim().length > 0 ? val.trim() : undefined
     ),
+  deliveryFee: z
+    .string()
+    .optional()
+    .transform((val) =>
+      val && val.trim().length > 0 ? val.trim() : undefined
+    ),
+  extrasFee: z
+    .string()
+    .optional()
+    .transform((val) =>
+      val && val.trim().length > 0 ? val.trim() : undefined
+    ),
 });
 
 type PricingFormValues = z.infer<typeof pricingSchema>;
@@ -91,6 +103,8 @@ export const BookingRequestButton = ({
       rentalFee: '',
       deposit: '',
       insurance: '',
+      deliveryFee: '',
+      extrasFee: '',
     },
   });
 
@@ -104,6 +118,8 @@ export const BookingRequestButton = ({
       const rentalFee = values.rentalFee ?? undefined;
       const deposit = values.deposit ?? undefined;
       const insurance = values.insurance ?? undefined;
+      const deliveryFee = values.deliveryFee ?? undefined;
+      const extrasFee = values.extrasFee ?? undefined;
 
       const result = await sendBookingRequestEmailAction({
         quoteId,
@@ -118,6 +134,8 @@ export const BookingRequestButton = ({
         rentalFee,
         deposit,
         insurance,
+        deliveryFee,
+        extrasFee,
       });
 
       if (result?.error) {
@@ -326,6 +344,48 @@ const handleCarChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
                       min='0'
                       label='Teljes körű biztosítás díja (EUR)'
                       placeholder='pl. 370 (opcionális)'
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='deliveryFee'
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      inputMode='numeric'
+                      step='0.01'
+                      min='0'
+                      label='Kiszállítás díja (EUR)'
+                      placeholder='pl. 50'
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='extrasFee'
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      inputMode='numeric'
+                      step='0.01'
+                      min='0'
+                      label='Extrák díja (EUR)'
+                      placeholder='pl. 30'
                       {...field}
                     />
                   </FormControl>
