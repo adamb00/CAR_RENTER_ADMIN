@@ -99,7 +99,7 @@ const formatAddress = (address?: {
   postalCode?: string;
   city?: string;
   street?: string;
-  publicSpace?: string;
+  streetType?: string;
   doorNumber?: string;
 }) => {
   if (!address) return '—';
@@ -108,7 +108,7 @@ const formatAddress = (address?: {
     address.postalCode,
     address.city,
     address.street,
-    address.publicSpace,
+    address.streetType,
     address.doorNumber,
   ].filter(Boolean);
   return parts.length ? parts.join(', ') : '—';

@@ -38,7 +38,7 @@ export type ContactQuotePayload = {
       postalCode?: string;
       city?: string;
       street?: string;
-      publicSpace?: string;
+      streetType?: string;
       doorNumber?: string;
     };
   };
@@ -123,7 +123,7 @@ const normalizeQuote = (quote: ContactQuotes): ContactQuote => {
         postalCode: address.postalCode ?? undefined,
         city: address.city ?? undefined,
         street: address.street ?? undefined,
-        publicSpace: address.publicSpace ?? undefined,
+        streetType: address.streetType ?? undefined,
         doorNumber: address.doorNumber ?? undefined,
       },
     },

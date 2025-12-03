@@ -125,9 +125,11 @@ export default function BookingFinalizationEmail({
     feeCards.push({ label, value: formatted });
   };
   addPriceCard(copy.labels.rentalFee, input.rentalFee);
-  addPriceCard(copy.labels.insurance, input.insurance);
+  addPriceCard(copy.labels.insurance, input.insurance, true);
   addPriceCard(copy.labels.deposit, input.deposit, true);
   addPriceCard(copy.labels.deliveryFee, input.deliveryFee);
+  addPriceCard(copy.labels.extrasFee, input.extrasFee, true);
+
   const totalPrice = formatPrice(input.totalFee);
 
   const bookingInfo: InfoCard[] = [

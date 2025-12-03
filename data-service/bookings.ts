@@ -8,7 +8,7 @@ export type BookingAddress = {
   postalCode?: string;
   city?: string;
   street?: string;
-  publicSpace?: string;
+  streetType?: string;
   doorNumber?: string;
 };
 
@@ -139,7 +139,7 @@ const normalizeAddress = (value: unknown): BookingAddress | undefined => {
     postalCode: toOptionalString(record.postalCode),
     city: toOptionalString(record.city),
     street: toOptionalString(record.street),
-    publicSpace: toOptionalString(record.publicSpace),
+    streetType: toOptionalString(record.streetType),
     doorNumber: toOptionalString(record.doorNumber),
   };
 };

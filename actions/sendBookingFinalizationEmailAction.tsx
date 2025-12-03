@@ -67,7 +67,7 @@ const formatAddress = (value?: {
   postalCode?: string;
   city?: string;
   street?: string;
-  publicSpace?: string;
+  streetType?: string;
   doorNumber?: string;
 }) => {
   if (!value) return null;
@@ -76,7 +76,7 @@ const formatAddress = (value?: {
     value.postalCode,
     value.city,
     value.street,
-    value.publicSpace,
+    value.streetType,
     value.doorNumber,
   ].filter(Boolean);
   return parts.length ? parts.join(', ') : null;
@@ -110,6 +110,17 @@ const parseAmount = (value?: string | null) => {
   const normalized = trimmed.replace(/[^\d,.\-]/g, '').replace(',', '.');
   const parsed = parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeInsuranceSelection = (value?: string | null) => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const lowered = trimmed.toLowerCase();
+  if (lowered === 'false' || lowered === 'no' || lowered === 'nem' || lowered === '0') {
+    return null;
+  }
+  return trimmed;
 };
 
 export const sendBookingFinalizationEmailAction = async ({
@@ -166,13 +177,19 @@ export const sendBookingFinalizationEmailAction = async ({
   )}`;
   const contactUrl = `${PUBLIC_SITE_BASE_URL}/${localeRaw}/contact`;
 
-  const hasInsurance = Boolean(
-    requestData?.insurance && requestData.insurance.trim()
+  const normalizedInsurance = normalizeInsuranceSelection(
+    requestData?.insurance ?? null
   );
+  const insuranceConsent = booking.payload?.consents?.insurance;
+  const hasInsurance =
+    insuranceConsent != null
+      ? Boolean(insuranceConsent)
+      : Boolean(normalizedInsurance);
+  const insuranceAmount = hasInsurance ? normalizedInsurance : null;
   const depositValue = hasInsurance ? null : requestData?.deposit ?? null;
   const totalAmount =
     parseAmount(requestData?.rentalFee) +
-    parseAmount(requestData?.insurance) +
+    parseAmount(insuranceAmount) +
     parseAmount(depositValue) +
     parseAmount(requestData?.deliveryFee) +
     parseAmount(requestData?.extrasFee);
@@ -192,7 +209,7 @@ export const sendBookingFinalizationEmailAction = async ({
     rentalEnd,
     rentalFee: requestData?.rentalFee ?? null,
     deposit: depositValue,
-    insurance: requestData?.insurance ?? null,
+    insurance: insuranceAmount,
     deliveryFee: requestData?.deliveryFee ?? null,
     extrasFee: requestData?.extrasFee ?? null,
     totalFee,
@@ -239,8 +256,12 @@ export const sendBookingFinalizationEmailAction = async ({
     `${copy.labels.car}: ${formatPlain(emailInput.carLabel)}`,
     `${copy.labels.period}: ${rentalPeriodText}`,
     `${copy.labels.rentalFee}: ${formatPlainPrice(emailInput.rentalFee)}`,
-    `${copy.labels.insurance}: ${formatPlainPrice(emailInput.insurance)}`,
   ];
+  if (hasInsurance) {
+    textLines.push(
+      `${copy.labels.insurance}: ${formatPlainPrice(emailInput.insurance)}`
+    );
+  }
   if (depositValue) {
     textLines.push(
       `${copy.labels.deposit}: ${formatPlainPrice(emailInput.deposit)}`

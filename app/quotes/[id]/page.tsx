@@ -150,7 +150,7 @@ export default async function QuoteDetailPage({
                       quote.delivery.address.postalCode,
                       quote.delivery.address.city,
                       quote.delivery.address.street,
-                      quote.delivery.address.publicSpace,
+                      quote.delivery.address.streetType,
                       quote.delivery.address.doorNumber,
                     ]
                       .filter(Boolean)

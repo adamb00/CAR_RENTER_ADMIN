@@ -70,7 +70,7 @@ const formatAddress = (address?: BookingAddress | null) => {
     address.postalCode,
     address.city,
     address.street,
-    address.publicSpace,
+    address.streetType,
     address.doorNumber,
   ].filter(Boolean);
   return parts.length ? parts.join(', ') : '—';
@@ -95,6 +95,26 @@ const formatPrice = (value?: string | null) => {
   const trimmed = value?.trim();
   if (!trimmed) return '—';
   return `${trimmed} €`;
+};
+
+const formatDepositDisplay = (
+  value?: string | null,
+  hasInsuranceSelected?: boolean
+) => {
+  if (hasInsuranceSelected) return 'Biztosítással nem szükséges';
+  const formatted = formatPrice(value);
+  return formatted === '—' ? 'Kaució fizetendő' : formatted;
+};
+
+const normalizeMoneyInput = (value?: string | null) => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const lowered = trimmed.toLowerCase();
+  if (lowered === 'false' || lowered === 'no' || lowered === 'nem' || lowered === '0') {
+    return null;
+  }
+  return trimmed;
 };
 
 const InfoGroup = ({
@@ -151,14 +171,19 @@ export const SendConfirmButton = ({
     ? childPassengers.length
     : null;
   const rentalFeeDisplay = formatPrice(pricing?.rentalFee);
-  const insuranceDisplay = formatPrice(pricing?.insurance);
+  const normalizedInsurance = normalizeMoneyInput(pricing?.insurance);
+  const insuranceDisplay = normalizedInsurance
+    ? formatPrice(normalizedInsurance)
+    : null;
   const deliveryFeeDisplay = formatPrice(pricing?.deliveryFee);
-  const hasInsurancePrice =
-    Boolean(pricing?.insurance && pricing.insurance.trim().length > 0) ||
-    Boolean(hasInsuranceConsent);
-  const depositDisplay = hasInsurancePrice
-    ? 'Biztosítással nem szükséges'
-    : formatPrice(pricing?.deposit);
+  const wantsInsurance =
+    hasInsuranceConsent != null
+      ? Boolean(hasInsuranceConsent)
+      : Boolean(normalizedInsurance);
+  const depositDisplay = formatDepositDisplay(
+    pricing?.deposit,
+    wantsInsurance
+  );
   const extrasDisplay = formatPrice(pricing?.extrasFee);
 
   const handleSendEmail = () => {
@@ -217,7 +242,9 @@ export const SendConfirmButton = ({
 
           <InfoGroup title='Díjak összesítése'>
             <InfoRow label='Foglalási díj' value={rentalFeeDisplay} />
-            <InfoRow label='Biztosítás díja' value={insuranceDisplay} />
+            {wantsInsurance && insuranceDisplay && (
+              <InfoRow label='Biztosítás díja' value={insuranceDisplay} />
+            )}
             <InfoRow label='Kaució' value={depositDisplay} />
             <InfoRow label='Kiszállás díja' value={deliveryFeeDisplay} />
             <InfoRow label='Extrák díja' value={extrasDisplay} />
