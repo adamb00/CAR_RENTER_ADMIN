@@ -1,12 +1,14 @@
-import type { ContactQuotes, RentRequests } from '@prisma/client';
+import type { RentRequests } from '@prisma/client';
 
 import { db } from '@/lib/db';
+import { QUOTE_DONE_STATUS } from '@/lib/constants';
 
 export type BookingAddress = {
   country?: string;
   postalCode?: string;
   city?: string;
   street?: string;
+  publicSpace?: string;
   doorNumber?: string;
 };
 
@@ -77,6 +79,7 @@ export type BookingPayload = {
   consents?: {
     privacy?: boolean;
     terms?: boolean;
+    insurance?: boolean;
   };
 };
 
@@ -114,14 +117,30 @@ const toOptionalString = (value: unknown) =>
 const toOptionalBoolean = (value: unknown) =>
   typeof value === 'boolean' ? value : undefined;
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type BookingLookup = { id: string } | { humanId: string };
+
+const buildBookingLookup = (identifier: string): BookingLookup | null => {
+  const trimmed = identifier.trim();
+  if (!trimmed) return null;
+  if (UUID_PATTERN.test(trimmed)) {
+    return { id: trimmed };
+  }
+  return { humanId: trimmed };
+};
+
 const normalizeAddress = (value: unknown): BookingAddress | undefined => {
   if (!isRecord(value)) return undefined;
+  const record = value;
   return {
-    country: toOptionalString(value.country),
-    postalCode: toOptionalString(value.postalCode),
-    city: toOptionalString(value.city),
-    street: toOptionalString(value.street),
-    doorNumber: toOptionalString(value.doorNumber),
+    country: toOptionalString(record.country),
+    postalCode: toOptionalString(record.postalCode),
+    city: toOptionalString(record.city),
+    street: toOptionalString(record.street),
+    publicSpace: toOptionalString(record.publicSpace),
+    doorNumber: toOptionalString(record.doorNumber),
   };
 };
 
@@ -191,7 +210,8 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
           const height =
             typeof item.height === 'number'
               ? item.height
-              : typeof item.height === 'string' && !Number.isNaN(Number(item.height))
+              : typeof item.height === 'string' &&
+                !Number.isNaN(Number(item.height))
               ? Number(item.height)
               : undefined;
           acc.push({ age, height });
@@ -238,6 +258,7 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
     ? {
         privacy: toOptionalBoolean(payload.consents.privacy),
         terms: toOptionalBoolean(payload.consents.terms),
+        insurance: toOptionalBoolean(payload.consents.insurance),
       }
     : undefined;
 
@@ -253,7 +274,8 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
     adults:
       typeof payload.adults === 'number'
         ? payload.adults
-        : typeof payload.adults === 'string' && !Number.isNaN(Number(payload.adults))
+        : typeof payload.adults === 'string' &&
+          !Number.isNaN(Number(payload.adults))
         ? Number(payload.adults)
         : undefined,
     children,
@@ -267,8 +289,12 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
   };
 };
 
+type MinimalContactQuote = {
+  humanId: string | null;
+};
+
 type BookingWithQuote = RentRequests & {
-  ContactQuotes: ContactQuotes | null;
+  ContactQuotes: MinimalContactQuote | null;
 };
 
 const normalizeBooking = (booking: BookingWithQuote): Booking => ({
@@ -289,7 +315,13 @@ const normalizeBooking = (booking: BookingWithQuote): Booking => ({
   payload: normalizeBookingPayload(booking.payload),
 });
 
-const QUOTE_COMPLETED_STATUS = 'answered';
+const CONTACT_QUOTE_INCLUDE = {
+  ContactQuotes: {
+    select: {
+      humanId: true,
+    },
+  },
+} as const;
 
 const syncQuoteStatusesForBookings = async (bookings: RentRequests[]) => {
   const quoteIds = Array.from(
@@ -305,7 +337,7 @@ const syncQuoteStatusesForBookings = async (bookings: RentRequests[]) => {
   try {
     await db.contactQuotes.updateMany({
       where: { id: { in: quoteIds } },
-      data: { status: QUOTE_COMPLETED_STATUS, updatedAt: new Date() },
+      data: { status: QUOTE_DONE_STATUS, updatedAt: new Date() },
     });
   } catch (error) {
     console.error('syncQuoteStatusesForBookings', error);
@@ -315,7 +347,7 @@ const syncQuoteStatusesForBookings = async (bookings: RentRequests[]) => {
 export const getBookings = async (): Promise<Booking[]> => {
   const bookingsRaw = await db.rentRequests.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { ContactQuotes: true },
+    include: CONTACT_QUOTE_INCLUDE,
   });
   await syncQuoteStatusesForBookings(bookingsRaw);
 
@@ -350,9 +382,12 @@ export const getBookings = async (): Promise<Booking[]> => {
 };
 
 export const getBookingById = async (id: string): Promise<Booking | null> => {
+  const where = buildBookingLookup(id);
+  if (!where) return null;
+
   const booking = await db.rentRequests.findUnique({
-    where: { id },
-    include: { ContactQuotes: true },
+    where,
+    include: CONTACT_QUOTE_INCLUDE,
   });
   if (!booking) return null;
 
@@ -376,10 +411,12 @@ export const getBookingById = async (id: string): Promise<Booking | null> => {
 export const getBookingByQuoteId = async (
   quoteId: string
 ): Promise<Booking | null> => {
+  const trimmedQuoteId = quoteId.trim();
+  if (!trimmedQuoteId) return null;
   const booking = await db.rentRequests.findFirst({
-    where: { quoteid: quoteId },
+    where: { quoteid: trimmedQuoteId },
     orderBy: { createdAt: 'desc' },
-    include: { ContactQuotes: true },
+    include: CONTACT_QUOTE_INCLUDE,
   });
 
   if (!booking) return null;

@@ -151,12 +151,12 @@ export const BookingRequestButton = ({
     });
   };
 
-const currentMonthIndex = new Date().getMonth();
+  const currentMonthIndex = new Date().getMonth();
 
-const handleCarChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-  const selectedId = event.target.value;
-  form.setValue('carId', selectedId);
-};
+  const handleCarChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = event.target.value;
+    form.setValue('carId', selectedId);
+  };
 
   const selectedCar = form.watch('carId');
   const selectedCarWeekly = (() => {
@@ -182,7 +182,7 @@ const handleCarChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
             className='gap-2'
           >
             <Mail className='h-4 w-4' />
-            {isPending ? 'Küldés...' : 'Foglalás kérés'}
+            {isPending ? 'Küldés...' : 'Foglalás kérő e-mail küldése'}
           </Button>
         </SheetTrigger>
 

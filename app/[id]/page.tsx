@@ -5,6 +5,8 @@ import type React from 'react';
 
 import { getBookingById } from '@/data-service/bookings';
 import { getStatusMeta } from '@/lib/status';
+import { getQuoteById } from '@/data-service/quotes';
+import { SendConfirmButton } from './send-confirm-button';
 
 const LOCALE_LABELS: Record<string, string> = {
   hu: 'Magyar',
@@ -97,6 +99,7 @@ const formatAddress = (address?: {
   postalCode?: string;
   city?: string;
   street?: string;
+  publicSpace?: string;
   doorNumber?: string;
 }) => {
   if (!address) return '—';
@@ -105,6 +108,7 @@ const formatAddress = (address?: {
     address.postalCode,
     address.city,
     address.street,
+    address.publicSpace,
     address.doorNumber,
   ].filter(Boolean);
   return parts.length ? parts.join(', ') : '—';
@@ -122,6 +126,7 @@ export default async function BookingDetailPage({
 }) {
   const { id } = await params;
   const booking = await getBookingById(id);
+  const quote = await getQuoteById(booking?.quoteId || '');
 
   if (!booking) {
     notFound();
@@ -138,14 +143,41 @@ export default async function BookingDetailPage({
   const children = booking.payload?.children ?? [];
   const drivers = booking.payload?.driver ?? [];
   const extras = booking.payload?.extras ?? [];
+  const quoteHumanId = quote?.humanId || quote?.id;
+  const localeLabel = formatLocale(booking.payload?.locale ?? booking.locale);
+  const hasInsuranceConsent = booking.payload?.consents?.insurance ?? null;
 
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
-      <div className='space-y-1'>
-        <h1 className='text-2xl font-semibold tracking-tight'>Foglalás</h1>
-        <p className='text-muted-foreground'>
-          A foglalás részletes adatai és az esetleges ajánlatkérés kapcsolata.
-        </p>
+      <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
+        <div className='space-y-1'>
+          <h1 className='text-2xl font-semibold tracking-tight'>Foglalás</h1>
+          <p className='text-muted-foreground'>
+            A foglalás részletes adatai és az esetleges ajánlatkérés kapcsolata.
+          </p>
+        </div>
+        <SendConfirmButton
+          bookingCode={booking.humanId ?? booking.id}
+          bookingId={booking.id}
+          localeLabel={localeLabel}
+          carLabel={booking.carLabel ?? booking.carId ?? booking.payload?.carId}
+          rentalStart={rentalStart}
+          rentalEnd={rentalEnd}
+          contact={{
+            name: contactName,
+            email: contactEmail,
+            phone: booking.contactPhone,
+            same: booking.payload?.contact?.same ?? null,
+          }}
+          invoice={invoice}
+          tax={booking.payload?.tax}
+          delivery={delivery}
+          extras={extras}
+          adults={booking.payload?.adults}
+          childPassengers={children}
+          pricing={quote?.bookingRequestData}
+          hasInsuranceConsent={hasInsuranceConsent}
+        />
       </div>
 
       <div className='space-y-4'>
@@ -157,10 +189,7 @@ export default async function BookingDetailPage({
           <Detail label='Név' value={contactName} />
           <Detail label='Email' value={contactEmail} />
           <Detail label='Telefon' value={booking.contactPhone} />
-          <Detail
-            label='Nyelv'
-            value={formatLocale(booking.payload?.locale ?? booking.locale)}
-          />
+          <Detail label='Nyelv' value={localeLabel} />
           <Detail
             label='Állapot'
             value={(() => {
@@ -175,18 +204,22 @@ export default async function BookingDetailPage({
             })()}
           />
           <Detail
+            label='Biztosítás'
+            value={booleanLabel(booking.payload?.consents?.insurance)}
+          />
+          <Detail
             label='Autó'
             value={booking.carLabel ?? booking.carId ?? booking.payload?.carId}
           />
           <Detail
             label='Kapcsolt ajánlat'
             value={
-              booking.quoteId ? (
+              quoteHumanId ? (
                 <Link
                   href={`/quotes/${booking.quoteId}`}
                   className='text-primary underline-offset-4 hover:underline'
                 >
-                  {booking.quoteId}
+                  {quoteHumanId}
                 </Link>
               ) : (
                 '—'
@@ -284,7 +317,7 @@ export default async function BookingDetailPage({
                   </div>
 
                   <div className='space-y-2 rounded-md bg-muted/40 p-3'>
-                    <div className='text-xs font-semibold uppercase text-muted-foreground'>
+                    <div className='text-xs font-semibold uppercase text-muted-foreground mb-2'>
                       Születési adatok
                     </div>
                     <div className='grid gap-2 sm:grid-cols-2'>
@@ -299,10 +332,6 @@ export default async function BookingDetailPage({
                       <DetailInline
                         label='Születési hely'
                         value={driver.placeOfBirth ?? '—'}
-                      />
-                      <DetailInline
-                        label='Anyja neve'
-                        value={driver.nameOfMother ?? '—'}
                       />
                     </div>
                   </div>
@@ -346,7 +375,7 @@ export default async function BookingDetailPage({
                         label='Érvényesség vége'
                         value={
                           driver.document?.validUntil ? (
-                            <span className='inline-flex items-center gap-1'>
+                            <span className='gap-1 flex items-start xl:items-center flex-col xl:flex-row'>
                               {formatDateShort(driver.document.validUntil)}
                               {expiryBadge(
                                 driver.document.validUntil,
@@ -388,7 +417,7 @@ export default async function BookingDetailPage({
                         label='Érvényesség vége'
                         value={
                           driver.document?.drivingLicenceValidUntil ? (
-                            <span className='inline-flex items-center gap-1'>
+                            <span className='gap-1 flex items-start xl:items-center flex-col xl:flex-row'>
                               {formatDateShort(
                                 driver.document.drivingLicenceValidUntil
                               )}
