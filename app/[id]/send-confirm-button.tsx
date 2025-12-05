@@ -99,12 +99,6 @@ const formatExtras = (extras?: string[]) => {
   return extras.join(', ');
 };
 
-const formatPrice = (value?: string | null) => {
-  const trimmed = value?.trim();
-  if (!trimmed) return '—';
-  return `${trimmed} €`;
-};
-
 type StatusMessage = { type: 'success' | 'error'; message: string };
 type PricingKeys =
   | 'rentalFee'
