@@ -105,31 +105,6 @@ const formatPrice = (value?: string | null) => {
   return `${trimmed} €`;
 };
 
-const formatDepositDisplay = (
-  value?: string | null,
-  hasInsuranceSelected?: boolean
-) => {
-  if (hasInsuranceSelected) return 'Biztosítással nem szükséges';
-  const formatted = formatPrice(value);
-  return formatted === '—' ? 'Kaució fizetendő' : formatted;
-};
-
-const normalizeMoneyInput = (value?: string | null) => {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const lowered = trimmed.toLowerCase();
-  if (
-    lowered === 'false' ||
-    lowered === 'no' ||
-    lowered === 'nem' ||
-    lowered === '0'
-  ) {
-    return null;
-  }
-  return trimmed;
-};
-
 type StatusMessage = { type: 'success' | 'error'; message: string };
 type PricingKeys =
   | 'rentalFee'

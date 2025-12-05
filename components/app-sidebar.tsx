@@ -79,7 +79,7 @@ const NotificationsList = ({
   onAllNotificationsRead?: () => void;
 }) => {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   if (!notifications?.length) {
     return (
