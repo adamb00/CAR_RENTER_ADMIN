@@ -1,13 +1,16 @@
 'use client';
 
 import { FileText } from 'lucide-react';
-import { useState, useTransition, type ReactNode } from 'react';
+import {
+  useEffect,
+  useState,
+  useTransition,
+  type ChangeEvent,
+  type ReactNode,
+} from 'react';
 
-import type {
-  BookingAddress,
-  BookingChild,
-  BookingPayload,
-} from '@/data-service/bookings';
+import { saveBookingPricingAction } from '@/actions/saveBookingPricingAction';
+import { sendBookingFinalizationEmailAction } from '@/actions/sendBookingFinalizationEmailAction';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -18,7 +21,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { sendBookingFinalizationEmailAction } from '@/actions/sendBookingFinalizationEmailAction';
+import type {
+  BookingAddress,
+  BookingChild,
+  BookingPayload,
+} from '@/data-service/bookings';
 import type { BookingRequestData } from '@/types/booking-request';
 
 type ContactInfo = {
@@ -44,6 +51,7 @@ type SendConfirmButtonProps = {
   childPassengers?: BookingChild[];
   pricing?: BookingRequestData;
   hasInsuranceConsent?: boolean | null;
+  hasQuote: boolean;
 };
 
 const booleanLabel = (value: boolean | null | undefined) => {
@@ -111,11 +119,49 @@ const normalizeMoneyInput = (value?: string | null) => {
   const trimmed = value.trim();
   if (!trimmed) return null;
   const lowered = trimmed.toLowerCase();
-  if (lowered === 'false' || lowered === 'no' || lowered === 'nem' || lowered === '0') {
+  if (
+    lowered === 'false' ||
+    lowered === 'no' ||
+    lowered === 'nem' ||
+    lowered === '0'
+  ) {
     return null;
   }
   return trimmed;
 };
+
+type StatusMessage = { type: 'success' | 'error'; message: string };
+type PricingKeys =
+  | 'rentalFee'
+  | 'insurance'
+  | 'deposit'
+  | 'deliveryFee'
+  | 'extrasFee';
+type PricingFormState = Record<PricingKeys, string>;
+
+const buildPricingFormState = (
+  pricing?: Pick<BookingRequestData, PricingKeys>
+): PricingFormState => ({
+  rentalFee: pricing?.rentalFee ?? '',
+  insurance: pricing?.insurance ?? '',
+  deposit: pricing?.deposit ?? '',
+  deliveryFee: pricing?.deliveryFee ?? '',
+  extrasFee: pricing?.extrasFee ?? '',
+});
+
+const hasPricingValues = (
+  pricing?: Pick<BookingRequestData, PricingKeys> | null
+) =>
+  Boolean(
+    pricing &&
+      [
+        pricing.rentalFee,
+        pricing.insurance,
+        pricing.deposit,
+        pricing.deliveryFee,
+        pricing.extrasFee,
+      ].some((value) => typeof value === 'string' && value.trim().length > 0)
+  );
 
 const InfoGroup = ({
   title,
@@ -158,49 +204,87 @@ export const SendConfirmButton = ({
   adults,
   childPassengers,
   pricing,
-  hasInsuranceConsent,
+  hasQuote,
 }: SendConfirmButtonProps) => {
   const [open, setOpen] = useState(false);
-  const [status, setStatus] = useState<{
-    type: 'success' | 'error';
-    message: string;
-  } | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [emailStatus, setEmailStatus] = useState<StatusMessage | null>(null);
+  const [pricingStatus, setPricingStatus] = useState<StatusMessage | null>(
+    null
+  );
+  const [isSendingEmail, startSendTransition] = useTransition();
+  const [isSavingPricing, startPricingTransition] = useTransition();
   const [signerName, setSignerName] = useState('');
+  const [pricingValues, setPricingValues] = useState<PricingFormState>(() =>
+    buildPricingFormState(pricing)
+  );
+
+  useEffect(() => {
+    if (hasQuote) return;
+    setPricingValues(buildPricingFormState(pricing));
+  }, [hasQuote, pricing]);
+
   const childCount = Array.isArray(childPassengers)
     ? childPassengers.length
     : null;
-  const rentalFeeDisplay = formatPrice(pricing?.rentalFee);
-  const normalizedInsurance = normalizeMoneyInput(pricing?.insurance);
-  const insuranceDisplay = normalizedInsurance
-    ? formatPrice(normalizedInsurance)
-    : null;
-  const deliveryFeeDisplay = formatPrice(pricing?.deliveryFee);
-  const wantsInsurance =
-    hasInsuranceConsent != null
-      ? Boolean(hasInsuranceConsent)
-      : Boolean(normalizedInsurance);
-  const depositDisplay = formatDepositDisplay(
-    pricing?.deposit,
-    wantsInsurance
-  );
-  const extrasDisplay = formatPrice(pricing?.extrasFee);
+
+  const [saved, setSaved] = useState(() => hasPricingValues(pricing));
+
+  useEffect(() => {
+    setSaved(hasPricingValues(pricing));
+  }, [pricing]);
 
   const handleSendEmail = () => {
-    setStatus(null);
-    startTransition(async () => {
+    setEmailStatus(null);
+    startSendTransition(async () => {
       const result = await sendBookingFinalizationEmailAction({
         bookingId,
         signerName,
       });
       if (result?.error) {
-        setStatus({ type: 'error', message: result.error });
+        setEmailStatus({ type: 'error', message: result.error });
         return;
       }
-      setStatus({
+      setEmailStatus({
         type: 'success',
         message: result?.success ?? 'Foglalás véglegesítő e-mail elküldve.',
       });
+    });
+  };
+
+  const handlePricingInputChange =
+    (field: PricingKeys) => (event: ChangeEvent<HTMLInputElement>) => {
+      const { value } = event.target;
+      setSaved(false);
+      setPricingValues((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    };
+
+  const handleSavePricing = () => {
+    setPricingStatus(null);
+    startPricingTransition(async () => {
+      const payload = {
+        rentalFee: pricingValues.rentalFee.trim() || undefined,
+        insurance: pricingValues.insurance.trim() || undefined,
+        deposit: pricingValues.deposit.trim() || undefined,
+        deliveryFee: pricingValues.deliveryFee.trim() || undefined,
+        extrasFee: pricingValues.extrasFee.trim() || undefined,
+      };
+      const result = await saveBookingPricingAction({
+        bookingId,
+        pricing: payload,
+      });
+      if (result?.error) {
+        setPricingStatus({ type: 'error', message: result.error });
+        return;
+      }
+      setPricingStatus({
+        type: 'success',
+        message: result?.success ?? 'Díjak elmentve.',
+      });
+      setPricingValues(buildPricingFormState(result.pricing));
+      setSaved(hasPricingValues(result.pricing));
     });
   };
 
@@ -241,13 +325,62 @@ export const SendConfirmButton = ({
           </InfoGroup>
 
           <InfoGroup title='Díjak összesítése'>
-            <InfoRow label='Foglalási díj' value={rentalFeeDisplay} />
-            {wantsInsurance && insuranceDisplay && (
-              <InfoRow label='Biztosítás díja' value={insuranceDisplay} />
-            )}
-            <InfoRow label='Kaució' value={depositDisplay} />
-            <InfoRow label='Kiszállás díja' value={deliveryFeeDisplay} />
-            <InfoRow label='Extrák díja' value={extrasDisplay} />
+            <div className='space-y-3'>
+              <div className='grid gap-3 sm:grid-cols-2'>
+                <Input
+                  type='text'
+                  label='Foglalási díj (€)'
+                  value={pricingValues.rentalFee}
+                  onChange={handlePricingInputChange('rentalFee')}
+                />
+                <Input
+                  type='text'
+                  label='Biztosítás díja (€)'
+                  value={pricingValues.insurance}
+                  onChange={handlePricingInputChange('insurance')}
+                />
+                <Input
+                  type='text'
+                  label='Kaució (€)'
+                  value={pricingValues.deposit}
+                  onChange={handlePricingInputChange('deposit')}
+                />
+                <Input
+                  type='text'
+                  label='Kiszállás díja (€)'
+                  value={pricingValues.deliveryFee}
+                  onChange={handlePricingInputChange('deliveryFee')}
+                />
+                <Input
+                  type='text'
+                  label='Extrák díja (€)'
+                  value={pricingValues.extrasFee}
+                  onChange={handlePricingInputChange('extrasFee')}
+                />
+              </div>
+              <div className='space-y-2'>
+                <Button
+                  type='button'
+                  variant='secondary'
+                  className='w-full sm:w-auto'
+                  disabled={isSavingPricing}
+                  onClick={handleSavePricing}
+                >
+                  {isSavingPricing ? 'Mentés...' : 'Díjak mentése'}
+                </Button>
+                {pricingStatus && (
+                  <p
+                    className={`text-sm ${
+                      pricingStatus.type === 'error'
+                        ? 'text-destructive'
+                        : 'text-emerald-600'
+                    }`}
+                  >
+                    {pricingStatus.message}
+                  </p>
+                )}
+              </div>
+            </div>
           </InfoGroup>
 
           <InfoGroup title='Kapcsolattartó'>
@@ -309,20 +442,22 @@ export const SendConfirmButton = ({
             <Button
               type='button'
               className='w-full'
-              disabled={isPending || !signerName.trim()}
+              disabled={isSendingEmail || !signerName.trim() || !saved}
               onClick={handleSendEmail}
             >
-              {isPending ? 'Küldés...' : 'Foglalás véglegesítő e-mail küldése'}
+              {isSendingEmail
+                ? 'Küldés...'
+                : 'Foglalás véglegesítő e-mail küldése'}
             </Button>
-            {status && (
+            {emailStatus && (
               <p
                 className={`text-sm ${
-                  status.type === 'error'
+                  emailStatus.type === 'error'
                     ? 'text-destructive'
                     : 'text-emerald-600'
                 }`}
               >
-                {status.message}
+                {emailStatus.message}
               </p>
             )}
           </div>

@@ -41,6 +41,14 @@ export type BookingChild = {
   height?: number;
 };
 
+export type BookingPricing = {
+  rentalFee?: string;
+  insurance?: string;
+  deposit?: string;
+  deliveryFee?: string;
+  extrasFee?: string;
+};
+
 export type BookingPayload = {
   locale?: string;
   carId?: string;
@@ -81,6 +89,19 @@ export type BookingPayload = {
     terms?: boolean;
     insurance?: boolean;
   };
+  pricing?: BookingPricing;
+};
+
+export type BookingSelfServiceChange = {
+  field: string;
+  previous?: string;
+  next?: string;
+};
+
+export type BookingSelfServiceEvent = {
+  action?: string;
+  timestamp?: string;
+  changes: BookingSelfServiceChange[];
 };
 
 export type Booking = {
@@ -100,6 +121,7 @@ export type Booking = {
   createdAt: string | null;
   updatedAt: string | null;
   payload: BookingPayload | null;
+  selfServiceEvents?: BookingSelfServiceEvent[];
 };
 
 const toDateString = (value?: Date | null) =>
@@ -262,6 +284,16 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
       }
     : undefined;
 
+  const pricing = isRecord(payload.pricing)
+    ? {
+        rentalFee: toOptionalString(payload.pricing.rentalFee),
+        insurance: toOptionalString(payload.pricing.insurance),
+        deposit: toOptionalString(payload.pricing.deposit),
+        deliveryFee: toOptionalString(payload.pricing.deliveryFee),
+        extrasFee: toOptionalString(payload.pricing.extrasFee),
+      }
+    : undefined;
+
   return {
     locale: toOptionalString(payload.locale),
     carId: toOptionalString(payload.carId),
@@ -286,7 +318,115 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
     delivery,
     tax,
     consents,
+    pricing,
   };
+};
+
+const toJSONValue = (value: unknown): string | undefined => {
+  if (value == null) return undefined;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return undefined;
+  }
+};
+
+const normalizeSelfServiceChanges = (
+  value: unknown
+): BookingSelfServiceChange[] => {
+  if (!value) return [];
+
+  const normalizeEntry = (entry: unknown): BookingSelfServiceChange | null => {
+    if (!isRecord(entry)) return null;
+    const fieldCandidate =
+      (typeof entry.field === 'string' && entry.field) ||
+      (typeof entry.key === 'string' && entry.key) ||
+      (typeof entry.path === 'string' && entry.path) ||
+      '';
+    const previous =
+      toJSONValue(
+        entry.previous ?? entry.from ?? entry.old ?? entry.before ?? entry.previousValue
+      ) ?? undefined;
+    const next =
+      toJSONValue(
+        entry.next ?? entry.to ?? entry.new ?? entry.after ?? entry.value ?? entry.current
+      ) ?? undefined;
+
+    if (!fieldCandidate && !previous && !next) return null;
+    return {
+      field: fieldCandidate || 'ismeretlen',
+      previous,
+      next,
+    };
+  };
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => normalizeEntry(item))
+      .filter((item): item is BookingSelfServiceChange => Boolean(item));
+  }
+
+  if (isRecord(value)) {
+    return Object.entries(value)
+      .map(([field, raw]) => {
+        if (isRecord(raw)) {
+          return {
+            field,
+            previous:
+              toJSONValue(
+                raw.previous ?? raw.from ?? raw.old ?? raw.before ?? raw.previousValue
+              ) ?? undefined,
+            next:
+              toJSONValue(
+                raw.next ?? raw.to ?? raw.new ?? raw.after ?? raw.value ?? raw.current
+              ) ?? undefined,
+          };
+        }
+
+        return {
+          field,
+          next: toJSONValue(raw) ?? undefined,
+        };
+      })
+      .filter((item) => item.field || item.previous || item.next);
+  }
+
+  return [];
+};
+
+const parseSelfServiceEvents = (
+  updated?: string | null
+): BookingSelfServiceEvent[] => {
+  if (!updated) return [];
+
+  try {
+    const parsed = JSON.parse(updated);
+    const entries = Array.isArray(parsed) ? parsed : [parsed];
+
+    return entries
+      .filter(
+        (entry): entry is Record<string, unknown> =>
+          isRecord(entry) && entry.action === 'self-service:modify'
+      )
+      .map((entry) => {
+        const timestamp =
+          typeof entry.timestamp === 'string' ? entry.timestamp : undefined;
+        const changes = normalizeSelfServiceChanges(entry.changes);
+        return {
+          action: entry.action as string,
+          timestamp,
+          changes,
+        };
+      })
+      .filter((event) => event.changes.length > 0);
+  } catch (error) {
+    console.error('parseSelfServiceEvents', error);
+    return [];
+  }
 };
 
 type MinimalContactQuote = {
@@ -313,6 +453,7 @@ const normalizeBooking = (booking: BookingWithQuote): Booking => ({
   createdAt: toDateTimeString(booking.createdAt),
   updatedAt: toDateTimeString(booking.updatedAt),
   payload: normalizeBookingPayload(booking.payload),
+  selfServiceEvents: parseSelfServiceEvents(booking.updated),
 });
 
 const CONTACT_QUOTE_INCLUDE = {

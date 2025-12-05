@@ -5,6 +5,10 @@ export type BookingFinalizationCopy = {
   instructions: string;
   confirmCta: string;
   questionCta: string;
+  retainNote: string;
+  manageIntro: string;
+  modifyCta: string;
+  cancelCta: string;
   closing: string;
   sections: {
     fees: string;
@@ -51,6 +55,11 @@ const BASE_EN: BookingFinalizationCopy = {
   instructions: 'Please review the data below and confirm your reservation or let us know if anything needs attention.',
   confirmCta: 'Confirm my booking',
   questionCta: 'I have a question',
+  retainNote:
+    'Please keep this email in your inbox. If you ever need to update or cancel the reservation, you can do it directly from here.',
+  manageIntro: 'Need to make changes later? Use the buttons below any time.',
+  modifyCta: 'Modify booking',
+  cancelCta: 'Cancel booking',
   closing: 'Best regards',
   sections: {
     fees: 'Fee summary',
@@ -102,6 +111,12 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
       'Kérjük, ellenőrizd az információkat, majd erősítsd meg a foglalást vagy jelezd, ha kérdésed van.',
     confirmCta: 'Megerősítem a foglalást',
     questionCta: 'Kérdésem van',
+    retainNote:
+      'Kérjük, ne töröld ezt az e-mailt. Ha később módosítani vagy törölni szeretnéd a foglalást, innen bármikor megteheted.',
+    manageIntro:
+      'Változtatnál a foglaláson? Használd az alábbi gombokat a módosításhoz vagy törléshez.',
+    modifyCta: 'Foglalás módosítása',
+    cancelCta: 'Foglalás törlése',
     closing: 'Üdvözlettel',
     sections: {
       fees: 'Díjak összesítése',
@@ -150,6 +165,12 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
       'Bitte prüfen Sie alle Angaben und bestätigen Sie die Buchung oder teilen Sie uns mit, falls es Fragen gibt.',
     confirmCta: 'Buchung bestätigen',
     questionCta: 'Ich habe eine Frage',
+    retainNote:
+      'Bitte löschen Sie diese E-Mail nicht. Wenn Sie Ihre Buchung später ändern oder stornieren möchten, können Sie das direkt hier erledigen.',
+    manageIntro:
+      'Nutzen Sie die Schaltflächen unten, um Ihre Buchung bei Bedarf anzupassen oder zu stornieren.',
+    modifyCta: 'Buchung ändern',
+    cancelCta: 'Buchung stornieren',
     closing: 'Mit freundlichen Grüßen',
     sections: {
       fees: 'Kostenübersicht',
@@ -198,6 +219,12 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
       'Te rugăm să verifici datele și să confirmi rezervarea sau să ne anunți dacă ai întrebări.',
     confirmCta: 'Confirmă rezervarea',
     questionCta: 'Am o întrebare',
+    retainNote:
+      'Te rugăm să păstrezi acest e-mail. Dacă vei dori mai târziu să modifici sau să anulezi rezervarea, o poți face direct de aici.',
+    manageIntro:
+      'Folosește butoanele de mai jos pentru a modifica sau anula oricând ai nevoie.',
+    modifyCta: 'Modifică rezervarea',
+    cancelCta: 'Anulează rezervarea',
     closing: 'Cu stimă',
     sections: {
       fees: 'Sumar taxe',
@@ -246,6 +273,12 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
       'Veuillez vérifier les données ci-dessous et confirmer votre réservation ou nous faire part de vos questions.',
     confirmCta: 'Je confirme ma réservation',
     questionCta: 'J’ai une question',
+    retainNote:
+      'Merci de conserver cet e-mail. Si vous devez modifier ou annuler la réservation plus tard, vous pouvez le faire directement ici.',
+    manageIntro:
+      'Utilisez les boutons ci-dessous pour modifier ou annuler votre réservation si nécessaire.',
+    modifyCta: 'Modifier la réservation',
+    cancelCta: 'Annuler la réservation',
     closing: 'Cordialement',
     sections: {
       fees: 'Résumé des frais',
@@ -294,6 +327,12 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
       'Revisa la información y confirma tu reserva, o cuéntanos si necesitas ayuda.',
     confirmCta: 'Confirmar mi reserva',
     questionCta: 'Tengo una pregunta',
+    retainNote:
+      'Por favor, conserva este correo. Si más adelante necesitas modificar o cancelar la reserva, puedes hacerlo directamente desde aquí.',
+    manageIntro:
+      'Usa los botones siguientes para modificar o cancelar cuando lo necesites.',
+    modifyCta: 'Modificar reserva',
+    cancelCta: 'Cancelar reserva',
     closing: 'Un saludo',
     sections: {
       fees: 'Resumen de tarifas',
@@ -342,6 +381,12 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
       'Controlla le informazioni e conferma la prenotazione oppure facci sapere se hai dubbi.',
     confirmCta: 'Confermo la prenotazione',
     questionCta: 'Ho una domanda',
+    retainNote:
+      'Ti invitiamo a conservare questa email. Se in futuro desideri modificare o cancellare la prenotazione, puoi farlo direttamente da qui.',
+    manageIntro:
+      'Usa i pulsanti qui sotto per modificare o cancellare la prenotazione in qualsiasi momento.',
+    modifyCta: 'Modifica prenotazione',
+    cancelCta: 'Annulla prenotazione',
     closing: 'Cordiali saluti',
     sections: {
       fees: 'Riepilogo costi',
@@ -390,6 +435,12 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
       'Skontroluj prosím údaje a potvrď rezerváciu alebo nám daj vedieť, či je niečo nejasné.',
     confirmCta: 'Potvrdiť rezerváciu',
     questionCta: 'Mám otázku',
+    retainNote:
+      'Prosíme, nevymazávaj tento e-mail. Ak budeš chcieť rezerváciu neskôr upraviť alebo zrušiť, môžeš to urobiť priamo odtiaľto.',
+    manageIntro:
+      'Na úpravu alebo zrušenie použij tlačidlá nižšie kedykoľvek potrebuješ.',
+    modifyCta: 'Upraviť rezerváciu',
+    cancelCta: 'Zrušiť rezerváciu',
     closing: 'S pozdravom',
     sections: {
       fees: 'Prehľad poplatkov',
@@ -438,6 +489,12 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
       'Zkontrolujte prosím informace a potvrďte rezervaci, nebo nám napište, pokud máte dotazy.',
     confirmCta: 'Potvrdit rezervaci',
     questionCta: 'Mám dotaz',
+    retainNote:
+      'Prosíme, nemažte tento e-mail. Pokud budete chtít rezervaci později upravit nebo zrušit, můžete to udělat přímo odsud.',
+    manageIntro:
+      'K úpravě nebo zrušení použijte kdykoli tlačítka níže.',
+    modifyCta: 'Upravit rezervaci',
+    cancelCta: 'Zrušit rezervaci',
     closing: 'S pozdravem',
     sections: {
       fees: 'Přehled poplatků',
@@ -486,6 +543,12 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
       'Granska informationen och bekräfta bokningen, eller meddela oss om du har frågor.',
     confirmCta: 'Bekräfta bokningen',
     questionCta: 'Jag har en fråga',
+    retainNote:
+      'Spara gärna det här mejlet. Om du senare behöver ändra eller avboka kan du göra det direkt härifrån.',
+    manageIntro:
+      'Använd knapparna nedan för att ändra eller avboka när som helst.',
+    modifyCta: 'Ändra bokning',
+    cancelCta: 'Avboka bokning',
     closing: 'Vänliga hälsningar',
     sections: {
       fees: 'Kostnadssammanställning',
@@ -534,6 +597,12 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
       'Se gjennom informasjonen, og bekreft bestillingen eller gi oss beskjed hvis du har spørsmål.',
     confirmCta: 'Bekreft bestillingen',
     questionCta: 'Jeg har et spørsmål',
+    retainNote:
+      'Vennligst behold denne e-posten. Hvis du senere vil endre eller avbestille, kan du gjøre det direkte herfra.',
+    manageIntro:
+      'Bruk knappene under for å endre eller avbestille når det passer deg.',
+    modifyCta: 'Endre bestilling',
+    cancelCta: 'Avbestill bestilling',
     closing: 'Med vennlig hilsen',
     sections: {
       fees: 'Kostnadsoversikt',
@@ -582,6 +651,12 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
       'Gennemgå oplysningerne og bekræft bookingen – eller kontakt os, hvis du har spørgsmål.',
     confirmCta: 'Bekræft booking',
     questionCta: 'Jeg har et spørgsmål',
+    retainNote:
+      'Gem venligst denne e-mail. Hvis du senere vil ændre eller annullere, kan du gøre det direkte herfra.',
+    manageIntro:
+      'Brug knapperne herunder til at ændre eller annullere, når du har behov.',
+    modifyCta: 'Redigér booking',
+    cancelCta: 'Annuller booking',
     closing: 'Med venlig hilsen',
     sections: {
       fees: 'Prisoversigt',
@@ -630,6 +705,12 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
       'Sprawdź informacje i potwierdź rezerwację lub daj nam znać, jeśli masz pytania.',
     confirmCta: 'Potwierdzam rezerwację',
     questionCta: 'Mam pytanie',
+    retainNote:
+      'Prosimy, nie usuwaj tej wiadomości. Jeśli później będziesz chciał zmienić lub anulować rezerwację, zrobisz to bezpośrednio stąd.',
+    manageIntro:
+      'Użyj przycisków poniżej, aby w razie potrzeby zmienić lub anulować.',
+    modifyCta: 'Zmień rezerwację',
+    cancelCta: 'Anuluj rezerwację',
     closing: 'Pozdrawiamy',
     sections: {
       fees: 'Podsumowanie opłat',

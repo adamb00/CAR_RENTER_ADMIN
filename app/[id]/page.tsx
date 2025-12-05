@@ -7,6 +7,7 @@ import { getBookingById } from '@/data-service/bookings';
 import { getStatusMeta } from '@/lib/status';
 import { getQuoteById } from '@/data-service/quotes';
 import { SendConfirmButton } from './send-confirm-button';
+import { BookingRegistrationCheckbox } from './booking-registration-checkbox';
 
 const LOCALE_LABELS: Record<string, string> = {
   hu: 'Magyar',
@@ -38,6 +39,19 @@ const formatDateShort = (value: string | null | undefined) => {
 
 const formatLocale = (locale: string | null | undefined) =>
   locale ? LOCALE_LABELS[locale] ?? locale : '—';
+
+const formatDateTimeDetail = (value?: string | null) => {
+  if (!value) return 'Ismeretlen időpont';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('hu-HU', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
 
 const capitalizeSlug = (value?: string | null) => {
   if (!value) return '—';
@@ -119,6 +133,51 @@ const booleanLabel = (value: boolean | null | undefined) => {
   return value ? 'Igen' : 'Nem';
 };
 
+const formatChangeField = (value?: string) => {
+  if (!value) return 'Ismeretlen mező';
+  return value
+    .split('.')
+    .map((segment) => segment.replace(/\[\d+\]/g, '').trim())
+    .filter(Boolean)
+    .join(' › ');
+};
+
+const formatChangeValueDisplay = (value?: string) => {
+  if (!value || value.trim().length === 0) return '—';
+  return value;
+};
+
+type PricingBreakdown = {
+  rentalFee?: string | null;
+  insurance?: string | null;
+  deposit?: string | null;
+  deliveryFee?: string | null;
+  extrasFee?: string | null;
+};
+
+const formatPriceValue = (value?: string | null) => {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? `${trimmed} €` : '—';
+};
+
+const parseAmount = (value?: string | null) => {
+  const trimmed = value?.trim();
+  if (!trimmed) return 0;
+  const normalized = trimmed.replace(/[^\d,.\-]/g, '').replace(',', '.');
+  const parsed = parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const hasPricingDetails = (pricing?: PricingBreakdown) =>
+  Boolean(
+    pricing &&
+      (pricing.rentalFee ||
+        pricing.insurance ||
+        pricing.deposit ||
+        pricing.deliveryFee ||
+        pricing.extrasFee)
+  );
+
 export default async function BookingDetailPage({
   params,
 }: {
@@ -146,6 +205,28 @@ export default async function BookingDetailPage({
   const quoteHumanId = quote?.humanId || quote?.id;
   const localeLabel = formatLocale(booking.payload?.locale ?? booking.locale);
   const hasInsuranceConsent = booking.payload?.consents?.insurance ?? null;
+  const savedPricing: PricingBreakdown | undefined =
+    booking.payload?.pricing ?? undefined;
+  const quotePricing: PricingBreakdown | undefined =
+    quote?.bookingRequestData ?? undefined;
+  const hasQuotePricing = !savedPricing && Boolean(quotePricing);
+  const pricingData: PricingBreakdown | undefined =
+    savedPricing ?? quotePricing ?? undefined;
+  const showPricingBreakdown = hasPricingDetails(pricingData);
+  const totalPricingAmount =
+    pricingData && showPricingBreakdown
+      ? parseAmount(pricingData.rentalFee) +
+        parseAmount(pricingData.insurance) +
+        parseAmount(pricingData.deposit) +
+        parseAmount(pricingData.deliveryFee) +
+        parseAmount(pricingData.extrasFee)
+      : 0;
+  const totalPricingDisplay =
+    totalPricingAmount > 0
+      ? Number.isInteger(totalPricingAmount)
+        ? `${totalPricingAmount} €`
+        : `${totalPricingAmount.toFixed(2)} €`
+      : '—';
 
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
@@ -156,28 +237,37 @@ export default async function BookingDetailPage({
             A foglalás részletes adatai és az esetleges ajánlatkérés kapcsolata.
           </p>
         </div>
-        <SendConfirmButton
-          bookingCode={booking.humanId ?? booking.id}
-          bookingId={booking.id}
-          localeLabel={localeLabel}
-          carLabel={booking.carLabel ?? booking.carId ?? booking.payload?.carId}
-          rentalStart={rentalStart}
-          rentalEnd={rentalEnd}
-          contact={{
-            name: contactName,
-            email: contactEmail,
-            phone: booking.contactPhone,
-            same: booking.payload?.contact?.same ?? null,
-          }}
-          invoice={invoice}
-          tax={booking.payload?.tax}
-          delivery={delivery}
-          extras={extras}
-          adults={booking.payload?.adults}
-          childPassengers={children}
-          pricing={quote?.bookingRequestData}
-          hasInsuranceConsent={hasInsuranceConsent}
-        />
+        <div className='flex w-full flex-col gap-3 sm:max-w-sm'>
+          <SendConfirmButton
+            bookingCode={booking.humanId ?? booking.id}
+            bookingId={booking.id}
+            localeLabel={localeLabel}
+            carLabel={
+              booking.carLabel ?? booking.carId ?? booking.payload?.carId
+            }
+            rentalStart={rentalStart}
+            rentalEnd={rentalEnd}
+            contact={{
+              name: contactName,
+              email: contactEmail,
+              phone: booking.contactPhone,
+              same: booking.payload?.contact?.same ?? null,
+            }}
+            invoice={invoice}
+            tax={booking.payload?.tax}
+            delivery={delivery}
+            extras={extras}
+            adults={booking.payload?.adults}
+            childPassengers={children}
+            hasInsuranceConsent={hasInsuranceConsent}
+            hasQuote={hasQuotePricing}
+            pricing={pricingData}
+          />
+          <BookingRegistrationCheckbox
+            bookingId={booking.id}
+            initialStatus={booking.status}
+          />
+        </div>
       </div>
 
       <div className='space-y-4'>
@@ -241,6 +331,32 @@ export default async function BookingDetailPage({
             />
           </div>
         </Section>
+
+        {showPricingBreakdown && (
+          <Section title='Korábban ajánlott díjak'>
+            <Detail
+              label='Foglalási díj'
+              value={formatPriceValue(pricingData?.rentalFee)}
+            />
+            <Detail
+              label='Biztosítás díja'
+              value={formatPriceValue(pricingData?.insurance)}
+            />
+            <Detail
+              label='Kaució'
+              value={formatPriceValue(pricingData?.deposit)}
+            />
+            <Detail
+              label='Kiszállás díja'
+              value={formatPriceValue(pricingData?.deliveryFee)}
+            />
+            <Detail
+              label='Extrák díja'
+              value={formatPriceValue(pricingData?.extrasFee)}
+            />
+            <Detail label='Összesen' value={totalPricingDisplay} />
+          </Section>
+        )}
 
         <Section title='Utasok'>
           <Detail label='Felnőttek' value={booking.payload?.adults} />
@@ -499,6 +615,42 @@ export default async function BookingDetailPage({
             )}
           </div>
         </Section>
+        {booking.selfServiceEvents?.length ? (
+          <Section title='Önkiszolgáló módosítások'>
+            {booking.selfServiceEvents.map((event, eventIndex) => (
+              <div
+                key={`${event.timestamp ?? 'event'}-${eventIndex}`}
+                className='md:col-span-2 space-y-3 rounded-lg border px-3 py-3'
+              >
+                <div className='flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
+                  <span>Módosítás {eventIndex + 1}</span>
+                  <span>{formatDateTimeDetail(event.timestamp)}</span>
+                </div>
+                <div className='space-y-3'>
+                  {event.changes.map((change, changeIndex) => (
+                    <div
+                      key={`${change.field}-${changeIndex}`}
+                      className='rounded-md bg-muted/40 p-3'
+                    >
+                      <div className='text-sm font-semibold text-foreground'>
+                        {formatChangeField(change.field)}
+                      </div>
+                      <div className='mt-1 text-xs text-muted-foreground'>
+                        <span className='font-semibold text-foreground'>
+                          {formatChangeValueDisplay(change.previous)}
+                        </span>{' '}
+                        →{' '}
+                        <span className='font-semibold text-foreground'>
+                          {formatChangeValueDisplay(change.next)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </Section>
+        ) : null}
       </div>
     </div>
   );

@@ -117,7 +117,12 @@ const normalizeInsuranceSelection = (value?: string | null) => {
   const trimmed = value.trim();
   if (!trimmed) return null;
   const lowered = trimmed.toLowerCase();
-  if (lowered === 'false' || lowered === 'no' || lowered === 'nem' || lowered === '0') {
+  if (
+    lowered === 'false' ||
+    lowered === 'no' ||
+    lowered === 'nem' ||
+    lowered === '0'
+  ) {
     return null;
   }
   return trimmed;
@@ -165,34 +170,50 @@ export const sendBookingFinalizationEmailAction = async ({
       ? await getQuoteById(booking.quoteId)
       : null;
 
+  const carId = booking.carId;
+
   const requestData = quote?.bookingRequestData;
+  const manualPricing = booking.payload?.pricing;
   const rentalStart =
     booking.rentalStart ?? booking.payload?.rentalPeriod?.startDate;
   const rentalEnd = booking.rentalEnd ?? booking.payload?.rentalPeriod?.endDate;
   const localeRaw = booking.payload?.locale ?? booking.locale;
+  const effectiveLocale = localeRaw && localeRaw.length > 0 ? localeRaw : 'hu';
   const copy = getFinalizationCopy(localeRaw);
 
-  const thankYouUrl = `${PUBLIC_SITE_BASE_URL}/${localeRaw}/rent/thank-you?rentId=${encodeURIComponent(
+  const thankYouUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/rent/thank-you?rentId=${encodeURIComponent(
     booking.id
   )}`;
-  const contactUrl = `${PUBLIC_SITE_BASE_URL}/${localeRaw}/contact`;
+  const contactUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/contact`;
+  const manageBaseUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/cars/${carId}/rent?rentId=${encodeURIComponent(
+    booking.id
+  )}`;
+  const modifyUrl = `${manageBaseUrl}?action=modify`;
+  const cancelUrl = `${manageBaseUrl}?action=cancel`;
 
-  const normalizedInsurance = normalizeInsuranceSelection(
-    requestData?.insurance ?? null
-  );
+  const rawInsurance =
+    requestData?.insurance ?? manualPricing?.insurance ?? null;
+  const normalizedInsurance = normalizeInsuranceSelection(rawInsurance);
   const insuranceConsent = booking.payload?.consents?.insurance;
   const hasInsurance =
     insuranceConsent != null
       ? Boolean(insuranceConsent)
       : Boolean(normalizedInsurance);
   const insuranceAmount = hasInsurance ? normalizedInsurance : null;
-  const depositValue = hasInsurance ? null : requestData?.deposit ?? null;
+  const depositSource = requestData?.deposit ?? manualPricing?.deposit ?? null;
+  const depositValue = hasInsurance ? null : depositSource;
+  const rentalFeeValue =
+    requestData?.rentalFee ?? manualPricing?.rentalFee ?? null;
+  const deliveryFeeValue =
+    requestData?.deliveryFee ?? manualPricing?.deliveryFee ?? null;
+  const extrasFeeValue =
+    requestData?.extrasFee ?? manualPricing?.extrasFee ?? null;
   const totalAmount =
-    parseAmount(requestData?.rentalFee) +
+    parseAmount(rentalFeeValue) +
     parseAmount(insuranceAmount) +
     parseAmount(depositValue) +
-    parseAmount(requestData?.deliveryFee) +
-    parseAmount(requestData?.extrasFee);
+    parseAmount(deliveryFeeValue) +
+    parseAmount(extrasFeeValue);
   const totalFee =
     totalAmount > 0
       ? Number.isInteger(totalAmount)
@@ -207,11 +228,11 @@ export const sendBookingFinalizationEmailAction = async ({
       booking.carLabel ?? booking.carId ?? booking.payload?.carId ?? null,
     rentalStart,
     rentalEnd,
-    rentalFee: requestData?.rentalFee ?? null,
+    rentalFee: rentalFeeValue,
     deposit: depositValue,
     insurance: insuranceAmount,
-    deliveryFee: requestData?.deliveryFee ?? null,
-    extrasFee: requestData?.extrasFee ?? null,
+    deliveryFee: deliveryFeeValue,
+    extrasFee: extrasFeeValue,
     totalFee,
     extrasList: booking.payload?.extras ?? [],
     locale: localeRaw,
@@ -236,6 +257,8 @@ export const sendBookingFinalizationEmailAction = async ({
     signerName: trimmedName,
     thankYouUrl,
     contactUrl,
+    modifyUrl,
+    cancelUrl,
   };
   const rentalPeriodText = `${formatPlainDate(
     rentalStart,
@@ -251,6 +274,11 @@ export const sendBookingFinalizationEmailAction = async ({
   const textLines: string[] = [
     copy.intro,
     copy.instructions,
+    copy.retainNote,
+    '',
+    copy.manageIntro,
+    `${copy.modifyCta}: ${modifyUrl}`,
+    `${copy.cancelCta}: ${cancelUrl}`,
     '',
     `${copy.labels.bookingCode}: ${emailInput.bookingCode}`,
     `${copy.labels.car}: ${formatPlain(emailInput.carLabel)}`,

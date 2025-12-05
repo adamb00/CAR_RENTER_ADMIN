@@ -1,5 +1,7 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import { ChevronRight, type LucideIcon } from 'lucide-react';
 
 import {
@@ -20,24 +22,48 @@ import {
 
 export function NavMain({
   items,
+  renderNotifications,
 }: {
   items: {
     title: string;
     url: string;
     icon?: LucideIcon;
     isActive?: boolean;
+    isNotifications?: boolean;
+    badgeContent?: ReactNode;
     items?: {
       title: string;
       url: string;
     }[];
   }[];
+  renderNotifications?: () => ReactNode;
 }) {
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Zodiacs Rent a Car</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) =>
-          item.items && item.items.length > 0 ? (
+          item.isNotifications ? (
+            <Collapsible key={item.title} asChild className='group/collapsible'>
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton tooltip={item.title}>
+                    {item.icon && <item.icon />}
+                    <span>{item.title}</span>
+                    <div className='ml-auto flex items-center gap-2'>
+                      {item.badgeContent}
+                      <ChevronRight className='transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90' />
+                    </div>
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className='mt-2 rounded-lg border border-sidebar-border/80 bg-background px-3 py-2 text-sm text-sidebar-foreground'>
+                    {renderNotifications?.()}
+                  </div>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+          ) : item.items && item.items.length > 0 ? (
             <Collapsible
               key={item.title}
               asChild
@@ -70,9 +96,12 @@ export function NavMain({
           ) : (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton tooltip={item.title} asChild>
-                <a href={item.url} className='flex items-center gap-2'>
+                <a href={item.url} className='flex w-full items-center gap-2'>
                   {item.icon && <item.icon />}
                   <span>{item.title}</span>
+                  {item.badgeContent && (
+                    <span className='ml-auto'>{item.badgeContent}</span>
+                  )}
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>

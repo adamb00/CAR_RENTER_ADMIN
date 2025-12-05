@@ -39,6 +39,8 @@ export type BookingFinalizationEmailInput = {
   signerName: string;
   thankYouUrl: string;
   contactUrl: string;
+  modifyUrl: string;
+  cancelUrl: string;
 };
 
 type BookingFinalizationEmailProps = {
@@ -302,6 +304,20 @@ export default function BookingFinalizationEmail({
                         }}
                       >
                         {copy.instructions}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          lineHeight: 1.5,
+                          color: BRAND.navy,
+                          marginBottom: 22,
+                          border: '1px dashed rgba(2,48,71,0.2)',
+                          borderRadius: 12,
+                          padding: '14px 16px',
+                          background: '#fff',
+                        }}
+                      >
+                        {copy.retainNote}
                       </div>
 
                       <div
@@ -607,6 +623,67 @@ export default function BookingFinalizationEmail({
                           ))}
                         </div>
                       </Section>
+
+                      <div
+                        style={{
+                          borderTop: '1px solid rgba(2,48,71,0.12)',
+                          paddingTop: 20,
+                          marginTop: 24,
+                          textAlign: 'center',
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 15,
+                            color: BRAND.navy,
+                            marginBottom: 14,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {copy.manageIntro}
+                        </div>
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            flexWrap: 'wrap',
+                            gap: '12px',
+                            justifyContent: 'space-around',
+                          }}
+                        >
+                          <a
+                            href={input.modifyUrl}
+                            style={{
+                              backgroundColor: BRAND.navy,
+                              color: '#fff',
+                              textDecoration: 'none',
+                              padding: '10px 20px',
+                              borderRadius: 999,
+                              fontSize: 14,
+                              fontWeight: 600,
+                              display: 'inline-block',
+                              margin: '0 6px',
+                            }}
+                          >
+                            {copy.modifyCta}
+                          </a>
+                          <a
+                            href={input.cancelUrl}
+                            style={{
+                              backgroundColor: '#E23D3D',
+                              color: '#fff',
+                              textDecoration: 'none',
+                              padding: '10px 20px',
+                              borderRadius: 999,
+                              fontSize: 14,
+                              fontWeight: 600,
+                              display: 'inline-block',
+                              margin: '0 6px',
+                            }}
+                          >
+                            {copy.cancelCta}
+                          </a>
+                        </div>
+                      </div>
 
                       <table
                         role='presentation'

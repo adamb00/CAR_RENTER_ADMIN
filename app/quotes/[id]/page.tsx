@@ -24,6 +24,37 @@ const LOCALE_LABELS: Record<string, string> = {
   pl: 'Lengyel',
 };
 
+type PricingBreakdown = {
+  rentalFee?: string | null;
+  insurance?: string | null;
+  deposit?: string | null;
+  deliveryFee?: string | null;
+  extrasFee?: string | null;
+};
+
+const formatPriceValue = (value?: string | null) => {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? `${trimmed} €` : '—';
+};
+
+const parseAmount = (value?: string | null) => {
+  const trimmed = value?.trim();
+  if (!trimmed) return 0;
+  const normalized = trimmed.replace(/[^\d,.\-]/g, '').replace(',', '.');
+  const parsed = parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const hasPricingDetails = (pricing?: PricingBreakdown) =>
+  Boolean(
+    pricing &&
+      (pricing.rentalFee ||
+        pricing.insurance ||
+        pricing.deposit ||
+        pricing.deliveryFee ||
+        pricing.extrasFee)
+  );
+
 export default async function QuoteDetailPage({
   params,
 }: {
@@ -67,6 +98,23 @@ export default async function QuoteDetailPage({
     };
     return map[value] ?? value;
   };
+
+  const pricing = quote.bookingRequestData;
+  const showPricingBreakdown = hasPricingDetails(pricing);
+  const totalPricingAmount =
+    pricing && showPricingBreakdown
+      ? parseAmount(pricing.rentalFee) +
+        parseAmount(pricing.insurance) +
+        parseAmount(pricing.deposit) +
+        parseAmount(pricing.deliveryFee) +
+        parseAmount(pricing.extrasFee)
+      : 0;
+  const totalPricingDisplay =
+    totalPricingAmount > 0
+      ? Number.isInteger(totalPricingAmount)
+        ? `${totalPricingAmount} €`
+        : `${totalPricingAmount.toFixed(2)} €`
+      : '—';
 
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
@@ -134,6 +182,32 @@ export default async function QuoteDetailPage({
               }
             />
           </Section>
+
+          {showPricingBreakdown && (
+            <Section title='Korábban ajánlott díjak'>
+              <Detail
+                label='Foglalási díj'
+                value={formatPriceValue(pricing?.rentalFee)}
+              />
+              <Detail
+                label='Biztosítás díja'
+                value={formatPriceValue(pricing?.insurance)}
+              />
+              <Detail
+                label='Kaució'
+                value={formatPriceValue(pricing?.deposit)}
+              />
+              <Detail
+                label='Kiszállás díja'
+                value={formatPriceValue(pricing?.deliveryFee)}
+              />
+              <Detail
+                label='Extrák díja'
+                value={formatPriceValue(pricing?.extrasFee)}
+              />
+              <Detail label='Összesen' value={totalPricingDisplay} />
+            </Section>
+          )}
 
           <Section title='Kiszállítás / Átvétel'>
             <Detail

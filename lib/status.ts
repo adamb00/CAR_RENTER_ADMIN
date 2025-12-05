@@ -9,6 +9,7 @@ const LABELS: Record<string, string> = {
   resolved: 'Ajánlatkérés feldolgozva',
   done: 'Foglalási űrlap kitöltve',
   closed: 'Foglalási űrlap kitöltve',
+  registered: 'Rendszerben rögzítve',
   canceled: 'Lemondva',
   cancelled: 'Lemondva',
 };
@@ -22,6 +23,7 @@ const COLORS: Record<string, string> = {
   done: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   resolved: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   closed: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  registered: 'bg-pink-100 text-pink-800 border-pink-200',
   canceled: 'bg-red-100 text-red-800 border-red-200',
   cancelled: 'bg-red-100 text-red-800 border-red-200',
 };
