@@ -5,11 +5,14 @@ import BookingRequestEmailTemplate, {
   normalizeLocale,
   SendBookingRequestEmailInput,
 } from '@/components/emails/booking-request-email';
-import { BOOKING_EMAIL_FROM, LOGO_URL } from '@/lib/constants';
+import {
+  BOOKING_EMAIL_FROM,
+  LOGO_URL,
+  CONTACT_STATUS_QUOTE_SENT,
+} from '@/lib/constants';
 import {
   BOOKING_FROM_ADDRESS,
   MAIL_USER,
-  QUOTE_PROCESSED_STATUS,
   getTransporter,
   hasMailerConfig,
 } from '@/lib/mailer';
@@ -127,7 +130,7 @@ const markQuoteAsProcessed = async (
   await db.contactQuotes.update({
     where: { id: quoteId },
     data: {
-      status: QUOTE_PROCESSED_STATUS,
+      status: CONTACT_STATUS_QUOTE_SENT,
       updatedAt: new Date(),
       bookingRequestData,
     },

@@ -4,7 +4,6 @@ import {
   MAIL_USER,
   MAIL_PASS,
   BOOKING_EMAIL_FROM,
-  QUOTE_PROCESSED_STATUS,
 } from '@/lib/constants';
 
 const formatFromAddress = () => {
@@ -49,4 +48,4 @@ export const getTransporter = async () => {
   return cachedTransporter;
 };
 
-export { MAIL_USER, QUOTE_PROCESSED_STATUS };
+export { MAIL_USER };

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 
 import { setBookingRegisteredAction } from '@/actions/setBookingRegisteredAction';
+import { RENT_STATUS_REGISTERED } from '@/lib/constants';
 
 type BookingRegistrationCheckboxProps = {
   bookingId: string;
@@ -18,7 +19,9 @@ export const BookingRegistrationCheckbox = ({
   bookingId,
   initialStatus,
 }: BookingRegistrationCheckboxProps) => {
-  const [checked, setChecked] = useState(initialStatus === 'registered');
+  const [checked, setChecked] = useState(
+    initialStatus === RENT_STATUS_REGISTERED
+  );
   const [message, setMessage] = useState<StatusMessage | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -36,7 +39,7 @@ export const BookingRegistrationCheckbox = ({
           return;
         }
 
-        setChecked(result.status === 'registered');
+        setChecked(result.status === RENT_STATUS_REGISTERED);
         setMessage(
           result.success ? { type: 'success', text: result.success } : null
         );
@@ -64,8 +67,8 @@ export const BookingRegistrationCheckbox = ({
           <span>Rögzítve a vállalati rendszerben</span>
           <span className='text-xs font-normal text-muted-foreground'>
             Pipáld ki, amikor a foglalást véglegesítetted és felvetted a belső
-            rendszerbe. A jelölést törölve a státusz visszaáll &quot;Foglalási
-            űrlap kitöltve&quot; értékre.
+            rendszerbe. A jelölést törölve a státusz visszaáll &quot;Elfogadott&quot;
+            értékre.
           </span>
           {message && (
             <span

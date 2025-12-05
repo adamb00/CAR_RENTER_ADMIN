@@ -8,13 +8,15 @@ import BookingConfirmationEmail, {
 } from '@/components/emails/booking-confirmation-email';
 import { getBookingById } from '@/data-service/bookings';
 import { getQuoteById } from '@/data-service/quotes';
-import { BOOKING_EMAIL_FROM } from '@/lib/constants';
+import { BOOKING_EMAIL_FROM, RENT_STATUS_ACCEPTED } from '@/lib/constants';
 import {
   BOOKING_FROM_ADDRESS,
   MAIL_USER,
   getTransporter,
   hasMailerConfig,
 } from '@/lib/mailer';
+import { db } from '@/lib/db';
+import { revalidatePath } from 'next/cache';
 
 type SendBookingConfirmationEmailInput = {
   bookingId: string;
@@ -120,6 +122,21 @@ export const sendBookingConfirmationEmailAction = async ({
     console.error('sendBookingConfirmationEmailAction sendMail', error);
     return {
       error: 'Az e-mail küldése közben hiba történt. Próbáld meg később.',
+    };
+  }
+
+  try {
+    await db.rentRequests.update({
+      where: { id: booking.id },
+      data: { status: RENT_STATUS_ACCEPTED, updatedAt: new Date() },
+    });
+    revalidatePath('/');
+    revalidatePath(`/${booking.id}`);
+  } catch (error) {
+    console.error('sendBookingConfirmationEmailAction updateStatus', error);
+    return {
+      error:
+        'Az e-mail elküldve, de a foglalás státuszát nem sikerült frissíteni.',
     };
   }
 

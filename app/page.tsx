@@ -1,6 +1,8 @@
 import { getBookings } from '@/data-service/bookings';
 import { BookingsTable } from '@/components/bookings-table';
 
+export const revalidate = 0;
+
 export default async function RentPage() {
   const bookings = await getBookings();
 

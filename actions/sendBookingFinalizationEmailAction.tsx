@@ -10,6 +10,7 @@ import {
   BOOKING_EMAIL_FROM,
   LOGO_URL,
   ADMIN_SIGNATURE,
+  RENT_STATUS_FORM_SUBMITTED,
 } from '@/lib/constants';
 import {
   BOOKING_FROM_ADDRESS,
@@ -189,7 +190,7 @@ export const sendBookingFinalizationEmailAction = async ({
     booking.id
   )}`;
   const modifyUrl = `${manageBaseUrl}?action=modify`;
-  const cancelUrl = `${manageBaseUrl}?action=cancel`;
+  const cancelUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/rent/manage?action=cancel`;
 
   const rawInsurance =
     requestData?.insurance ?? manualPricing?.insurance ?? null;
@@ -376,7 +377,7 @@ export const sendBookingFinalizationEmailAction = async ({
     await db.rentRequests.update({
       where: { id: booking.id },
       data: {
-        status: 'answered',
+        status: RENT_STATUS_FORM_SUBMITTED,
         updatedAt: new Date(),
       },
     });

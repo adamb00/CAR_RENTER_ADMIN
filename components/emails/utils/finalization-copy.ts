@@ -52,7 +52,8 @@ const BASE_EN: BookingFinalizationCopy = {
   subject: 'Booking finalization',
   heading: 'Booking finalization',
   intro: 'Here is a summary of every fee and detail we currently have for your booking.',
-  instructions: 'Please review the data below and confirm your reservation or let us know if anything needs attention.',
+  instructions:
+    'Please review the data below and confirm your reservation or let us know if anything needs attention. Free cancellation is available up to 48 hours before the rental start.',
   confirmCta: 'Confirm my booking',
   questionCta: 'I have a question',
   retainNote:
@@ -108,7 +109,7 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
     intro:
       'Az alábbiakban összegyűjtöttük a foglalásodhoz kapcsolódó összes díjat és adatot.',
     instructions:
-      'Kérjük, ellenőrizd az információkat, majd erősítsd meg a foglalást vagy jelezd, ha kérdésed van.',
+      'Kérjük, ellenőrizd az információkat, majd erősítsd meg a foglalást vagy jelezd, ha kérdésed van. A foglalást díjmentesen legkésőbb az indulás előtt 48 órával mondhatod le.',
     confirmCta: 'Megerősítem a foglalást',
     questionCta: 'Kérdésem van',
     retainNote:
@@ -162,7 +163,7 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
     intro:
       'Hier finden Sie eine Zusammenfassung aller Gebühren und Daten, die wir derzeit zu Ihrer Buchung haben.',
     instructions:
-      'Bitte prüfen Sie alle Angaben und bestätigen Sie die Buchung oder teilen Sie uns mit, falls es Fragen gibt.',
+      'Bitte prüfen Sie alle Angaben und bestätigen Sie die Buchung oder teilen Sie uns mit, falls es Fragen gibt. Eine kostenfreie Stornierung ist bis spätestens 48 Stunden vor Mietbeginn möglich.',
     confirmCta: 'Buchung bestätigen',
     questionCta: 'Ich habe eine Frage',
     retainNote:
@@ -216,7 +217,7 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
     intro:
       'Mai jos găsești toate taxele și detaliile cunoscute în acest moment pentru rezervarea ta.',
     instructions:
-      'Te rugăm să verifici datele și să confirmi rezervarea sau să ne anunți dacă ai întrebări.',
+      'Te rugăm să verifici datele și să confirmi rezervarea sau să ne anunți dacă ai întrebări. Anularea este gratuită până la cel târziu 48 de ore înainte de începutul închirierii.',
     confirmCta: 'Confirmă rezervarea',
     questionCta: 'Am o întrebare',
     retainNote:
@@ -270,7 +271,7 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
     intro:
       'Voici un récapitulatif de tous les frais et informations connus à ce jour pour votre réservation.',
     instructions:
-      'Veuillez vérifier les données ci-dessous et confirmer votre réservation ou nous faire part de vos questions.',
+      'Veuillez vérifier les données ci-dessous et confirmer votre réservation ou nous faire part de vos questions. L’annulation est gratuite jusqu’à 48 heures avant le début de la location.',
     confirmCta: 'Je confirme ma réservation',
     questionCta: 'J’ai une question',
     retainNote:
@@ -324,7 +325,7 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
     intro:
       'Aquí tienes un resumen de todas las tarifas y datos que tenemos actualmente para tu reserva.',
     instructions:
-      'Revisa la información y confirma tu reserva, o cuéntanos si necesitas ayuda.',
+      'Revisa la información y confirma tu reserva, o cuéntanos si necesitas ayuda. La cancelación es gratuita hasta 48 horas antes del inicio del alquiler.',
     confirmCta: 'Confirmar mi reserva',
     questionCta: 'Tengo una pregunta',
     retainNote:
@@ -378,7 +379,7 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
     intro:
       'Qui trovi il riepilogo di tutte le tariffe e i dati disponibili per la tua prenotazione.',
     instructions:
-      'Controlla le informazioni e conferma la prenotazione oppure facci sapere se hai dubbi.',
+      'Controlla le informazioni e conferma la prenotazione oppure facci sapere se hai dubbi. La cancellazione è gratuita fino a 48 ore prima dell’inizio del noleggio.',
     confirmCta: 'Confermo la prenotazione',
     questionCta: 'Ho una domanda',
     retainNote:
@@ -432,7 +433,7 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
     intro:
       'Prinášame prehľad všetkých poplatkov a údajov, ktoré aktuálne k rezervácii máme.',
     instructions:
-      'Skontroluj prosím údaje a potvrď rezerváciu alebo nám daj vedieť, či je niečo nejasné.',
+      'Skontroluj prosím údaje a potvrď rezerváciu alebo nám daj vedieť, či je niečo nejasné. Zrušenie je bez poplatku najneskôr 48 hodín pred začiatkom prenájmu.',
     confirmCta: 'Potvrdiť rezerváciu',
     questionCta: 'Mám otázku',
     retainNote:
@@ -486,7 +487,7 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
     intro:
       'Níže najdete souhrn všech poplatků a údajů, které k rezervaci máme.',
     instructions:
-      'Zkontrolujte prosím informace a potvrďte rezervaci, nebo nám napište, pokud máte dotazy.',
+      'Zkontrolujte prosím informace a potvrďte rezervaci, nebo nám napište, pokud máte dotazy. Zrušení je zdarma nejpozději 48 hodin před začátkem pronájmu.',
     confirmCta: 'Potvrdit rezervaci',
     questionCta: 'Mám dotaz',
     retainNote:
@@ -540,7 +541,7 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
     intro:
       'Här är en översikt över alla kostnader och uppgifter som vi har för din bokning.',
     instructions:
-      'Granska informationen och bekräfta bokningen, eller meddela oss om du har frågor.',
+      'Granska informationen och bekräfta bokningen, eller meddela oss om du har frågor. Avbokning är kostnadsfri fram till 48 timmar före hyrans start.',
     confirmCta: 'Bekräfta bokningen',
     questionCta: 'Jag har en fråga',
     retainNote:
@@ -594,7 +595,7 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
     intro:
       'Her finner du en oversikt over alle kostnader og detaljer vi har for bestillingen.',
     instructions:
-      'Se gjennom informasjonen, og bekreft bestillingen eller gi oss beskjed hvis du har spørsmål.',
+      'Se gjennom informasjonen, og bekreft bestillingen eller gi oss beskjed hvis du har spørsmål. Kostnadsfri avbestilling er mulig inntil 48 timer før leiestart.',
     confirmCta: 'Bekreft bestillingen',
     questionCta: 'Jeg har et spørsmål',
     retainNote:
@@ -648,7 +649,7 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
     intro:
       'Her er et overblik over alle gebyrer og oplysninger, vi har på din booking.',
     instructions:
-      'Gennemgå oplysningerne og bekræft bookingen – eller kontakt os, hvis du har spørgsmål.',
+      'Gennemgå oplysningerne og bekræft bookingen – eller kontakt os, hvis du har spørgsmål. Afbestilling er gratis indtil 48 timer før lejemålets start.',
     confirmCta: 'Bekræft booking',
     questionCta: 'Jeg har et spørgsmål',
     retainNote:
@@ -702,7 +703,7 @@ const FINALIZATION_COPY: Record<string, BookingFinalizationCopy> = {
     intro:
       'Poniżej znajdziesz zestawienie wszystkich opłat i danych związanych z Twoją rezerwacją.',
     instructions:
-      'Sprawdź informacje i potwierdź rezerwację lub daj nam znać, jeśli masz pytania.',
+      'Sprawdź informacje i potwierdź rezerwację lub daj nam znać, jeśli masz pytania. Anulacja jest bezpłatna najpóźniej 48 godzin przed rozpoczęciem wynajmu.',
     confirmCta: 'Potwierdzam rezerwację',
     questionCta: 'Mam pytanie',
     retainNote:

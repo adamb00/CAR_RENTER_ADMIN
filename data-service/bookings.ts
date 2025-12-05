@@ -402,9 +402,13 @@ const parseSelfServiceEvents = (
   updated?: string | null
 ): BookingSelfServiceEvent[] => {
   if (!updated) return [];
+  const trimmed = updated.trim();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    return [];
+  }
 
   try {
-    const parsed = JSON.parse(updated);
+    const parsed = JSON.parse(trimmed);
     const entries = Array.isArray(parsed) ? parsed : [parsed];
 
     return entries
@@ -423,8 +427,7 @@ const parseSelfServiceEvents = (
         };
       })
       .filter((event) => event.changes.length > 0);
-  } catch (error) {
-    console.error('parseSelfServiceEvents', error);
+  } catch {
     return [];
   }
 };
