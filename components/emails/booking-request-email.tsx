@@ -27,6 +27,7 @@ export type EmailCopy = {
   greeting: (name?: string | null) => string;
   thankYou: string;
   instructions: string;
+  paymentNote: string;
   cta: string;
   signature: string;
   successMessage?: string;
@@ -104,6 +105,7 @@ export function BookingRequestEmailTemplate({
   const primaryCta = escapeHtml(copy.cta);
   const thankYou = escapeHtml(copy.thankYou);
   const instructions = escapeHtml(copy.instructions);
+  const paymentNote = escapeHtml(copy.paymentNote);
 
   const dateRange = formatDateRange(
     input.rentalStart,
@@ -275,6 +277,18 @@ export function BookingRequestEmailTemplate({
                         }}
                       >
                         {instructions}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: 16,
+                          lineHeight: 1.6,
+                          color: BRAND.navyLight,
+                          marginBottom: 22,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {paymentNote}
                       </div>
 
                       {/* Dátum + autó blokk */}
@@ -766,6 +780,7 @@ export const buildTextBody = (
   
   ${copy.thankYou}
   ${copy.instructions}
+  ${copy.paymentNote}
   
   ${
     dateRange

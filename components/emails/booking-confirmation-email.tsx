@@ -18,6 +18,7 @@ export type BookingConfirmationCopy = {
   subject: string;
   greeting: (name?: string | null) => string;
   intro: string;
+  paymentNote: string;
   outro: string;
   pricingHeading: string;
   rentalFeeLabel: string;
@@ -39,6 +40,7 @@ export const BOOKING_CONFIRMATION_COPY: Record<
     greeting: (name) => `Szia${name ? ` ${name}` : ''}!`,
     intro:
       'Az alábbiakban összegyűjtöttük az eddig ismert díjakat a foglalásodhoz.',
+    paymentNote: 'A fizetés készpénzzel vagy bankkártyával is lehetséges.',
     outro:
       'Ha bármilyen kérdésed van, kérlek vedd fel velünk a kapcsolatot, hogy segítsünk a részletekben.',
     pricingHeading: 'Díjak összesítése',
@@ -55,6 +57,7 @@ export const BOOKING_CONFIRMATION_COPY: Record<
     subject: 'Booking confirmation - Zodiac Rent a Car',
     greeting: (name) => `Hi${name ? ` ${name}` : ''},`,
     intro: 'Here is a summary of the fees we currently have on file.',
+    paymentNote: 'Payment can be made in cash or by bank card.',
     outro:
       'If you have any questions, feel free to reply so we can assist you further.',
     pricingHeading: 'Fee summary',
@@ -160,6 +163,7 @@ export const buildBookingConfirmationText = (
     copy.greeting(sanitizeName(input.name)),
     '',
     copy.intro,
+    copy.paymentNote,
     '',
     `${copy.bookingLabel}: ${input.bookingCode}`,
     `${copy.carLabel}: ${car}`,
@@ -240,6 +244,15 @@ export default function BookingConfirmationEmail({
                         <p style={{ marginTop: 0 }}>
                           {copy.greeting(name)}<br />
                           {copy.intro}
+                        </p>
+                        <p
+                          style={{
+                            marginTop: 0,
+                            fontWeight: 600,
+                            color: BRAND.navy,
+                          }}
+                        >
+                          {copy.paymentNote}
                         </p>
                       </td>
                     </tr>
