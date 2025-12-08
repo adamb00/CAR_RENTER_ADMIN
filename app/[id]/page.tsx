@@ -160,14 +160,6 @@ const formatPriceValue = (value?: string | null) => {
   return trimmed && trimmed.length > 0 ? `${trimmed} €` : '—';
 };
 
-const parseAmount = (value?: string | null) => {
-  const trimmed = value?.trim();
-  if (!trimmed) return 0;
-  const normalized = trimmed.replace(/[^\d,.\-]/g, '').replace(',', '.');
-  const parsed = parseFloat(normalized);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
 const hasPricingDetails = (pricing?: PricingBreakdown) =>
   Boolean(
     pricing &&
