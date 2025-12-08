@@ -19,6 +19,7 @@ export type SendBookingRequestEmailInput = {
   deliveryFee?: string;
   extrasFee?: string;
   adminName?: string | null;
+  carImages?: string[] | null;
 };
 
 export type EmailCopy = {
@@ -110,9 +111,20 @@ export function BookingRequestEmailTemplate({
     input.locale ?? 'hu-HU'
   );
   const days = rentalDays(input.rentalStart, input.rentalEnd);
-  const carLabel = escapeHtml(input.carName || input.carId || '');
+  const rawCarLabel = input.carName || input.carId || '';
+  const carLabel = rawCarLabel ? escapeHtml(rawCarLabel) : '';
   const localeSafe = normalizeLocale(input.locale);
   const staticText = getStaticTexts(localeSafe);
+  const carImages = Array.isArray(input.carImages)
+    ? input.carImages
+        .map((url) => (typeof url === 'string' ? url.trim() : ''))
+        .filter((url) => url.length > 0)
+    : [];
+  const carImageRows: string[][] = [];
+  for (let i = 0; i < carImages.length; i += 2) {
+    carImageRows.push(carImages.slice(i, i + 2));
+  }
+  const carImagesLabel = escapeHtml(staticText.carImagesLabel);
 
   const rentalFee = formatPrice(input.rentalFee);
   const deposit = formatPrice(input.deposit);
@@ -305,6 +317,74 @@ export function BookingRequestEmailTemplate({
                               {carLabel}
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {/* Autó fotók blokk */}
+                      {carImageRows.length > 0 && (
+                        <div
+                          style={{
+                            margin: '0 0 18px',
+                            padding: '14px 16px',
+                            border: '1px solid rgba(2,48,71,0.08)',
+                            borderRadius: 14,
+                            background: '#f8fafc',
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 13,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.08em',
+                              color: BRAND.navyLight,
+                              marginBottom: 8,
+                              fontWeight: 700,
+                            }}
+                          >
+                            {carImagesLabel}
+                          </div>
+                          <table
+                            role='presentation'
+                            width='100%'
+                            cellPadding={0}
+                            cellSpacing={0}
+                            style={{ borderCollapse: 'collapse' }}
+                          >
+                            <tbody>
+                              {carImageRows.map((row, rowIndex) => (
+                                <tr key={`car-img-row-${rowIndex}`}>
+                                  {row.map((src, cellIndex) => (
+                                    <td
+                                      key={`car-img-${rowIndex}-${cellIndex}`}
+                                      style={{
+                                        width: '50%',
+                                        padding: '4px',
+                                      }}
+                                    >
+                                      <img
+                                        src={src}
+                                        alt={`${rawCarLabel || staticText.carImagesLabel} ${
+                                          rowIndex * 2 + cellIndex + 1
+                                        }`}
+                                        style={{
+                                          width: '100%',
+                                          display: 'block',
+                                          borderRadius: 12,
+                                          border:
+                                            '1px solid rgba(2,48,71,0.08)',
+                                        }}
+                                      />
+                                    </td>
+                                  ))}
+                                  {row.length < 2 && (
+                                    <td
+                                      style={{ width: '50%', padding: '4px' }}
+                                    />
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       )}
 
@@ -664,6 +744,11 @@ export const buildTextBody = (
   );
   const days = rentalDays(input.rentalStart, input.rentalEnd);
   const carLabel = input.carName || input.carId;
+  const carImages = Array.isArray(input.carImages)
+    ? input.carImages
+        .map((url) => (typeof url === 'string' ? url.trim() : ''))
+        .filter((url) => url.length > 0)
+    : [];
   const localeSafe = normalizeLocale(input.locale);
   const staticText = getStaticTexts(localeSafe);
   const rentalFee = formatPrice(input.rentalFee);
@@ -688,7 +773,13 @@ export const buildTextBody = (
       : ''
   }
   ${carLabel ? `${carLabel}` : ''}
-  
+
+  ${
+    carImages.length
+      ? `${staticText.carImagesLabel}:\n${carImages.join('\n')}\n`
+      : ''
+  }
+
   ${rentalFee ? `${staticText.rentalFeeLabel}: ${rentalFee}` : ''}
   ${deposit ? `${staticText.depositLabel}: ${deposit}` : ''}
   

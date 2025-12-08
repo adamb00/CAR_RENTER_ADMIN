@@ -14,6 +14,7 @@ export const LOCALIZED_STATIC: Record<
     extrasFeeLabel: string;
     daysSuffix: string;
     deliveryNote: string;
+    carImagesLabel: string;
   }
 > = {
   en: {
@@ -31,6 +32,7 @@ export const LOCALIZED_STATIC: Record<
     daysSuffix: 'days',
     deliveryNote:
       'You can request delivery to your preferred location (e.g. airport or hotel).',
+    carImagesLabel: 'Car photos',
   },
   hu: {
     rentalFeeLabel: 'Bérleti díj',
@@ -48,6 +50,7 @@ export const LOCALIZED_STATIC: Record<
     daysSuffix: 'napra',
     deliveryNote:
       'Kérheted az autó kiszállítását a választott helyszínre (pl. reptérre vagy szállásra).',
+    carImagesLabel: 'Autó fotói',
   },
   de: {
     rentalFeeLabel: 'Mietpreis',
@@ -66,6 +69,7 @@ export const LOCALIZED_STATIC: Record<
     daysSuffix: 'Tage',
     deliveryNote:
       'Du kannst das Auto an deinen Wunschort liefern lassen (z. B. Flughafen oder Unterkunft).',
+    carImagesLabel: 'Fahrzeugfotos',
   },
   ro: {
     rentalFeeLabel: 'Taxă de închiriere',
@@ -84,6 +88,7 @@ export const LOCALIZED_STATIC: Record<
     daysSuffix: 'zile',
     deliveryNote:
       'Poți solicita livrarea mașinii la locația dorită (de ex. aeroport sau cazare).',
+    carImagesLabel: 'Fotografii ale mașinii',
   },
   fr: {
     rentalFeeLabel: 'Frais de location',
@@ -102,6 +107,7 @@ export const LOCALIZED_STATIC: Record<
     daysSuffix: 'jours',
     deliveryNote:
       "Vous pouvez demander la livraison de la voiture à l'endroit de votre choix (ex. aéroport ou hébergement).",
+    carImagesLabel: 'Photos du véhicule',
   },
   es: {
     rentalFeeLabel: 'Tarifa de alquiler',
@@ -118,6 +124,7 @@ export const LOCALIZED_STATIC: Record<
     daysSuffix: 'días',
     deliveryNote:
       'Puedes solicitar la entrega del coche en el lugar que prefieras (p. ej., aeropuerto o alojamiento).',
+    carImagesLabel: 'Fotos del vehículo',
   },
   it: {
     rentalFeeLabel: 'Tariffa di noleggio',
@@ -134,6 +141,7 @@ export const LOCALIZED_STATIC: Record<
     daysSuffix: 'giorni',
     deliveryNote:
       "Puoi richiedere la consegna dell'auto nel luogo che preferisci (es. aeroporto o alloggio).",
+    carImagesLabel: "Foto dell'auto",
   },
   sk: {
     rentalFeeLabel: 'Prenájomné',
@@ -150,6 +158,7 @@ export const LOCALIZED_STATIC: Record<
     daysSuffix: 'dní',
     deliveryNote:
       'Môžeš si vyžiadať doručenie auta na zvolené miesto (napr. letisko alebo ubytovanie).',
+    carImagesLabel: 'Fotky vozidla',
   },
   cz: {
     rentalFeeLabel: 'Nájemné',
@@ -166,6 +175,7 @@ export const LOCALIZED_STATIC: Record<
     daysSuffix: 'dní',
     deliveryNote:
       'Auto si můžete nechat doručit na vámi zvolené místo (např. letiště nebo ubytování).',
+    carImagesLabel: 'Fotografie vozu',
   },
   se: {
     rentalFeeLabel: 'Hyresavgift',
@@ -182,6 +192,7 @@ export const LOCALIZED_STATIC: Record<
     daysSuffix: 'dagar',
     deliveryNote:
       'Du kan be om leverans till valfri plats (t.ex. flygplats eller boende).',
+    carImagesLabel: 'Bilfoton',
   },
   no: {
     rentalFeeLabel: 'Leiepris',
@@ -198,6 +209,7 @@ export const LOCALIZED_STATIC: Record<
     daysSuffix: 'dager',
     deliveryNote:
       'Du kan be om levering til ønsket sted (f.eks. flyplass eller overnatting).',
+    carImagesLabel: 'Bilbilder',
   },
   dk: {
     rentalFeeLabel: 'Lejepris',
@@ -215,6 +227,7 @@ export const LOCALIZED_STATIC: Record<
     daysSuffix: 'dage',
     deliveryNote:
       'Du kan bede om levering til det ønskede sted (f.eks. lufthavn eller overnatning).',
+    carImagesLabel: 'Bilfotos',
   },
   pl: {
     rentalFeeLabel: 'Opłata za wynajem',
@@ -232,5 +245,6 @@ export const LOCALIZED_STATIC: Record<
     daysSuffix: 'dni',
     deliveryNote:
       'Możesz poprosić o dostawę auta pod wskazany adres (np. lotnisko lub nocleg).',
+    carImagesLabel: 'Zdjęcia samochodu',
   },
 };

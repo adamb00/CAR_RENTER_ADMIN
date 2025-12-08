@@ -25,6 +25,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { getCarById } from '@/data-service/cars';
 
 const pricingSchema = z.object({
   adminName: z.string().min(1, 'Név kötelező'),
@@ -120,6 +121,7 @@ export const BookingRequestButton = ({
       const insurance = values.insurance ?? undefined;
       const deliveryFee = values.deliveryFee ?? undefined;
       const extrasFee = values.extrasFee ?? undefined;
+      const car = await getCarById(values.carId);
 
       const result = await sendBookingRequestEmailAction({
         quoteId,
@@ -127,7 +129,8 @@ export const BookingRequestButton = ({
         name,
         locale,
         carId: values.carId,
-        carName,
+        carName: car ? `${car.manufacturer} ${car.model}` : carName,
+        carImages: car?.images ?? [],
         rentalStart,
         rentalEnd,
         adminName: values.adminName,
