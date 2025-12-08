@@ -101,20 +101,6 @@ export default async function QuoteDetailPage({
 
   const pricing = quote.bookingRequestData;
   const showPricingBreakdown = hasPricingDetails(pricing);
-  const totalPricingAmount =
-    pricing && showPricingBreakdown
-      ? parseAmount(pricing.rentalFee) +
-        parseAmount(pricing.insurance) +
-        parseAmount(pricing.deposit) +
-        parseAmount(pricing.deliveryFee) +
-        parseAmount(pricing.extrasFee)
-      : 0;
-  const totalPricingDisplay =
-    totalPricingAmount > 0
-      ? Number.isInteger(totalPricingAmount)
-        ? `${totalPricingAmount} €`
-        : `${totalPricingAmount.toFixed(2)} €`
-      : '—';
 
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
@@ -189,10 +175,12 @@ export default async function QuoteDetailPage({
                 label='Foglalási díj'
                 value={formatPriceValue(pricing?.rentalFee)}
               />
-              <Detail
-                label='Biztosítás díja'
-                value={formatPriceValue(pricing?.insurance)}
-              />
+              {
+                <Detail
+                  label='Biztosítás díja'
+                  value={formatPriceValue(pricing?.insurance)}
+                />
+              }
               <Detail
                 label='Kaució'
                 value={formatPriceValue(pricing?.deposit)}
@@ -205,7 +193,6 @@ export default async function QuoteDetailPage({
                 label='Extrák díja'
                 value={formatPriceValue(pricing?.extrasFee)}
               />
-              <Detail label='Összesen' value={totalPricingDisplay} />
             </Section>
           )}
 

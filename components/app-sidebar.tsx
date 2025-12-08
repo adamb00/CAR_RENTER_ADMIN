@@ -183,11 +183,10 @@ export function AppSidebar({
 
   useEffect(() => {
     setNotificationItems(notifications);
+    const derivedUnread =
+      notifications?.filter((notification) => !notification.read).length || 0;
+    setUnreadBadgeCount(derivedUnread);
   }, [notifications]);
-
-  useEffect(() => {
-    setUnreadBadgeCount(unreadCount);
-  }, [unreadCount]);
 
   const handleNotificationRead = useCallback((id: string) => {
     setNotificationItems((prev) =>

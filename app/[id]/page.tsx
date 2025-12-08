@@ -342,10 +342,12 @@ export default async function BookingDetailPage({
               label='Biztosítás díja'
               value={formatPriceValue(pricingData?.insurance)}
             />
-            <Detail
-              label='Kaució'
-              value={formatPriceValue(pricingData?.deposit)}
-            />
+            {!pricingData?.insurance && (
+              <Detail
+                label='Kaució'
+                value={formatPriceValue(pricingData?.deposit)}
+              />
+            )}
             <Detail
               label='Kiszállás díja'
               value={formatPriceValue(pricingData?.deliveryFee)}
@@ -354,7 +356,6 @@ export default async function BookingDetailPage({
               label='Extrák díja'
               value={formatPriceValue(pricingData?.extrasFee)}
             />
-            <Detail label='Összesen' value={totalPricingDisplay} />
           </Section>
         )}
 

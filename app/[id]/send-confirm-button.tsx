@@ -152,7 +152,7 @@ const InfoRow = ({ label, value }: { label: string; value: ReactNode }) => (
     <span className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>
       {label}
     </span>
-    <span className='text-sm font-medium text-foreground break-words'>
+    <span className='text-sm font-medium text-foreground wrap-break-word'>
       {value ?? '—'}
     </span>
   </div>
