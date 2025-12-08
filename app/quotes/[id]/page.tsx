@@ -1,9 +1,9 @@
-import type React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type React from 'react';
 
-import { getQuoteById } from '@/data-service/quotes';
 import { getBookingByQuoteId } from '@/data-service/bookings';
+import { getQuoteById } from '@/data-service/quotes';
 import { db } from '@/lib/db';
 import { getStatusMeta } from '@/lib/status';
 import { BookingRequestButton } from './booking-request-button';
@@ -35,14 +35,6 @@ type PricingBreakdown = {
 const formatPriceValue = (value?: string | null) => {
   const trimmed = value?.trim();
   return trimmed && trimmed.length > 0 ? `${trimmed} €` : '—';
-};
-
-const parseAmount = (value?: string | null) => {
-  const trimmed = value?.trim();
-  if (!trimmed) return 0;
-  const normalized = trimmed.replace(/[^\d,.\-]/g, '').replace(',', '.');
-  const parsed = parseFloat(normalized);
-  return Number.isFinite(parsed) ? parsed : 0;
 };
 
 const hasPricingDetails = (pricing?: PricingBreakdown) =>

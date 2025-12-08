@@ -4,10 +4,10 @@ import { notFound } from 'next/navigation';
 import type React from 'react';
 
 import { getBookingById } from '@/data-service/bookings';
-import { getStatusMeta } from '@/lib/status';
 import { getQuoteById } from '@/data-service/quotes';
-import { SendConfirmButton } from './send-confirm-button';
+import { getStatusMeta } from '@/lib/status';
 import { BookingRegistrationCheckbox } from './booking-registration-checkbox';
+import { SendConfirmButton } from './send-confirm-button';
 
 const LOCALE_LABELS: Record<string, string> = {
   hu: 'Magyar',
@@ -213,20 +213,6 @@ export default async function BookingDetailPage({
   const pricingData: PricingBreakdown | undefined =
     savedPricing ?? quotePricing ?? undefined;
   const showPricingBreakdown = hasPricingDetails(pricingData);
-  const totalPricingAmount =
-    pricingData && showPricingBreakdown
-      ? parseAmount(pricingData.rentalFee) +
-        parseAmount(pricingData.insurance) +
-        parseAmount(pricingData.deposit) +
-        parseAmount(pricingData.deliveryFee) +
-        parseAmount(pricingData.extrasFee)
-      : 0;
-  const totalPricingDisplay =
-    totalPricingAmount > 0
-      ? Number.isInteger(totalPricingAmount)
-        ? `${totalPricingAmount} €`
-        : `${totalPricingAmount.toFixed(2)} €`
-      : '—';
 
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
