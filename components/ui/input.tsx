@@ -8,28 +8,47 @@ interface InputProps extends React.ComponentProps<'input'> {
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type = 'text', label, value, defaultValue, onChange, onBlur, ...props }, ref) => {
-   const [isPasswordVisible, setIsPasswordVisible] = React.useState(false);
-   const [hasValue, setHasValue] = React.useState<boolean>();
-   const isPassword = type === 'password';
+  (
+    { className, type = 'text', label, value, defaultValue, onChange, onBlur, ...props },
+    ref
+  ) => {
+    const [isPasswordVisible, setIsPasswordVisible] = React.useState(false);
+    const isPassword = type === 'password';
+    const isDateType =
+      type === 'date' || type === 'datetime-local' || type === 'month' || type === 'time';
+    const [hasValue, setHasValue] = React.useState<boolean>(() => {
+      if (isDateType) return true;
+      if (value !== undefined) return String(value).length > 0;
+      if (defaultValue) return String(defaultValue).length > 0;
+      return false;
+    });
 
-   React.useEffect(() => {
+    React.useEffect(() => {
+      if (isDateType) {
+        setHasValue(true);
+        return;
+      }
       if (value !== undefined) {
         setHasValue(String(value).length > 0);
       } else if (defaultValue) {
         setHasValue(String(defaultValue).length > 0);
       }
-    }, [defaultValue, value]);
+    }, [defaultValue, isDateType, value]);
 
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      setHasValue(event.target.value.length > 0);
+      if (!isDateType) {
+        setHasValue(event.target.value.length > 0);
+      }
       onChange?.(event);
     };
 
     const handleBlur = (event: React.FocusEvent<HTMLInputElement>) => {
-      setHasValue(event.target.value.length > 0);
+      if (!isDateType) {
+        setHasValue(event.target.value.length > 0);
+      }
       onBlur?.(event);
     };
+    const shouldFloat = isDateType || hasValue;
 
     return (
       <div className='relative w-full'>
@@ -57,7 +76,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                'absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-base transition-all',
                'peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-gray-400',
                'peer-focus:-top-3 peer-focus:text-sm peer-focus:text-slate-600 peer-focus:-translate-y-0 peer-focus:translate-x-2 peer-focus:bg-background peer-focus:px-2',
-               hasValue && '-top-0.5 text-sm text-slate-600 translate-x-2 bg-background px-2',
+               shouldFloat &&
+                 '-top-0.5 text-sm text-slate-600 translate-x-2 bg-background px-2',
                'peer-autofill:-top-0.5 peer-autofill:text-sm peer-autofill:text-slate-600 peer-autofill:translate-x-2 peer-autofill:bg-background peer-autofill:px-2'
             )}
          >

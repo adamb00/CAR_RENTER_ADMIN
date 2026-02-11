@@ -11,10 +11,12 @@ export const LOCALIZED_STATIC: Record<
     extrasNote: string;
     extrasLabel: string;
     deliveryFeeLabel: string;
+    deliveryLocationLabel: string;
     extrasFeeLabel: string;
     daysSuffix: string;
     deliveryNote: string;
     carImagesLabel: string;
+    offerLabel: string;
   }
 > = {
   en: {
@@ -28,11 +30,13 @@ export const LOCALIZED_STATIC: Record<
     extrasNote: 'Selecting extras may incur additional costs.',
     extrasLabel: 'Other costs',
     deliveryFeeLabel: 'Delivery fee',
+    deliveryLocationLabel: 'Delivery location',
     extrasFeeLabel: 'Extras fee',
     daysSuffix: 'days',
     deliveryNote:
       'You can request delivery to your preferred location (e.g. airport or hotel).',
     carImagesLabel: 'Car photos',
+    offerLabel: 'Offer',
   },
   hu: {
     rentalFeeLabel: 'Bérleti díj',
@@ -46,11 +50,13 @@ export const LOCALIZED_STATIC: Record<
     extrasNote: 'Az extrák kiválasztásakor további költségek merülhetnek fel.',
     extrasLabel: 'Egyéb költségek',
     deliveryFeeLabel: 'Kiszállítás díja',
+    deliveryLocationLabel: 'Kiszállítás ide',
     extrasFeeLabel: 'Extrák díja',
     daysSuffix: 'napra',
     deliveryNote:
       'Kérheted az autó kiszállítását a választott helyszínre (pl. reptérre vagy szállásra).',
     carImagesLabel: 'Autó fotói',
+    offerLabel: 'Ajánlat',
   },
   de: {
     rentalFeeLabel: 'Mietpreis',
@@ -65,11 +71,13 @@ export const LOCALIZED_STATIC: Record<
       'Bei der Auswahl von Extras können zusätzliche Kosten anfallen.',
     extrasLabel: 'Weitere Kosten',
     deliveryFeeLabel: 'Liefergebühr',
+    deliveryLocationLabel: 'Lieferort',
     extrasFeeLabel: 'Aufpreis für Extras',
     daysSuffix: 'Tage',
     deliveryNote:
       'Du kannst das Auto an deinen Wunschort liefern lassen (z. B. Flughafen oder Unterkunft).',
     carImagesLabel: 'Fahrzeugfotos',
+    offerLabel: 'Angebot',
   },
   ro: {
     rentalFeeLabel: 'Taxă de închiriere',
@@ -84,11 +92,13 @@ export const LOCALIZED_STATIC: Record<
       'La selectarea extraopțiunilor pot apărea costuri suplimentare.',
     extrasLabel: 'Costuri suplimentare',
     deliveryFeeLabel: 'Taxă de livrare',
+    deliveryLocationLabel: 'Loc livrare',
     extrasFeeLabel: 'Taxă pentru extraopțiuni',
     daysSuffix: 'zile',
     deliveryNote:
       'Poți solicita livrarea mașinii la locația dorită (de ex. aeroport sau cazare).',
     carImagesLabel: 'Fotografii ale mașinii',
+    offerLabel: 'Ofertă',
   },
   fr: {
     rentalFeeLabel: 'Frais de location',
@@ -103,11 +113,13 @@ export const LOCALIZED_STATIC: Record<
       'Le choix des options peut entraîner des coûts supplémentaires.',
     extrasLabel: 'Autres coûts',
     deliveryFeeLabel: 'Frais de livraison',
+    deliveryLocationLabel: 'Lieu de livraison',
     extrasFeeLabel: 'Frais des options',
     daysSuffix: 'jours',
     deliveryNote:
       "Vous pouvez demander la livraison de la voiture à l'endroit de votre choix (ex. aéroport ou hébergement).",
     carImagesLabel: 'Photos du véhicule',
+    offerLabel: 'Offre',
   },
   es: {
     rentalFeeLabel: 'Tarifa de alquiler',
@@ -120,11 +132,13 @@ export const LOCALIZED_STATIC: Record<
     extrasNote: 'Elegir extras puede generar costes adicionales.',
     extrasLabel: 'Costes adicionales',
     deliveryFeeLabel: 'Tarifa de entrega',
+    deliveryLocationLabel: 'Lugar de entrega',
     extrasFeeLabel: 'Coste de extras',
     daysSuffix: 'días',
     deliveryNote:
       'Puedes solicitar la entrega del coche en el lugar que prefieras (p. ej., aeropuerto o alojamiento).',
     carImagesLabel: 'Fotos del vehículo',
+    offerLabel: 'Oferta',
   },
   it: {
     rentalFeeLabel: 'Tariffa di noleggio',
@@ -137,11 +151,13 @@ export const LOCALIZED_STATIC: Record<
     extrasNote: 'La scelta di extra può comportare costi aggiuntivi.',
     extrasLabel: 'Altri costi',
     deliveryFeeLabel: 'Costo consegna',
+    deliveryLocationLabel: 'Località consegna',
     extrasFeeLabel: 'Costo extra',
     daysSuffix: 'giorni',
     deliveryNote:
       "Puoi richiedere la consegna dell'auto nel luogo che preferisci (es. aeroporto o alloggio).",
     carImagesLabel: "Foto dell'auto",
+    offerLabel: 'Offerta',
   },
   sk: {
     rentalFeeLabel: 'Prenájomné',
@@ -154,11 +170,13 @@ export const LOCALIZED_STATIC: Record<
     extrasNote: 'Výber extra služieb môže priniesť dodatočné náklady.',
     extrasLabel: 'Ďalšie náklady',
     deliveryFeeLabel: 'Poplatok za doručenie',
+    deliveryLocationLabel: 'Miesto doručenia',
     extrasFeeLabel: 'Poplatok za extra služby',
     daysSuffix: 'dní',
     deliveryNote:
       'Môžeš si vyžiadať doručenie auta na zvolené miesto (napr. letisko alebo ubytovanie).',
     carImagesLabel: 'Fotky vozidla',
+    offerLabel: 'Ponuka',
   },
   cz: {
     rentalFeeLabel: 'Nájemné',
@@ -171,11 +189,13 @@ export const LOCALIZED_STATIC: Record<
     extrasNote: 'Výběr doplňků může znamenat další náklady.',
     extrasLabel: 'Další náklady',
     deliveryFeeLabel: 'Poplatek za doručení',
+    deliveryLocationLabel: 'Místo doručení',
     extrasFeeLabel: 'Poplatek za doplňky',
     daysSuffix: 'dní',
     deliveryNote:
       'Auto si můžete nechat doručit na vámi zvolené místo (např. letiště nebo ubytování).',
     carImagesLabel: 'Fotografie vozu',
+    offerLabel: 'Nabídka',
   },
   se: {
     rentalFeeLabel: 'Hyresavgift',
@@ -188,11 +208,13 @@ export const LOCALIZED_STATIC: Record<
     extrasNote: 'Val av extra kan medföra ytterligare kostnader.',
     extrasLabel: 'Övriga kostnader',
     deliveryFeeLabel: 'Leveranskostnad',
+    deliveryLocationLabel: 'Leveransplats',
     extrasFeeLabel: 'Kostnad för tillval',
     daysSuffix: 'dagar',
     deliveryNote:
       'Du kan be om leverans till valfri plats (t.ex. flygplats eller boende).',
     carImagesLabel: 'Bilfoton',
+    offerLabel: 'Erbjudande',
   },
   no: {
     rentalFeeLabel: 'Leiepris',
@@ -205,11 +227,13 @@ export const LOCALIZED_STATIC: Record<
     extrasNote: 'Valg av ekstrautstyr kan medføre ekstra kostnader.',
     extrasLabel: 'Andre kostnader',
     deliveryFeeLabel: 'Leveringsgebyr',
+    deliveryLocationLabel: 'Leveringssted',
     extrasFeeLabel: 'Kostnad for ekstrautstyr',
     daysSuffix: 'dager',
     deliveryNote:
       'Du kan be om levering til ønsket sted (f.eks. flyplass eller overnatting).',
     carImagesLabel: 'Bilbilder',
+    offerLabel: 'Tilbud',
   },
   dk: {
     rentalFeeLabel: 'Lejepris',
@@ -223,11 +247,13 @@ export const LOCALIZED_STATIC: Record<
     extrasNote: 'Valg af ekstraudstyr kan medføre ekstra omkostninger.',
     extrasLabel: 'Andre omkostninger',
     deliveryFeeLabel: 'Leveringsgebyr',
+    deliveryLocationLabel: 'Leveringssted',
     extrasFeeLabel: 'Pris for ekstraudstyr',
     daysSuffix: 'dage',
     deliveryNote:
       'Du kan bede om levering til det ønskede sted (f.eks. lufthavn eller overnatning).',
     carImagesLabel: 'Bilfotos',
+    offerLabel: 'Tilbud',
   },
   pl: {
     rentalFeeLabel: 'Opłata za wynajem',
@@ -241,10 +267,12 @@ export const LOCALIZED_STATIC: Record<
     extrasNote: 'Wybranie dodatków może wiązać się z dodatkowymi kosztami.',
     extrasLabel: 'Inne koszty',
     deliveryFeeLabel: 'Opłata za dostawę',
+    deliveryLocationLabel: 'Miejsce dostawy',
     extrasFeeLabel: 'Opłata za dodatki',
     daysSuffix: 'dni',
     deliveryNote:
       'Możesz poprosić o dostawę auta pod wskazany adres (np. lotnisko lub nocleg).',
     carImagesLabel: 'Zdjęcia samochodu',
+    offerLabel: 'Oferta',
   },
 };

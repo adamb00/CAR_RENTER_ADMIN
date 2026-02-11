@@ -8,9 +8,15 @@ export type BookingRequestData = {
   deposit?: string | null;
   insurance?: string | null;
   deliveryFee?: string | null;
+  deliveryLocation?: string | null;
   extrasFee?: string | null;
   locale?: string | null;
   contactName?: string | null;
   contactEmail?: string | null;
   bookingLink?: string | null;
+  rentalDays?: number | null;
 };
+
+export type BookingRequestDataPayload =
+  | BookingRequestData
+  | BookingRequestData[];

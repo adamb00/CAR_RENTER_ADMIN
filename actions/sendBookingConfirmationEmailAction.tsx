@@ -9,6 +9,7 @@ import BookingConfirmationEmail, {
 import { getBookingById } from '@/data-service/bookings';
 import { getQuoteById } from '@/data-service/quotes';
 import { BOOKING_EMAIL_FROM, RENT_STATUS_ACCEPTED } from '@/lib/constants';
+import type { BookingRequestData } from '@/types/booking-request';
 import {
   BOOKING_FROM_ADDRESS,
   MAIL_USER,
@@ -38,6 +39,26 @@ const formatCarLabel = (
     quoteCarName ??
     undefined
   );
+};
+
+const selectBookingRequestData = (
+  raw: unknown,
+  carId?: string | null
+): BookingRequestData | undefined => {
+  if (Array.isArray(raw)) {
+    if (carId) {
+      const match = raw.find(
+        (entry) =>
+          entry &&
+          typeof entry === 'object' &&
+          'carId' in entry &&
+          (entry as { carId?: string | null }).carId === carId
+      );
+      if (match) return match as BookingRequestData;
+    }
+    return raw[0] as BookingRequestData | undefined;
+  }
+  return raw as BookingRequestData | undefined;
 };
 
 export const sendBookingConfirmationEmailAction = async ({
@@ -71,7 +92,10 @@ export const sendBookingConfirmationEmailAction = async ({
   }
 
   const quote = booking.quoteId ? await getQuoteById(booking.quoteId) : null;
-  const bookingRequestData = quote?.bookingRequestData;
+  const selectedRequestData = selectBookingRequestData(
+    quote?.bookingRequestData,
+    booking.carId ?? booking.payload?.carId ?? null
+  );
 
   const localeRaw =
     booking.payload?.locale ?? booking.locale ?? quote?.locale ?? 'en';
@@ -83,11 +107,11 @@ export const sendBookingConfirmationEmailAction = async ({
     booking.rentalStart ?? booking.payload?.rentalPeriod?.startDate;
   const rentalEnd = booking.rentalEnd ?? booking.payload?.rentalPeriod?.endDate;
 
-  const insuranceFee = bookingRequestData?.insurance ?? null;
+  const insuranceFee = selectedRequestData?.insurance ?? null;
   const depositFee =
     insuranceFee && insuranceFee.trim().length > 0
       ? null
-      : bookingRequestData?.deposit ?? null;
+      : selectedRequestData?.deposit ?? null;
 
   const emailInput: BookingConfirmationEmailInput = {
     bookingCode: booking.humanId ?? booking.id,
@@ -96,10 +120,10 @@ export const sendBookingConfirmationEmailAction = async ({
     carLabel: formatCarLabel(booking, quote?.carName),
     rentalStart,
     rentalEnd,
-    rentalFee: bookingRequestData?.rentalFee ?? null,
+    rentalFee: selectedRequestData?.rentalFee ?? null,
     insuranceFee,
     deposit: depositFee,
-    extrasFee: bookingRequestData?.extrasFee ?? null,
+    extrasFee: selectedRequestData?.extrasFee ?? null,
   };
 
   const text = buildBookingConfirmationText(copy, emailInput);

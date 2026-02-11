@@ -1,6 +1,9 @@
 import { db } from '@/lib/db';
 import type { ContactQuotes } from '@prisma/client';
-import type { BookingRequestData } from '@/types/booking-request';
+import type {
+  BookingRequestData,
+  BookingRequestDataPayload,
+} from '@/types/booking-request';
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -29,7 +32,9 @@ export type ContactQuotePayload = {
   departureFlight: string;
   partySize?: string;
   children?: string;
+  rentalDays?: number;
   carId?: string;
+  offerAccepted?: number;
   delivery?: {
     placeType?: string;
     locationName?: string;
@@ -51,7 +56,9 @@ export type ContactQuote = ContactQuotePayload & {
   updatedAt?: string | null;
   status?: string;
   carName?: string | null;
-  bookingRequestData?: BookingRequestData;
+  bookingRequestData?: BookingRequestDataPayload;
+  rentalDays?: number;
+  offerAccepted?: number;
 };
 
 const toDateString = (value?: Date | null) =>
@@ -66,8 +73,8 @@ const toNullableString = (value: unknown) => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
-const normalizeBookingRequestData = (
-  raw: unknown
+const normalizeBookingRequestEntry = (
+  raw: unknown,
 ): BookingRequestData | undefined => {
   if (!isRecord(raw)) return undefined;
   const normalized: BookingRequestData = {
@@ -80,6 +87,7 @@ const normalizeBookingRequestData = (
     deposit: toNullableString(raw.deposit),
     insurance: toNullableString(raw.insurance),
     deliveryFee: toNullableString(raw.deliveryFee),
+    deliveryLocation: toNullableString(raw.deliveryLocation),
     extrasFee: toNullableString(raw.extrasFee),
     locale: toNullableString(raw.locale),
     contactName: toNullableString(raw.contactName),
@@ -92,9 +100,25 @@ const normalizeBookingRequestData = (
     : undefined;
 };
 
+const normalizeBookingRequestData = (
+  raw: unknown,
+): BookingRequestDataPayload | undefined => {
+  if (Array.isArray(raw)) {
+    const entries = raw
+      .map((entry) => normalizeBookingRequestEntry(entry))
+      .filter((entry): entry is BookingRequestData => Boolean(entry));
+    return entries.length > 0 ? entries : undefined;
+  }
+  return normalizeBookingRequestEntry(raw);
+};
+
 const normalizeQuote = (quote: ContactQuotes): ContactQuote => {
-  const delivery = (quote.delivery as ContactQuote['delivery'] | undefined) ?? {};
+  const delivery =
+    (quote.delivery as ContactQuote['delivery'] | undefined) ?? {};
   const address = delivery.address ?? {};
+  const rentalDays =
+    (quote as ContactQuotes & { rentaldays?: number | null }).rentaldays ??
+    undefined;
   return {
     id: quote.id,
     humanId: quote.humanId ?? null,
@@ -115,6 +139,8 @@ const normalizeQuote = (quote: ContactQuotes): ContactQuote => {
     children: quote.children ?? undefined,
     carId: quote.carid ?? undefined,
     carName: quote.carname ?? undefined,
+    rentalDays,
+    offerAccepted: quote.offerAccepted ?? undefined,
     delivery: {
       placeType: delivery.placeType ?? undefined,
       locationName: delivery.locationName ?? undefined,
@@ -140,10 +166,11 @@ export const getQuotes = async (): Promise<ContactQuote[]> => {
 };
 
 export const getQuoteById = async (
-  id: string
+  id: string,
 ): Promise<ContactQuote | null> => {
   const where = buildQuoteLookup(id);
   if (!where) return null;
   const quote = await db.contactQuotes.findUnique({ where });
+
   return quote ? normalizeQuote(quote) : null;
 };

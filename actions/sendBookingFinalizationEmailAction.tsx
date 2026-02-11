@@ -21,6 +21,7 @@ import {
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getFinalizationCopy } from '@/components/emails/utils/finalization-copy';
+import type { BookingRequestData } from '@/types/booking-request';
 
 type SendBookingFinalizationEmailInput = {
   bookingId: string;
@@ -42,7 +43,7 @@ const getLogoDataUrl = async () => {
   const { join } = await import('node:path');
 
   const logoPaths = ['logo_white.png', 'logo_black.png'].map((file) =>
-    join(process.cwd(), 'public', file)
+    join(process.cwd(), 'public', file),
   );
 
   for (const logoPath of logoPaths) {
@@ -54,7 +55,7 @@ const getLogoDataUrl = async () => {
       console.error(
         'sendBookingFinalizationEmailAction logo load failed',
         logoPath,
-        error
+        error,
       );
     }
   }
@@ -129,6 +130,26 @@ const normalizeInsuranceSelection = (value?: string | null) => {
   return trimmed;
 };
 
+const selectBookingRequestData = (
+  raw: unknown,
+  carId?: string | null,
+): BookingRequestData | undefined => {
+  if (Array.isArray(raw)) {
+    if (carId) {
+      const match = raw.find(
+        (entry) =>
+          entry &&
+          typeof entry === 'object' &&
+          'carId' in entry &&
+          (entry as { carId?: string | null }).carId === carId,
+      );
+      if (match) return match as BookingRequestData;
+    }
+    return raw[0] as BookingRequestData | undefined;
+  }
+  return raw as BookingRequestData | undefined;
+};
+
 export const sendBookingFinalizationEmailAction = async ({
   bookingId,
   signerName,
@@ -173,7 +194,10 @@ export const sendBookingFinalizationEmailAction = async ({
 
   const carId = booking.carId;
 
-  const requestData = quote?.bookingRequestData;
+  const requestData = selectBookingRequestData(
+    quote?.bookingRequestData,
+    booking.carId ?? booking.payload?.carId ?? null,
+  );
   const manualPricing = booking.payload?.pricing;
   const rentalStart =
     booking.rentalStart ?? booking.payload?.rentalPeriod?.startDate;
@@ -182,12 +206,12 @@ export const sendBookingFinalizationEmailAction = async ({
   const effectiveLocale = localeRaw && localeRaw.length > 0 ? localeRaw : 'hu';
   const copy = getFinalizationCopy(localeRaw);
 
-  const thankYouUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/rent/thank-you?rentId=${encodeURIComponent(
-    booking.id
+  const thankYouUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/rent/thank-you?finalize=true&rentId=${encodeURIComponent(
+    booking.id,
   )}`;
   const contactUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/contact`;
   const manageBaseUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/cars/${carId}/rent?rentId=${encodeURIComponent(
-    booking.id
+    booking.id,
   )}`;
   const modifyUrl = `${manageBaseUrl}?action=modify`;
   const cancelUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/rent/manage?action=cancel`;
@@ -263,7 +287,7 @@ export const sendBookingFinalizationEmailAction = async ({
   };
   const rentalPeriodText = `${formatPlainDate(
     rentalStart,
-    localeRaw
+    localeRaw,
   )} → ${formatPlainDate(rentalEnd, localeRaw)}`;
   const extrasListText =
     emailInput.extrasList && emailInput.extrasList.length > 0
@@ -288,12 +312,12 @@ export const sendBookingFinalizationEmailAction = async ({
   ];
   if (hasInsurance) {
     textLines.push(
-      `${copy.labels.insurance}: ${formatPlainPrice(emailInput.insurance)}`
+      `${copy.labels.insurance}: ${formatPlainPrice(emailInput.insurance)}`,
     );
   }
   if (depositValue) {
     textLines.push(
-      `${copy.labels.deposit}: ${formatPlainPrice(emailInput.deposit)}`
+      `${copy.labels.deposit}: ${formatPlainPrice(emailInput.deposit)}`,
     );
   }
   textLines.push(
@@ -313,29 +337,29 @@ export const sendBookingFinalizationEmailAction = async ({
     `${copy.labels.invoiceEmail}: ${formatPlain(emailInput.invoice?.email)}`,
     `${copy.labels.invoicePhone}: ${formatPlain(emailInput.invoice?.phone)}`,
     `${copy.labels.invoiceAddress}: ${formatPlain(
-      emailInput.invoice?.address
+      emailInput.invoice?.address,
     )}`,
     `${copy.labels.deliveryLocation}: ${formatPlain(
-      emailInput.delivery?.locationName
+      emailInput.delivery?.locationName,
     )}`,
     `${copy.labels.deliveryType}: ${formatPlain(
-      emailInput.delivery?.placeType
+      emailInput.delivery?.placeType,
     )}`,
     `${copy.labels.deliveryAddress}: ${formatPlain(
-      emailInput.delivery?.address
+      emailInput.delivery?.address,
     )}`,
     `${copy.labels.arrivalFlight}: ${formatPlain(
-      emailInput.delivery?.arrivalFlight
+      emailInput.delivery?.arrivalFlight,
     )}`,
     `${copy.labels.departureFlight}: ${formatPlain(
-      emailInput.delivery?.departureFlight
+      emailInput.delivery?.departureFlight,
     )}`,
-    ''
+    '',
   );
   if (emailInput.totalFee) {
     textLines.push(
       `${copy.labels.totalLabel}: ${formatPlainPrice(emailInput.totalFee)}`,
-      ''
+      '',
     );
   }
   textLines.push(
@@ -344,7 +368,7 @@ export const sendBookingFinalizationEmailAction = async ({
     '',
     `${copy.closing},`,
     emailInput.signerName,
-    ADMIN_SIGNATURE.company
+    ADMIN_SIGNATURE.company,
   );
   const { renderToStaticMarkup } = await import('react-dom/server');
   const html = `<!doctype html>${renderToStaticMarkup(
@@ -352,7 +376,7 @@ export const sendBookingFinalizationEmailAction = async ({
       input={emailInput}
       copy={copy}
       logoSrc={logoSrc ?? undefined}
-    />
+    />,
   )}`;
   const text = textLines.join('\n');
 

@@ -26,7 +26,7 @@ const mapNotification = (notification: Notification): SidebarNotification => ({
   title: notification.title,
   description: notification.description,
   href: notification.href,
-  timestamp: (notification.notifyAt ?? notification.createdAt).toISOString(),
+  timestamp: (notification.createdAt ?? notification.notifyAt).toISOString(),
   tone:
     (notification.tone as NotificationTone) === 'warning' ||
     (notification.tone as NotificationTone) === 'danger'
@@ -144,7 +144,7 @@ export const createNewNotification = async ({
 
 export const markNotificationAsProcessed = async (
   id: string,
-  eventKey?: string | null
+  eventKey?: string | null,
 ) => {
   if (!eventKey) return;
   const nextKey = eventKey.endsWith(':0')

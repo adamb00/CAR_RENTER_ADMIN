@@ -26,6 +26,8 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarHeader,
+  SidebarTrigger,
 } from '@/components/ui/sidebar';
 import type { SidebarNotification } from '@/data-service/notifications';
 
@@ -93,7 +95,7 @@ const NotificationsList = ({
     id: string,
     options?: {
       refresh?: boolean;
-    }
+    },
   ) => {
     const { refresh = true } = options ?? {};
     startTransition(async () => {
@@ -117,8 +119,8 @@ const NotificationsList = ({
           notification.tone === 'danger'
             ? AlertTriangle
             : notification.tone === 'warning'
-            ? CalendarClock
-            : Bell;
+              ? CalendarClock
+              : Bell;
         return (
           <Link
             key={notification.id}
@@ -190,7 +192,7 @@ export function AppSidebar({
 
   const handleNotificationRead = useCallback((id: string) => {
     setNotificationItems((prev) =>
-      prev.filter((notification) => notification.id !== id)
+      prev.filter((notification) => notification.id !== id),
     );
     setUnreadBadgeCount((count) => Math.max(0, count - 1));
   }, []);
@@ -220,6 +222,11 @@ export function AppSidebar({
         icon: BookOpen,
       },
       {
+        title: 'Naptár',
+        url: '/calendar',
+        icon: CalendarClock,
+      },
+      {
         title: 'Ajánlatkérések',
         url: '/quotes',
         icon: Inbox,
@@ -241,11 +248,14 @@ export function AppSidebar({
         ],
       },
     ],
-    [unreadBadgeCount]
+    [unreadBadgeCount],
   );
 
   return (
     <Sidebar collapsible='icon' {...props}>
+      <SidebarHeader className='flex items-center justify-between gap-2 px-3 py-2'>
+        <SidebarTrigger className='ml-auto' />
+      </SidebarHeader>
       <SidebarContent>
         <NavMain
           items={navItems}

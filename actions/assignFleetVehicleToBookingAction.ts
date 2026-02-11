@@ -1,0 +1,80 @@
+'use server';
+
+import type { Prisma } from '@prisma/client';
+import { revalidatePath } from 'next/cache';
+
+import { db } from '@/lib/db';
+
+type AssignFleetVehicleInput = {
+  bookingId: string;
+  fleetVehicleId: string | null;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+export async function assignFleetVehicleToBookingAction({
+  bookingId,
+  fleetVehicleId,
+}: AssignFleetVehicleInput) {
+  const trimmedBookingId = bookingId?.trim();
+  if (!trimmedBookingId) {
+    return { error: 'Foglalás azonosító kötelező.' };
+  }
+
+  const booking = await db.rentRequests.findUnique({
+    where: { id: trimmedBookingId },
+    select: { payload: true, carid: true, id: true },
+  });
+
+  if (!booking) {
+    return { error: 'A foglalás nem található.' };
+  }
+
+  let payload: Record<string, unknown> = {};
+  if (isRecord(booking.payload)) {
+    payload = { ...booking.payload };
+  }
+
+  if (!fleetVehicleId) {
+    delete payload.assignedFleetVehicleId;
+    delete payload.assignedFleetPlate;
+
+    await db.rentRequests.update({
+      where: { id: trimmedBookingId },
+      data: {
+        carid: null,
+        payload: payload as Prisma.InputJsonValue,
+      },
+    });
+    revalidatePath('/calendar');
+    return { success: 'Flotta autó törölve a foglalásból.' };
+  }
+
+  const fleetVehicle = await db.fleetVehicle.findUnique({
+    where: { id: fleetVehicleId },
+    select: { id: true, carId: true, plate: true },
+  });
+
+  if (!fleetVehicle) {
+    return { error: 'A választott flotta autó nem található.' };
+  }
+
+  payload = {
+    ...payload,
+    carId: fleetVehicle.carId,
+    assignedFleetVehicleId: fleetVehicle.id,
+    assignedFleetPlate: fleetVehicle.plate,
+  };
+
+  await db.rentRequests.update({
+    where: { id: trimmedBookingId },
+    data: {
+      carid: fleetVehicle.carId,
+      payload: payload as Prisma.InputJsonValue,
+    },
+  });
+
+  revalidatePath('/calendar');
+  return { success: 'Flotta autó hozzárendelve a foglaláshoz.' };
+}

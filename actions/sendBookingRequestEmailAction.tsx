@@ -4,6 +4,7 @@ import BookingRequestEmailTemplate, {
   EmailCopy,
   normalizeLocale,
   SendBookingRequestEmailInput,
+  SendBookingRequestEmailResolvedInput,
 } from '@/components/emails/booking-request-email';
 import {
   BOOKING_EMAIL_FROM,
@@ -25,7 +26,7 @@ type SendBookingRequestEmailResult = {
   error?: string;
 };
 
-type BookingRequestData = {
+type BookingRequestOfferData = {
   adminName?: string | null;
   carId?: string | null;
   carName?: string | null;
@@ -35,6 +36,7 @@ type BookingRequestData = {
   deposit?: string | null;
   insurance?: string | null;
   deliveryFee?: string | null;
+  deliveryLocation?: string | null;
   extrasFee?: string | null;
   locale?: string | null;
   contactName?: string | null;
@@ -75,8 +77,7 @@ const getLogoDataUrl = async () => {
 
 const buildHtmlBody = async (
   copy: EmailCopy,
-  input: SendBookingRequestEmailInput,
-  bookingLink: string
+  input: SendBookingRequestEmailResolvedInput
 ): Promise<string> => {
   const logoSrc = await getLogoDataUrl();
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -85,7 +86,6 @@ const buildHtmlBody = async (
     <BookingRequestEmailTemplate
       copy={copy}
       input={input}
-      bookingLink={bookingLink}
       logoSrc={logoSrc ?? undefined}
     />
   );
@@ -93,39 +93,45 @@ const buildHtmlBody = async (
   return `<!doctype html>${html}`;
 };
 
-const buildBookingLink = (locale: string, carId: string, quoteId: string) => {
+const buildBookingLink = (
+  locale: string,
+  carId: string,
+  quoteId: string,
+  offerIndex: number
+) => {
   const safeLocale = normalizeLocale(locale);
   const encodedCarId = encodeURIComponent(carId);
   const encodedQuoteId = encodeURIComponent(quoteId);
-  return `https://zodiacsrentacar.com/${safeLocale}/cars/${encodedCarId}/rent?quoteId=${encodedQuoteId}`;
+  return `https://zodiacsrentacar.com/${safeLocale}/cars/${encodedCarId}/rent?quoteId=${encodedQuoteId}&offer=${offerIndex}`;
 };
 
 const toNullableString = (value?: string | null) =>
   value === undefined ? null : value;
 
 const buildBookingRequestRecord = (
-  input: SendBookingRequestEmailInput,
-  bookingLink: string
-): BookingRequestData => ({
-  adminName: toNullableString(input.adminName),
-  carId: toNullableString(input.carId),
-  carName: toNullableString(input.carName),
-  rentalStart: toNullableString(input.rentalStart),
-  rentalEnd: toNullableString(input.rentalEnd),
-  rentalFee: input.rentalFee ?? null,
-  deposit: input.deposit ?? null,
-  insurance: input.insurance ?? null,
-  deliveryFee: input.deliveryFee ?? null,
-  extrasFee: input.extrasFee ?? null,
-  locale: toNullableString(input.locale),
-  contactName: toNullableString(input.name),
-  contactEmail: toNullableString(input.email),
-  bookingLink,
-});
+  input: SendBookingRequestEmailResolvedInput
+): BookingRequestOfferData[] =>
+  input.offers.map((offer) => ({
+    adminName: toNullableString(input.adminName),
+    carId: toNullableString(offer.carId),
+    carName: toNullableString(offer.carName),
+    rentalStart: toNullableString(input.rentalStart),
+    rentalEnd: toNullableString(input.rentalEnd),
+    rentalFee: offer.rentalFee ?? null,
+    deposit: offer.deposit ?? null,
+    insurance: offer.insurance ?? null,
+    deliveryFee: offer.deliveryFee ?? null,
+    deliveryLocation: offer.deliveryLocation ?? null,
+    extrasFee: offer.extrasFee ?? null,
+    locale: toNullableString(input.locale),
+    contactName: toNullableString(input.name),
+    contactEmail: toNullableString(input.email),
+    bookingLink: offer.bookingLink,
+  }));
 
 const markQuoteAsProcessed = async (
   quoteId: string,
-  bookingRequestData: BookingRequestData
+  bookingRequestData: BookingRequestOfferData[]
 ) => {
   await db.contactQuotes.update({
     where: { id: quoteId },
@@ -146,8 +152,12 @@ export const sendBookingRequestEmailAction = async (
     return { error: 'Ehhez az ajánlatkéréshez nincs e-mail cím megadva.' };
   }
 
-  if (!input.carId) {
-    return { error: 'Nincs autó társítva ehhez az ajánlatkéréshez.' };
+  if (!Array.isArray(input.offers) || input.offers.length === 0) {
+    return { error: 'Nincs ajánlat megadva ehhez az ajánlatkéréshez.' };
+  }
+
+  if (input.offers.some((offer) => !offer.carId)) {
+    return { error: 'Az ajánlat(ok)ban nincs autó kiválasztva.' };
   }
 
   if (!hasMailerConfig() || !BOOKING_FROM_ADDRESS) {
@@ -159,11 +169,19 @@ export const sendBookingRequestEmailAction = async (
 
   const locale = normalizeLocale(input.locale);
   const copy = EMAIL_COPY[locale] ?? EMAIL_COPY.en;
-  const bookingLink = buildBookingLink(locale, input.carId, input.quoteId);
+  const offersWithLinks = input.offers.map((offer, index) => ({
+    ...offer,
+    bookingLink: buildBookingLink(locale, offer.carId as string, input.quoteId, index),
+  }));
 
-  const text = buildTextBody(copy, input, bookingLink);
-  const html = await buildHtmlBody(copy, input, bookingLink);
-  const bookingRequestData = buildBookingRequestRecord(input, bookingLink);
+  const inputWithLinks: SendBookingRequestEmailResolvedInput = {
+    ...input,
+    offers: offersWithLinks,
+  };
+
+  const text = buildTextBody(copy, inputWithLinks);
+  const html = await buildHtmlBody(copy, inputWithLinks);
+  const bookingRequestData = buildBookingRequestRecord(inputWithLinks);
 
   try {
     const transporter = await getTransporter();

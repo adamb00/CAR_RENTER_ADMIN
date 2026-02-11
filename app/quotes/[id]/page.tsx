@@ -40,11 +40,11 @@ const formatPriceValue = (value?: string | null) => {
 const hasPricingDetails = (pricing?: PricingBreakdown) =>
   Boolean(
     pricing &&
-      (pricing.rentalFee ||
-        pricing.insurance ||
-        pricing.deposit ||
-        pricing.deliveryFee ||
-        pricing.extrasFee)
+    (pricing.rentalFee ||
+      pricing.insurance ||
+      pricing.deposit ||
+      pricing.deliveryFee ||
+      pricing.extrasFee),
   );
 
 export default async function QuoteDetailPage({
@@ -80,19 +80,27 @@ export default async function QuoteDetailPage({
   };
 
   const formatLocale = (locale: string | null | undefined) =>
-    locale ? LOCALE_LABELS[locale] ?? locale : '—';
+    locale ? (LOCALE_LABELS[locale] ?? locale) : '—';
 
   const formatPlaceType = (value?: string | null) => {
     if (!value) return '—';
     const map: Record<string, string> = {
-      airport: 'Repülőtér',
-      accommodation: 'Szállás',
+      airport: 'Átvétel a reptéren',
+      accommodation: 'Átvétel a szállodánál',
+      office: 'Átvétel az irodánál',
     };
     return map[value] ?? value;
   };
 
   const pricing = quote.bookingRequestData;
-  const showPricingBreakdown = hasPricingDetails(pricing);
+  const pricingList = Array.isArray(pricing)
+    ? pricing
+    : pricing
+      ? [pricing]
+      : [];
+  const showPricingBreakdown = pricingList.some((entry) =>
+    hasPricingDetails(entry),
+  );
 
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
@@ -138,11 +146,12 @@ export default async function QuoteDetailPage({
             <Detail label='Nyelv' value={formatLocale(quote.locale)} />
           </Section>
 
-          <Section title='Érkezés / Távozás / Járat'>
+          <Section title='Érkezés / Távozás / Járat / Napok száma'>
             <Detail label='Kezdés' value={quote.rentalStart} />
             <Detail label='Vége' value={quote.rentalEnd} />
             <Detail label='Érkező járat' value={quote.arrivalFlight} />
             <Detail label='Távozó járat' value={quote.departureFlight} />
+            <Detail label='Napok száma' value={quote.rentalDays ?? undefined} />
           </Section>
 
           <Section title='Létszám'>
@@ -163,37 +172,45 @@ export default async function QuoteDetailPage({
 
           {showPricingBreakdown && (
             <Section title='Korábban ajánlott díjak'>
-              <Detail
-                label='Foglalási díj'
-                value={formatPriceValue(pricing?.rentalFee)}
-              />
-              {
-                <Detail
-                  label='Biztosítás díja'
-                  value={formatPriceValue(pricing?.insurance)}
-                />
-              }
-              <Detail
-                label='Kaució'
-                value={formatPriceValue(pricing?.deposit)}
-              />
-              <Detail
-                label='Kiszállás díja'
-                value={formatPriceValue(pricing?.deliveryFee)}
-              />
-              <Detail
-                label='Extrák díja'
-                value={formatPriceValue(pricing?.extrasFee)}
-              />
+              <div className='space-y-4'>
+                {pricingList.map((offer, index) => (
+                  <div key={`offer-${index}`} className='space-y-2'>
+                    <div className='text-sm font-semibold'>
+                      Ajánlat {index + 1}
+                      {offer?.carName ? ` – ${offer.carName}` : ''}
+                    </div>
+                    <Detail
+                      label='Foglalási díj'
+                      value={formatPriceValue(offer?.rentalFee)}
+                    />
+                    <Detail
+                      label='Biztosítás díja'
+                      value={formatPriceValue(offer?.insurance)}
+                    />
+                    <Detail
+                      label='Kaució'
+                      value={formatPriceValue(offer?.deposit)}
+                    />
+                    <Detail
+                      label='Átvétel díja'
+                      value={formatPriceValue(offer?.deliveryFee)}
+                    />
+                    <Detail
+                      label='Extrák díja'
+                      value={formatPriceValue(offer?.extrasFee)}
+                    />
+                  </div>
+                ))}
+              </div>
             </Section>
           )}
 
-          <Section title='Kiszállítás / Átvétel'>
+          <Section title='Átvétel'>
             <Detail
-              label='Helytípus'
+              label='Átvétel helye'
               value={formatPlaceType(quote.delivery?.placeType)}
             />
-            <Detail label='Helyszín' value={quote.delivery?.locationName} />
+            <Detail label='Helyszín neve' value={quote.delivery?.locationName} />
             <Detail
               label='Cím'
               value={

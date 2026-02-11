@@ -9,9 +9,11 @@ import {
   type ReactNode,
 } from 'react';
 
+import { saveBookingDeliveryAction } from '@/actions/saveBookingDeliveryAction';
 import { saveBookingPricingAction } from '@/actions/saveBookingPricingAction';
 import { sendBookingFinalizationEmailAction } from '@/actions/sendBookingFinalizationEmailAction';
 import { Button } from '@/components/ui/button';
+import { FloatingSelect } from '@/components/ui/floating-select';
 import { Input } from '@/components/ui/input';
 import {
   Sheet,
@@ -71,8 +73,8 @@ const formatDate = (value?: string | null) => {
       });
 };
 
-const formatAddress = (address?: BookingAddress | null) => {
-  if (!address) return '—';
+const extractAddressText = (address?: BookingAddress | null) => {
+  if (!address) return '';
   const parts = [
     address.country,
     address.postalCode,
@@ -81,18 +83,26 @@ const formatAddress = (address?: BookingAddress | null) => {
     address.streetType,
     address.doorNumber,
   ].filter(Boolean);
-  return parts.length ? parts.join(', ') : '—';
+  return parts.length ? parts.join(', ') : '';
+};
+
+const formatAddress = (address?: BookingAddress | null) => {
+  const formatted = extractAddressText(address);
+  return formatted.length > 0 ? formatted : '—';
 };
 
 const formatPlaceType = (value?: string | null) => {
   if (!value) return '—';
-  return value
-    .split('_')
-    .map((part) =>
-      part ? part[0].toUpperCase() + part.slice(1).toLowerCase() : ''
-    )
-    .join(' ');
+  const map: Record<string, string> = {
+    airport: 'Átvétel a reptéren',
+    accommodation: 'Átvétel a szállodánál',
+    office: 'Átvétel az irodánál',
+  };
+  return map[value] ?? value;
 };
+
+const requiresDeliveryAddress = (placeType?: string | null) =>
+  placeType === 'airport' || placeType === 'accommodation';
 
 const formatExtras = (extras?: string[]) => {
   if (!extras || extras.length === 0) return '—';
@@ -107,9 +117,14 @@ type PricingKeys =
   | 'deliveryFee'
   | 'extrasFee';
 type PricingFormState = Record<PricingKeys, string>;
+type DeliveryFormState = {
+  placeType: string;
+  locationName: string;
+  address: string;
+};
 
 const buildPricingFormState = (
-  pricing?: Pick<BookingRequestData, PricingKeys>
+  pricing?: Pick<BookingRequestData, PricingKeys>,
 ): PricingFormState => ({
   rentalFee: pricing?.rentalFee ?? '',
   insurance: pricing?.insurance ?? '',
@@ -118,19 +133,37 @@ const buildPricingFormState = (
   extrasFee: pricing?.extrasFee ?? '',
 });
 
+const buildDeliveryFormState = (
+  delivery?: BookingPayload['delivery'] | null,
+  pricing?: BookingRequestData,
+): DeliveryFormState => ({
+  placeType: delivery?.placeType ?? '',
+  locationName: delivery?.locationName ?? pricing?.deliveryLocation ?? '',
+  address: extractAddressText(delivery?.address ?? null),
+});
+
 const hasPricingValues = (
-  pricing?: Pick<BookingRequestData, PricingKeys> | null
+  pricing?: Pick<BookingRequestData, PricingKeys> | null,
 ) =>
   Boolean(
     pricing &&
-      [
-        pricing.rentalFee,
-        pricing.insurance,
-        pricing.deposit,
-        pricing.deliveryFee,
-        pricing.extrasFee,
-      ].some((value) => typeof value === 'string' && value.trim().length > 0)
+    [
+      pricing.rentalFee,
+      pricing.insurance,
+      pricing.deposit,
+      pricing.deliveryFee,
+      pricing.extrasFee,
+    ].some((value) => typeof value === 'string' && value.trim().length > 0),
   );
+
+const hasDeliveryFeeValue = (value?: string | null) =>
+  typeof value === 'string' && value.trim().length > 0;
+
+const hasDeliveryLocation = (delivery?: BookingPayload['delivery'] | null) =>
+  Boolean(delivery?.locationName && delivery.locationName.trim().length > 0);
+
+const hasDeliveryAddress = (delivery?: BookingPayload['delivery'] | null) =>
+  extractAddressText(delivery?.address ?? null).trim().length > 0;
 
 const InfoGroup = ({
   title,
@@ -178,19 +211,39 @@ export const SendConfirmButton = ({
   const [open, setOpen] = useState(false);
   const [emailStatus, setEmailStatus] = useState<StatusMessage | null>(null);
   const [pricingStatus, setPricingStatus] = useState<StatusMessage | null>(
-    null
+    null,
   );
   const [isSendingEmail, startSendTransition] = useTransition();
   const [isSavingPricing, startPricingTransition] = useTransition();
   const [signerName, setSignerName] = useState('');
   const [pricingValues, setPricingValues] = useState<PricingFormState>(() =>
-    buildPricingFormState(pricing)
+    buildPricingFormState(pricing),
+  );
+  const [deliveryValues, setDeliveryValues] = useState<DeliveryFormState>(() =>
+    buildDeliveryFormState(delivery, pricing),
+  );
+  const deliveryPlaceType = delivery?.placeType?.trim() ?? '';
+  const deliveryDetailsRequired =
+    hasDeliveryFeeValue(pricing?.deliveryFee) &&
+    (!deliveryPlaceType ||
+      (requiresDeliveryAddress(deliveryPlaceType) &&
+        (!hasDeliveryLocation(delivery) || !hasDeliveryAddress(delivery))));
+  const [deliveryStatus, setDeliveryStatus] = useState<StatusMessage | null>(
+    null,
+  );
+  const [isSavingDelivery, startDeliveryTransition] = useTransition();
+  const [deliverySaved, setDeliverySaved] = useState(
+    () => !deliveryDetailsRequired,
   );
 
   useEffect(() => {
     if (hasQuote) return;
     setPricingValues(buildPricingFormState(pricing));
   }, [hasQuote, pricing]);
+
+  useEffect(() => {
+    setDeliveryValues(buildDeliveryFormState(delivery, pricing));
+  }, [delivery, pricing]);
 
   const childCount = Array.isArray(childPassengers)
     ? childPassengers.length
@@ -201,6 +254,22 @@ export const SendConfirmButton = ({
   useEffect(() => {
     setSaved(hasPricingValues(pricing));
   }, [pricing]);
+
+  const formattedDeliveryAddress = formatAddress(delivery?.address);
+  const deliveryTypeDisplay = formatPlaceType(
+    delivery?.placeType ?? deliveryValues.placeType,
+  );
+  const deliveryRequiresAddress = requiresDeliveryAddress(
+    deliveryValues.placeType.trim(),
+  );
+  const deliveryLocationDisplay =
+    delivery?.locationName && delivery.locationName.trim().length > 0
+      ? delivery.locationName
+      : deliveryValues.locationName.trim() || '—';
+  const deliveryAddressDisplay =
+    formattedDeliveryAddress !== '—'
+      ? formattedDeliveryAddress
+      : deliveryValues.address.trim() || '—';
 
   const handleSendEmail = () => {
     setEmailStatus(null);
@@ -254,6 +323,57 @@ export const SendConfirmButton = ({
       });
       setPricingValues(buildPricingFormState(result.pricing));
       setSaved(hasPricingValues(result.pricing));
+    });
+  };
+
+  const handleDeliveryInputChange =
+    (field: keyof DeliveryFormState) =>
+    (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      const { value } = event.target;
+      setDeliverySaved(false);
+      setDeliveryValues((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    };
+
+  const handleSaveDelivery = () => {
+    setDeliveryStatus(null);
+    startDeliveryTransition(async () => {
+      const placeType = deliveryValues.placeType.trim();
+      const locationName = deliveryValues.locationName.trim();
+      const address = deliveryValues.address.trim();
+      const needsAddress = requiresDeliveryAddress(placeType);
+
+      if (!placeType || (needsAddress && (!locationName || !address))) {
+        setDeliveryStatus({
+          type: 'error',
+          message:
+            'Add meg az átvétel helyét. Reptér/szálloda esetén a helyszín és a cím is kötelező.',
+        });
+        return;
+      }
+
+      const result = await saveBookingDeliveryAction({
+        bookingId,
+        delivery: {
+          placeType,
+          locationName: locationName || undefined,
+          address: address || undefined,
+        },
+      });
+
+      if (result?.error) {
+        setDeliveryStatus({ type: 'error', message: result.error });
+        return;
+      }
+
+      setDeliveryStatus({
+        type: 'success',
+        message: result?.success ?? 'Átvételi adatok elmentve.',
+      });
+      setDeliveryValues(buildDeliveryFormState(result.delivery, pricing));
+      setDeliverySaved(true);
     });
   };
 
@@ -311,12 +431,12 @@ export const SendConfirmButton = ({
                 <Input
                   type='text'
                   label='Kaució (€)'
-                  value={pricingValues.deposit}
+                  value={pricingValues.insurance ? 0 : pricingValues.deposit}
                   onChange={handlePricingInputChange('deposit')}
                 />
                 <Input
                   type='text'
-                  label='Kiszállás díja (€)'
+                  label='Átvétel díja (€)'
                   value={pricingValues.deliveryFee}
                   onChange={handlePricingInputChange('deliveryFee')}
                 />
@@ -378,13 +498,79 @@ export const SendConfirmButton = ({
             <InfoRow label='Adószám' value={tax?.id ?? '—'} />
           </InfoGroup>
 
-          <InfoGroup title='Kiszállítás / Átvétel'>
-            <InfoRow
-              label='Helytípus'
-              value={formatPlaceType(delivery?.placeType)}
-            />
-            <InfoRow label='Helyszín' value={delivery?.locationName ?? '—'} />
-            <InfoRow label='Cím' value={formatAddress(delivery?.address)} />
+          <InfoGroup title='Átvétel'>
+            {deliveryDetailsRequired ? (
+              <div className='space-y-3'>
+                <div className='grid gap-3 sm:grid-cols-2'>
+                  <FloatingSelect
+                    label='Átvétel helye'
+                    alwaysFloatLabel
+                    value={deliveryValues.placeType}
+                    onChange={handleDeliveryInputChange('placeType')}
+                  >
+                    <option value=''>Válassz átvételi helyet</option>
+                    <option value='airport'>Reptér</option>
+                    <option value='accommodation'>Szálloda</option>
+                    <option value='office'>Iroda</option>
+                  </FloatingSelect>
+                  {deliveryRequiresAddress ? (
+                    <>
+                      <Input
+                        type='text'
+                        label='Helyszín neve'
+                        value={deliveryValues.locationName}
+                        onChange={handleDeliveryInputChange('locationName')}
+                      />
+                      <div className='sm:col-span-2'>
+                        <Input
+                          type='text'
+                          label='Cím'
+                          value={deliveryValues.address}
+                          onChange={handleDeliveryInputChange('address')}
+                        />
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+                <div className='space-y-2'>
+                  <Button
+                    type='button'
+                    variant='secondary'
+                    className='w-full sm:w-auto'
+                    disabled={
+                      isSavingDelivery ||
+                      !deliveryValues.placeType.trim() ||
+                      (deliveryRequiresAddress &&
+                        (!deliveryValues.locationName.trim() ||
+                          !deliveryValues.address.trim()))
+                    }
+                    onClick={handleSaveDelivery}
+                  >
+                    {isSavingDelivery ? 'Mentés...' : 'Átvételi adatok mentése'}
+                  </Button>
+                  {deliveryStatus && (
+                    <p
+                      className={`text-sm ${
+                        deliveryStatus.type === 'error'
+                          ? 'text-destructive'
+                          : 'text-emerald-600'
+                      }`}
+                    >
+                      {deliveryStatus.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                <InfoRow label='Átvétel helye' value={deliveryTypeDisplay} />
+                <InfoRow
+                  label='Helyszín neve'
+                  value={deliveryLocationDisplay}
+                />
+                <InfoRow label='Cím' value={deliveryAddressDisplay} />
+              </>
+            )}
             <InfoRow
               label='Érkező járat'
               value={delivery?.arrivalFlight ?? '—'}
@@ -411,7 +597,12 @@ export const SendConfirmButton = ({
             <Button
               type='button'
               className='w-full'
-              disabled={isSendingEmail || !signerName.trim() || !saved}
+              disabled={
+                isSendingEmail ||
+                !signerName.trim() ||
+                !saved ||
+                (deliveryDetailsRequired && !deliverySaved)
+              }
               onClick={handleSendEmail}
             >
               {isSendingEmail

@@ -49,9 +49,20 @@ export type BookingPricing = {
   extrasFee?: string;
 };
 
+export const PAYMENT_METHOD_VALUES = [
+  'advance_transfer',
+  'cash_on_pickup',
+  'card_on_pickup',
+  'instant_transfer_on_pickup',
+] as const;
+
+export type PaymentMethodValue = (typeof PAYMENT_METHOD_VALUES)[number];
+
 export type BookingPayload = {
   locale?: string;
   carId?: string;
+  assignedFleetVehicleId?: string;
+  assignedFleetPlate?: string;
   quoteId?: string;
   extras?: string[];
   adults?: number;
@@ -88,6 +99,7 @@ export type BookingPayload = {
     privacy?: boolean;
     terms?: boolean;
     insurance?: boolean;
+    paymentMethod?: PaymentMethodValue;
   };
   pricing?: BookingPricing;
 };
@@ -114,8 +126,10 @@ export type Booking = {
   contactName: string;
   contactEmail: string | null;
   contactPhone?: string | null;
+  assignedFleetVehicleId?: string;
   rentalStart?: string;
   rentalEnd?: string;
+  rentalDays?: number;
   status?: string | null;
   updatedNote?: string | null;
   createdAt: string | null;
@@ -138,6 +152,14 @@ const toOptionalString = (value: unknown) =>
 
 const toOptionalBoolean = (value: unknown) =>
   typeof value === 'boolean' ? value : undefined;
+
+const toOptionalPaymentMethod = (
+  value: unknown,
+): PaymentMethodValue | undefined =>
+  typeof value === 'string' &&
+  PAYMENT_METHOD_VALUES.includes(value as PaymentMethodValue)
+    ? (value as PaymentMethodValue)
+    : undefined;
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -198,19 +220,19 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
                   validFrom: toOptionalString(item.document.validFrom),
                   validUntil: toOptionalString(item.document.validUntil),
                   drivingLicenceNumber: toOptionalString(
-                    item.document.drivingLicenceNumber
+                    item.document.drivingLicenceNumber,
                   ),
                   drivingLicenceValidFrom: toOptionalString(
-                    item.document.drivingLicenceValidFrom
+                    item.document.drivingLicenceValidFrom,
                   ),
                   drivingLicenceValidUntil: toOptionalString(
-                    item.document.drivingLicenceValidUntil
+                    item.document.drivingLicenceValidUntil,
                   ),
                   drivingLicenceIsOlderThan_3: toOptionalBoolean(
-                    item.document.drivingLicenceIsOlderThan_3
+                    item.document.drivingLicenceIsOlderThan_3,
                   ),
                   drivingLicenceCategory: toOptionalString(
-                    item.document.drivingLicenceCategory
+                    item.document.drivingLicenceCategory,
                   ),
                 }
               : undefined,
@@ -227,15 +249,15 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
             typeof item.age === 'number'
               ? item.age
               : typeof item.age === 'string' && !Number.isNaN(Number(item.age))
-              ? Number(item.age)
-              : undefined;
+                ? Number(item.age)
+                : undefined;
           const height =
             typeof item.height === 'number'
               ? item.height
               : typeof item.height === 'string' &&
-                !Number.isNaN(Number(item.height))
-              ? Number(item.height)
-              : undefined;
+                  !Number.isNaN(Number(item.height))
+                ? Number(item.height)
+                : undefined;
           acc.push({ age, height });
           return acc;
         }, [])
@@ -281,6 +303,7 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
         privacy: toOptionalBoolean(payload.consents.privacy),
         terms: toOptionalBoolean(payload.consents.terms),
         insurance: toOptionalBoolean(payload.consents.insurance),
+        paymentMethod: toOptionalPaymentMethod(payload.consents?.paymentMethod),
       }
     : undefined;
 
@@ -297,6 +320,8 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
   return {
     locale: toOptionalString(payload.locale),
     carId: toOptionalString(payload.carId),
+    assignedFleetVehicleId: toOptionalString(payload.assignedFleetVehicleId),
+    assignedFleetPlate: toOptionalString(payload.assignedFleetPlate),
     quoteId: toOptionalString(payload.quoteId),
     extras: Array.isArray(payload.extras)
       ? payload.extras
@@ -307,9 +332,9 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
       typeof payload.adults === 'number'
         ? payload.adults
         : typeof payload.adults === 'string' &&
-          !Number.isNaN(Number(payload.adults))
-        ? Number(payload.adults)
-        : undefined,
+            !Number.isNaN(Number(payload.adults))
+          ? Number(payload.adults)
+          : undefined,
     children,
     rentalPeriod,
     driver,
@@ -336,7 +361,7 @@ const toJSONValue = (value: unknown): string | undefined => {
 };
 
 const normalizeSelfServiceChanges = (
-  value: unknown
+  value: unknown,
 ): BookingSelfServiceChange[] => {
   if (!value) return [];
 
@@ -349,11 +374,20 @@ const normalizeSelfServiceChanges = (
       '';
     const previous =
       toJSONValue(
-        entry.previous ?? entry.from ?? entry.old ?? entry.before ?? entry.previousValue
+        entry.previous ??
+          entry.from ??
+          entry.old ??
+          entry.before ??
+          entry.previousValue,
       ) ?? undefined;
     const next =
       toJSONValue(
-        entry.next ?? entry.to ?? entry.new ?? entry.after ?? entry.value ?? entry.current
+        entry.next ??
+          entry.to ??
+          entry.new ??
+          entry.after ??
+          entry.value ??
+          entry.current,
       ) ?? undefined;
 
     if (!fieldCandidate && !previous && !next) return null;
@@ -378,11 +412,20 @@ const normalizeSelfServiceChanges = (
             field,
             previous:
               toJSONValue(
-                raw.previous ?? raw.from ?? raw.old ?? raw.before ?? raw.previousValue
+                raw.previous ??
+                  raw.from ??
+                  raw.old ??
+                  raw.before ??
+                  raw.previousValue,
               ) ?? undefined,
             next:
               toJSONValue(
-                raw.next ?? raw.to ?? raw.new ?? raw.after ?? raw.value ?? raw.current
+                raw.next ??
+                  raw.to ??
+                  raw.new ??
+                  raw.after ??
+                  raw.value ??
+                  raw.current,
               ) ?? undefined,
           };
         }
@@ -399,7 +442,7 @@ const normalizeSelfServiceChanges = (
 };
 
 const parseSelfServiceEvents = (
-  updated?: string | null
+  updated?: string | null,
 ): BookingSelfServiceEvent[] => {
   if (!updated) return [];
   const trimmed = updated.trim();
@@ -414,7 +457,7 @@ const parseSelfServiceEvents = (
     return entries
       .filter(
         (entry): entry is Record<string, unknown> =>
-          isRecord(entry) && entry.action === 'self-service:modify'
+          isRecord(entry) && entry.action === 'self-service:modify',
       )
       .map((entry) => {
         const timestamp =
@@ -445,12 +488,18 @@ const normalizeBooking = (booking: BookingWithQuote): Booking => ({
   humanId: booking.humanId ?? booking.ContactQuotes?.humanId ?? null,
   locale: booking.locale ?? '',
   carId: booking.carid ?? undefined,
+  assignedFleetVehicleId: isRecord(booking.payload)
+    ? toOptionalString(
+        (booking.payload as Record<string, unknown>).assignedFleetVehicleId,
+      )
+    : undefined,
   quoteId: booking.quoteid ?? undefined,
   contactName: booking.contactname ?? '',
   contactEmail: booking.contactemail ?? null,
   contactPhone: booking.contactphone ?? null,
   rentalStart: toDateString(booking.rentalstart),
   rentalEnd: toDateString(booking.rentalend),
+  rentalDays: booking.rentaldays ?? undefined,
   status: booking.status ?? undefined,
   updatedNote: booking.updated ?? undefined,
   createdAt: toDateTimeString(booking.createdAt),
@@ -472,8 +521,8 @@ const syncQuoteStatusesForBookings = async (bookings: RentRequests[]) => {
     new Set(
       bookings
         .map((booking) => booking.quoteid)
-        .filter((id): id is string => Boolean(id))
-    )
+        .filter((id): id is string => Boolean(id)),
+    ),
   );
 
   if (quoteIds.length === 0) return;
@@ -500,8 +549,8 @@ export const getBookings = async (): Promise<Booking[]> => {
     new Set(
       normalized
         .map((booking) => booking.carId ?? booking.payload?.carId)
-        .filter((id): id is string => Boolean(id))
-    )
+        .filter((id): id is string => Boolean(id)),
+    ),
   );
 
   const cars =
@@ -513,14 +562,14 @@ export const getBookings = async (): Promise<Booking[]> => {
       : [];
 
   const carMap = new Map(
-    cars.map((car) => [car.id, `${car.manufacturer} ${car.model}`.trim()])
+    cars.map((car) => [car.id, `${car.manufacturer} ${car.model}`.trim()]),
   );
 
   return normalized.map((booking) => {
     const carId = booking.carId ?? booking.payload?.carId;
     return {
       ...booking,
-      carLabel: carId ? carMap.get(carId) ?? carId : undefined,
+      carLabel: carId ? (carMap.get(carId) ?? carId) : undefined,
     };
   });
 };
@@ -553,7 +602,7 @@ export const getBookingById = async (id: string): Promise<Booking | null> => {
 };
 
 export const getBookingByQuoteId = async (
-  quoteId: string
+  quoteId: string,
 ): Promise<Booking | null> => {
   const trimmedQuoteId = quoteId.trim();
   if (!trimmedQuoteId) return null;

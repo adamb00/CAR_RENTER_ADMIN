@@ -8,6 +8,9 @@ import { getQuoteById } from '@/data-service/quotes';
 import { getStatusMeta } from '@/lib/status';
 import { BookingRegistrationCheckbox } from './booking-registration-checkbox';
 import { SendConfirmButton } from './send-confirm-button';
+import Section from '@/components/ui/section';
+import { Detail, DetailInline } from '@/components/ui/detail';
+import { formatDateShort, formatDateTimeDetail } from '@/lib/format-date';
 
 const LOCALE_LABELS: Record<string, string> = {
   hu: 'Magyar',
@@ -25,33 +28,8 @@ const LOCALE_LABELS: Record<string, string> = {
   pl: 'Lengyel',
 };
 
-const formatDateShort = (value: string | null | undefined) => {
-  if (!value) return '—';
-  const date = new Date(value);
-  return isNaN(date.getTime())
-    ? value
-    : date.toLocaleDateString('hu-HU', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      });
-};
-
 const formatLocale = (locale: string | null | undefined) =>
-  locale ? LOCALE_LABELS[locale] ?? locale : '—';
-
-const formatDateTimeDetail = (value?: string | null) => {
-  if (!value) return 'Ismeretlen időpont';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('hu-HU', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
+  locale ? (LOCALE_LABELS[locale] ?? locale) : '—';
 
 const capitalizeSlug = (value?: string | null) => {
   if (!value) return '—';
@@ -64,8 +42,9 @@ const capitalizeSlug = (value?: string | null) => {
 const formatPlaceType = (value?: string | null) => {
   if (!value) return '—';
   const map: Record<string, string> = {
-    airport: 'Repülőtér',
-    accommodation: 'Szállás',
+    airport: 'Átvétel a reptéren',
+    accommodation: 'Átvétel a szállodánál',
+    office: 'Átvétel az irodánál',
   };
   return map[value] ?? capitalizeSlug(value);
 };
@@ -153,6 +132,7 @@ type PricingBreakdown = {
   deposit?: string | null;
   deliveryFee?: string | null;
   extrasFee?: string | null;
+  deliveryLocation?: string | null;
 };
 
 const formatPriceValue = (value?: string | null) => {
@@ -163,12 +143,23 @@ const formatPriceValue = (value?: string | null) => {
 const hasPricingDetails = (pricing?: PricingBreakdown) =>
   Boolean(
     pricing &&
-      (pricing.rentalFee ||
-        pricing.insurance ||
-        pricing.deposit ||
-        pricing.deliveryFee ||
-        pricing.extrasFee)
+    (pricing.rentalFee ||
+      pricing.insurance ||
+      pricing.deposit ||
+      pricing.deliveryFee ||
+      pricing.extrasFee),
   );
+
+const normalizePaymentMethod = (value?: string | null) => {
+  if (!value) return '—';
+  const map: Record<string, string> = {
+    card_on_pickup: 'Átvételkor bankkártya',
+    cash_on_pickup: 'Átvételkor készpénz',
+    instant_transfer_on_pickup: 'Átvételkor azonnali átutalás',
+    advance_transfer: 'Előre utalás',
+  };
+  return map[value] ?? capitalizeSlug(value);
+};
 
 export default async function BookingDetailPage({
   params,
@@ -182,10 +173,9 @@ export default async function BookingDetailPage({
   if (!booking) {
     notFound();
   }
-
   const delivery = booking.payload?.delivery;
   const invoice = booking.payload?.invoice;
-  // const consents = booking.payload?.consents;
+  const consents = booking.payload?.consents;
   const contactName = booking.payload?.contact?.name ?? booking.contactName;
   const contactEmail = booking.payload?.contact?.email ?? booking.contactEmail;
   const rentalStart =
@@ -199,12 +189,23 @@ export default async function BookingDetailPage({
   const hasInsuranceConsent = booking.payload?.consents?.insurance ?? null;
   const savedPricing: PricingBreakdown | undefined =
     booking.payload?.pricing ?? undefined;
-  const quotePricing: PricingBreakdown | undefined =
-    quote?.bookingRequestData ?? undefined;
+  const offerAcceptedIndex =
+    quote?.offerAccepted != null ? +quote.offerAccepted : 0;
+  const quotePricingRaw = Array.isArray(quote?.bookingRequestData)
+    ? quote.bookingRequestData[offerAcceptedIndex]
+    : undefined;
+  const quotePricing: PricingBreakdown | undefined = Array.isArray(
+    quotePricingRaw,
+  )
+    ? (quotePricingRaw[0] as PricingBreakdown | undefined)
+    : (quotePricingRaw as PricingBreakdown | undefined);
   const hasQuotePricing = !savedPricing && Boolean(quotePricing);
   const pricingData: PricingBreakdown | undefined =
     savedPricing ?? quotePricing ?? undefined;
   const showPricingBreakdown = hasPricingDetails(pricingData);
+
+  console.log('b', booking);
+  console.log('q', quote);
 
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
@@ -294,9 +295,13 @@ export default async function BookingDetailPage({
               )
             }
           />
-          <div className='grid gap-3 md:grid-cols-2'>
+          <div className='grid gap-3 md:grid-cols-3'>
             <Detail label='Kezdés' value={formatDateShort(rentalStart)} />
             <Detail label='Vége' value={formatDateShort(rentalEnd)} />
+            <Detail
+              label='Bérelt napok száma'
+              value={booking.rentalDays ?? '—'}
+            />
           </div>
           <div className='grid gap-3 md:grid-cols-2'>
             <Detail
@@ -306,6 +311,17 @@ export default async function BookingDetailPage({
             <Detail
               label='Frissítve'
               value={formatDateShort(booking.updatedAt)}
+            />
+          </div>
+          <div>
+            <Detail
+              label='Autó'
+              value={
+                booking.carLabel ??
+                booking.carId ??
+                booking.payload?.carId ??
+                '—'
+              }
             />
           </div>
         </Section>
@@ -327,8 +343,8 @@ export default async function BookingDetailPage({
               />
             )}
             <Detail
-              label='Kiszállás díja'
-              value={formatPriceValue(pricingData?.deliveryFee)}
+              label='Átvétel díja és helye'
+              value={`${formatPriceValue(pricingData?.deliveryFee)} - ${pricingData?.deliveryLocation ?? ''}`}
             />
             <Detail
               label='Extrák díja'
@@ -474,7 +490,7 @@ export default async function BookingDetailPage({
                               {formatDateShort(driver.document.validUntil)}
                               {expiryBadge(
                                 driver.document.validUntil,
-                                'Okmány'
+                                'Okmány',
                               )}
                             </span>
                           ) : (
@@ -503,7 +519,7 @@ export default async function BookingDetailPage({
                         value={
                           driver.document?.drivingLicenceValidFrom
                             ? formatDateShort(
-                                driver.document.drivingLicenceValidFrom
+                                driver.document.drivingLicenceValidFrom,
                               )
                             : '—'
                         }
@@ -514,11 +530,11 @@ export default async function BookingDetailPage({
                           driver.document?.drivingLicenceValidUntil ? (
                             <span className='gap-1 flex items-start xl:items-center flex-col xl:flex-row'>
                               {formatDateShort(
-                                driver.document.drivingLicenceValidUntil
+                                driver.document.drivingLicenceValidUntil,
                               )}
                               {expiryBadge(
                                 driver.document.drivingLicenceValidUntil,
-                                'Jogosítvány'
+                                'Jogosítvány',
                               )}
                             </span>
                           ) : (
@@ -529,7 +545,7 @@ export default async function BookingDetailPage({
                       <DetailInline
                         label='3 évnél régebbi?'
                         value={booleanLabel(
-                          driver.document?.drivingLicenceIsOlderThan_3
+                          driver.document?.drivingLicenceIsOlderThan_3,
                         )}
                       />
                     </div>
@@ -560,14 +576,18 @@ export default async function BookingDetailPage({
             label='Számlázás egyezik?'
             value={booleanLabel(invoice?.same)}
           />
+          <Detail
+            label='Fizetési mód'
+            value={normalizePaymentMethod(consents?.paymentMethod)}
+          />
         </Section>
 
-        <Section title='Kiszállítás / Átvétel'>
+        <Section title='Átvétel'>
           <Detail
-            label='Helytípus'
+            label='Átvétel helye'
             value={formatPlaceType(delivery?.placeType)}
           />
-          <Detail label='Helyszín' value={delivery?.locationName} />
+          <Detail label='Helyszín neve' value={delivery?.locationName} />
           <Detail label='Érkező járat' value={delivery?.arrivalFlight} />
           <Detail label='Távozó járat' value={delivery?.departureFlight} />
           <Detail label='Cím' value={formatAddress(delivery?.address)} />
@@ -634,50 +654,3 @@ export default async function BookingDetailPage({
     </div>
   );
 }
-
-const Section = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) => (
-  <div className='rounded-xl border bg-card p-4 shadow-sm'>
-    <h2 className='text-base font-semibold text-muted-foreground'>{title}</h2>
-    <div className='mt-3 grid gap-3 md:grid-cols-2'>{children}</div>
-  </div>
-);
-
-const Detail = ({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode | string | number | null | undefined;
-}) => (
-  <div className='flex flex-col rounded-lg border px-3 py-3'>
-    <span className='text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
-      {label}
-    </span>
-    <span className='text-base font-medium text-foreground'>
-      {value ?? '—'}
-    </span>
-  </div>
-);
-
-const DetailInline = ({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode | string | number | null | undefined;
-}) => (
-  <div className='flex flex-col'>
-    <span className='text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
-      {label}
-    </span>
-    <span className='text-base font-medium text-foreground'>
-      {value ?? '—'}
-    </span>
-  </div>
-);

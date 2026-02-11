@@ -1,9 +1,9 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mail } from 'lucide-react';
+import { Mail, Plus, Trash2 } from 'lucide-react';
 import { useState, useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { sendBookingRequestEmailAction } from '@/actions/sendBookingRequestEmailAction';
@@ -27,42 +27,35 @@ import {
 } from '@/components/ui/sheet';
 import { getCarById } from '@/data-service/cars';
 
-const pricingSchema = z.object({
-  adminName: z.string().min(1, 'Név kötelező'),
+const optionalPrice = z
+  .string()
+  .transform((val): string | undefined =>
+    val && val.trim().length > 0 ? val.trim() : undefined,
+  );
+
+const optionalText = z
+  .string()
+  .transform((val): string | undefined =>
+    val && val.trim().length > 0 ? val.trim() : undefined,
+  );
+
+const offerSchema = z.object({
   carId: z.string().min(1, 'Autó kiválasztása kötelező'),
-  rentalFee: z
-    .string()
-    .optional()
-    .transform((val) =>
-      val && val.trim().length > 0 ? val.trim() : undefined
-    ),
-  deposit: z
-    .string()
-    .optional()
-    .transform((val) =>
-      val && val.trim().length > 0 ? val.trim() : undefined
-    ),
-  insurance: z
-    .string()
-    .optional()
-    .transform((val) =>
-      val && val.trim().length > 0 ? val.trim() : undefined
-    ),
-  deliveryFee: z
-    .string()
-    .optional()
-    .transform((val) =>
-      val && val.trim().length > 0 ? val.trim() : undefined
-    ),
-  extrasFee: z
-    .string()
-    .optional()
-    .transform((val) =>
-      val && val.trim().length > 0 ? val.trim() : undefined
-    ),
+  rentalFee: optionalPrice,
+  deposit: optionalPrice,
+  insurance: optionalPrice,
+  deliveryFee: optionalPrice,
+  deliveryLocation: optionalText,
+  extrasFee: optionalPrice,
 });
 
-type PricingFormValues = z.infer<typeof pricingSchema>;
+const pricingSchema = z.object({
+  adminName: z.string().min(1, 'Név kötelező'),
+  offers: z.array(offerSchema).min(1, 'Legalább egy ajánlat szükséges'),
+});
+
+type PricingFormValues = z.output<typeof pricingSchema>;
+type PricingFormInputs = z.input<typeof pricingSchema>;
 
 type BookingRequestButtonProps = {
   quoteId: string;
@@ -96,17 +89,27 @@ export const BookingRequestButton = ({
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
 
-  const form = useForm<PricingFormValues>({
+  const form = useForm<PricingFormInputs, any, PricingFormValues>({
     resolver: zodResolver(pricingSchema),
     defaultValues: {
       adminName: '',
-      carId: carId ?? '',
-      rentalFee: '',
-      deposit: '',
-      insurance: '',
-      deliveryFee: '',
-      extrasFee: '',
+      offers: [
+        {
+          carId: carId ?? '',
+          rentalFee: '',
+          deposit: '',
+          insurance: '',
+          deliveryFee: '',
+          deliveryLocation: '',
+          extrasFee: '',
+        },
+      ],
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'offers',
   });
 
   const missingEmail = !email;
@@ -116,29 +119,32 @@ export const BookingRequestButton = ({
     if (missingEmail) return;
     setStatus(null);
     startTransition(async () => {
-      const rentalFee = values.rentalFee ?? undefined;
-      const deposit = values.deposit ?? undefined;
-      const insurance = values.insurance ?? undefined;
-      const deliveryFee = values.deliveryFee ?? undefined;
-      const extrasFee = values.extrasFee ?? undefined;
-      const car = await getCarById(values.carId);
+      const offers = await Promise.all(
+        values.offers.map(async (offer) => {
+          const car = offer.carId ? await getCarById(offer.carId) : null;
+          return {
+            carId: offer.carId,
+            carName: car ? `${car.manufacturer} ${car.model}` : carName,
+            carImages: car?.images ?? [],
+            rentalFee: offer.rentalFee ?? undefined,
+            deposit: offer.deposit ?? undefined,
+            insurance: offer.insurance ?? undefined,
+            deliveryFee: offer.deliveryFee ?? undefined,
+            deliveryLocation: offer.deliveryLocation ?? undefined,
+            extrasFee: offer.extrasFee ?? undefined,
+          };
+        }),
+      );
 
       const result = await sendBookingRequestEmailAction({
         quoteId,
         email,
         name,
         locale,
-        carId: values.carId,
-        carName: car ? `${car.manufacturer} ${car.model}` : carName,
-        carImages: car?.images ?? [],
         rentalStart,
         rentalEnd,
         adminName: values.adminName,
-        rentalFee,
-        deposit,
-        insurance,
-        deliveryFee,
-        extrasFee,
+        offers,
       });
 
       if (result?.error) {
@@ -155,20 +161,16 @@ export const BookingRequestButton = ({
   };
 
   const currentMonthIndex = new Date().getMonth();
+  const offersWatch = form.watch('offers');
 
-  const handleCarChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedId = event.target.value;
-    form.setValue('carId', selectedId);
-  };
-
-  const selectedCar = form.watch('carId');
-  const selectedCarWeekly = (() => {
-    const found = carOptions.find((c) => c.id === selectedCar);
+  const getWeeklyPrice = (selectedId?: string | null) => {
+    if (!selectedId) return null;
+    const found = carOptions.find((c) => c.id === selectedId);
     if (!found) return null;
     const monthly = found.monthlyPrices?.[currentMonthIndex];
     if (monthly == null) return null;
     return Math.round(monthly);
-  })();
+  };
 
   return (
     <Sheet
@@ -212,7 +214,10 @@ export const BookingRequestButton = ({
         )}
       </div>
 
-      <SheetContent side='right' className='w-full sm:max-w-md'>
+      <SheetContent
+        side='right'
+        className='w-full sm:max-w-md overflow-y-scroll'
+      >
         <SheetHeader>
           <SheetTitle>Foglaláskérés e-mail</SheetTitle>
           <SheetDescription>
@@ -236,46 +241,6 @@ export const BookingRequestButton = ({
           >
             <FormField
               control={form.control}
-              name='carId'
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <div className='space-y-2'>
-                      <label className='text-sm font-semibold text-foreground'>
-                        Autó kiválasztása
-                      </label>
-                      <select
-                        className='w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
-                        value={field.value}
-                        onChange={(e) => {
-                          field.onChange(e);
-                          handleCarChange(e);
-                        }}
-                      >
-                        <option value=''>Válassz autót</option>
-                        {carOptions.map((car) => (
-                          <option key={car.id} value={car.id}>
-                            {car.label}
-                          </option>
-                        ))}
-                      </select>
-                      {selectedCarWeekly != null && (
-                        <p className='text-xs text-muted-foreground'>
-                          Aktuális heti díj (emlékeztető):{' '}
-                          <span className='font-semibold'>
-                            {selectedCarWeekly.toLocaleString()} EUR
-                          </span>
-                        </p>
-                      )}
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
               name='adminName'
               render={({ field }) => (
                 <FormItem>
@@ -292,110 +257,209 @@ export const BookingRequestButton = ({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name='rentalFee'
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      type='number'
-                      inputMode='numeric'
-                      step='0.01'
-                      min='0'
-                      label='Bérleti díj (EUR)'
-                      placeholder='pl. 300'
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className='flex flex-col gap-6'>
+              {fields.map((field, index) => {
+                const selectedWeekly = getWeeklyPrice(
+                  offersWatch?.[index]?.carId,
+                );
+                return (
+                  <div
+                    key={field.id}
+                    className='rounded-xl border border-border/60 bg-muted/20 p-4 flex flex-col gap-4'
+                  >
+                    <div className='mb-3 flex items-center justify-between'>
+                      <h3 className='text-sm font-semibold'>
+                        Ajánlat {index + 1}
+                      </h3>
+                      {fields.length > 1 && (
+                        <Button
+                          type='button'
+                          variant='outline'
+                          size='sm'
+                          className='gap-2'
+                          onClick={() => remove(index)}
+                        >
+                          <Trash2 className='h-4 w-4' />
+                          Törlés
+                        </Button>
+                      )}
+                    </div>
 
-            <FormField
-              control={form.control}
-              name='deposit'
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      type='number'
-                      inputMode='numeric'
-                      step='0.01'
-                      min='0'
-                      label='Kaució (EUR)'
-                      placeholder='pl. 500'
-                      {...field}
+                    <FormField
+                      control={form.control}
+                      name={`offers.${index}.carId`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <div className='space-y-2'>
+                              <label className='text-sm font-semibold text-foreground'>
+                                Autó kiválasztása
+                              </label>
+                              <select
+                                className='w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
+                                value={field.value}
+                                onChange={field.onChange}
+                              >
+                                <option value=''>Válassz autót</option>
+                                {carOptions.map((car) => (
+                                  <option key={car.id} value={car.id}>
+                                    {car.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
-            <FormField
-              control={form.control}
-              name='insurance'
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      type='number'
-                      inputMode='numeric'
-                      step='0.01'
-                      min='0'
-                      label='Teljes körű biztosítás díja (EUR)'
-                      placeholder='pl. 370 (opcionális)'
-                      {...field}
+                    <FormField
+                      control={form.control}
+                      name={`offers.${index}.rentalFee`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input
+                              type='number'
+                              inputMode='numeric'
+                              step='0.01'
+                              min='0'
+                              label='Bérleti díj (EUR)'
+                              placeholder='pl. 300'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
-            <FormField
-              control={form.control}
-              name='deliveryFee'
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      type='number'
-                      inputMode='numeric'
-                      step='0.01'
-                      min='0'
-                      label='Kiszállítás díja (EUR)'
-                      placeholder='pl. 50'
-                      {...field}
+                    <FormField
+                      control={form.control}
+                      name={`offers.${index}.deposit`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input
+                              type='number'
+                              inputMode='numeric'
+                              step='0.01'
+                              min='0'
+                              label='Kaució (EUR)'
+                              placeholder='pl. 500'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
-            <FormField
-              control={form.control}
-              name='extrasFee'
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      type='number'
-                      inputMode='numeric'
-                      step='0.01'
-                      min='0'
-                      label='Extrák díja (EUR)'
-                      placeholder='pl. 30'
-                      {...field}
+                    <FormField
+                      control={form.control}
+                      name={`offers.${index}.insurance`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input
+                              type='number'
+                              inputMode='numeric'
+                              step='0.01'
+                              min='0'
+                              label='Teljes körű biztosítás díja (EUR)'
+                              placeholder='pl. 370 (opcionális)'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+
+                    <FormField
+                      control={form.control}
+                      name={`offers.${index}.deliveryFee`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input
+                              type='number'
+                              inputMode='numeric'
+                              step='0.01'
+                              min='0'
+                              label='Átvétel díja (EUR)'
+                              placeholder='pl. 50'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name={`offers.${index}.deliveryLocation`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input
+                              type='text'
+                              label='Átvétel helye'
+                              placeholder='pl. Budapest, Deák tér'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name={`offers.${index}.extrasFee`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input
+                              type='number'
+                              inputMode='numeric'
+                              step='0.01'
+                              min='0'
+                              label='Extrák díja (EUR)'
+                              placeholder='pl. 30'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            <Button
+              type='button'
+              variant='outline'
+              className='gap-2'
+              onClick={() =>
+                append({
+                  carId: carId ?? '',
+                  rentalFee: '',
+                  deposit: '',
+                  insurance: '',
+                  deliveryFee: '',
+                  deliveryLocation: '',
+                  extrasFee: '',
+                })
+              }
+            >
+              <Plus className='h-4 w-4' />
+              Ajánlat hozzáadása
+            </Button>
 
             <SheetFooter>
               <Button type='submit' disabled={isPending}>

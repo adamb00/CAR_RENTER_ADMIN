@@ -38,8 +38,10 @@ import {
   CAR_TRANSMISSIONS,
 } from '@/lib/car-options';
 import { cn } from '@/lib/utils';
+import { FloatingSelect } from '@/components/ui/floating-select';
 import {
   CreateCarFormSchema,
+  type CreateCarFormInput,
   type CreateCarFormValues,
   transformCarFormValues,
 } from '@/schemas/carSchema';
@@ -62,7 +64,7 @@ const MONTH_LABELS = [
   'December',
 ] as const;
 
-const DEFAULT_VALUES: Partial<CreateCarFormValues> = {
+const DEFAULT_VALUES: Partial<CreateCarFormInput> = {
   manufacturer: '',
   model: '',
   seats: undefined,
@@ -77,12 +79,12 @@ const DEFAULT_VALUES: Partial<CreateCarFormValues> = {
 };
 
 const buildDefaultValues = (
-  initialValues?: Partial<CreateCarFormValues>
-): CreateCarFormValues =>
+  initialValues?: Partial<CreateCarFormInput>
+): CreateCarFormInput =>
   ({
     ...DEFAULT_VALUES,
     ...initialValues,
-  } as CreateCarFormValues);
+  } as CreateCarFormInput);
 
 type CarFormMode = 'create' | 'edit';
 
@@ -113,72 +115,10 @@ const FormSection = ({
   </section>
 );
 
-interface FloatingSelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
-  label: string;
-}
-
-const FloatingSelect = ({
-  className,
-  label,
-  onChange,
-  onBlur,
-  value,
-  defaultValue,
-  children,
-  ...props
-}: FloatingSelectProps) => {
-  const [hasValue, setHasValue] = useState<boolean>(
-    Boolean(value ?? defaultValue)
-  );
-
-  useEffect(() => {
-    setHasValue(Boolean(value ?? defaultValue));
-  }, [value, defaultValue]);
-
-  const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    setHasValue(event.target.value !== '');
-    onChange?.(event);
-  };
-
-  const handleBlur = (event: FocusEvent<HTMLSelectElement>) => {
-    setHasValue(event.target.value !== '');
-    onBlur?.(event);
-  };
-
-  return (
-    <div className='relative w-full'>
-      <select
-        className={cn(
-          'peer block h-12 w-full rounded-md border border-input bg-background px-3 text-base shadow-sm outline-none transition-all',
-          'focus:border-slate-600 focus:ring-1 focus:ring-slate-600 disabled:cursor-not-allowed disabled:opacity-50',
-          className
-        )}
-        value={value}
-        defaultValue={defaultValue}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        {...props}
-      >
-        {children}
-      </select>
-      <label
-        className={cn(
-          'absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-base transition-all',
-          'peer-focus:-top-3 peer-focus:-translate-y-0 peer-focus:translate-x-2 peer-focus:bg-background peer-focus:px-2 peer-focus:text-sm peer-focus:text-slate-600',
-          hasValue &&
-            '-top-0.5 translate-x-2 bg-background px-2 text-sm text-slate-600'
-        )}
-      >
-        {label}
-      </label>
-    </div>
-  );
-};
-
 interface NewCarFormProps {
   className?: string;
   mode?: CarFormMode;
-  initialValues?: Partial<CreateCarFormValues>;
+  initialValues?: Partial<CreateCarFormInput>;
   carId?: string;
 }
 
@@ -198,13 +138,15 @@ export function NewCarForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isEditMode = mode === 'edit';
 
-  const mergedDefaultValues = useMemo<CreateCarFormValues>(
+  const mergedDefaultValues = useMemo<CreateCarFormInput>(
     () => buildDefaultValues(initialValues),
     [initialValues]
   );
 
-  const form = useForm<CreateCarFormValues>({
-    resolver: zodResolver(CreateCarFormSchema),
+  const form = useForm<CreateCarFormInput, any, CreateCarFormValues>({
+    resolver: zodResolver<CreateCarFormInput, any, CreateCarFormValues>(
+      CreateCarFormSchema
+    ),
     defaultValues: mergedDefaultValues,
   });
   const hasHydratedRef = useRef(false);
@@ -219,7 +161,7 @@ export function NewCarForm({
     try {
       const stored = localStorage.getItem(FORM_STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored) as Partial<CreateCarFormValues>;
+        const parsed = JSON.parse(stored) as Partial<CreateCarFormInput>;
         form.reset(buildDefaultValues(parsed));
       }
     } catch (error) {
@@ -368,7 +310,7 @@ export function NewCarForm({
           <form className='space-y-10' onSubmit={form.handleSubmit(onSubmit)}>
             <FormSection
               title='Alapadatok'
-              description='Csak a legfontosabb mezők maradtak.'
+              description='Add meg az autó alapvető adatait.'
             >
               <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'>
                 <FormField
@@ -467,57 +409,72 @@ export function NewCarForm({
                 />
                 <FormField
                   control={form.control}
-                  name='seats'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type='number'
-                          inputMode='numeric'
-                          min={1}
-                          label='Szállítható személyek'
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                name='seats'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type='number'
+                        inputMode='numeric'
+                        min={1}
+                        label='Szállítható személyek'
+                        value={
+                          typeof field.value === 'number'
+                            ? field.value
+                            : (field.value as string | undefined) ?? ''
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
                 />
                 <FormField
                   control={form.control}
-                  name='smallLuggage'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type='number'
-                          inputMode='numeric'
-                          min={0}
-                          label='Kis bőröndök száma'
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                name='smallLuggage'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type='number'
+                        inputMode='numeric'
+                        min={0}
+                        label='Kis bőröndök száma'
+                        value={
+                          typeof field.value === 'number'
+                            ? field.value
+                            : (field.value as string | undefined) ?? ''
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
                 />
                 <FormField
                   control={form.control}
-                  name='largeLuggage'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type='number'
-                          inputMode='numeric'
-                          min={0}
-                          label='Nagy bőröndök száma'
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                name='largeLuggage'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type='number'
+                        inputMode='numeric'
+                        min={0}
+                        label='Nagy bőröndök száma'
+                        value={
+                          typeof field.value === 'number'
+                            ? field.value
+                            : (field.value as string | undefined) ?? ''
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
                 />
               </div>
             </FormSection>
@@ -532,12 +489,12 @@ export function NewCarForm({
                 render={({ field }) => {
                   const prices: (number | undefined)[] = (() => {
                     const incoming = field.value ?? [];
-                    if (incoming.length === 12) return incoming;
-                    const normalized = Array.from(
-                      { length: 12 },
-                      (_, idx) => incoming[idx]
-                    );
-                    return normalized;
+                    return Array.from({ length: 12 }, (_, idx) => {
+                      const raw = incoming[idx];
+                      if (raw === '' || raw == null) return undefined;
+                      const parsed = Number(raw);
+                      return Number.isNaN(parsed) ? undefined : parsed;
+                    });
                   })();
 
                   const handleChange = (index: number, value: string) => {
