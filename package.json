@@ -15,8 +15,9 @@
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
     "@hookform/resolvers": "^5.2.2",
+    "@pdf-lib/fontkit": "^1.1.1",
     "@prisma/adapter-pg": "^7.3.0",
-    "@prisma/client": "^7.3.0",
+    "@prisma/client": "^7.4.0",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -34,10 +35,12 @@
     "next": "16.1.6",
     "next-auth": "5.0.0-beta.25",
     "nodemailer": "^8.0.0",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.18.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-hook-form": "^7.71.1",
+    "react-signature-canvas": "1.1.0-alpha.2",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.3.6"
@@ -55,7 +58,7 @@
     "eslint": "^9.39.2",
     "eslint-config-next": "16.1.6",
     "eslint-plugin-react-hooks": "^7.0.1",
-    "prisma": "^7.3.0",
+    "prisma": "^7.4.0",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3"
   }

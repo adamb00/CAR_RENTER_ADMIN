@@ -3,8 +3,8 @@ const DEFAULT_FLEET_PLACE = 'Alapértelmezett';
 const FLEET_PLACES = [
   {
     label: DEFAULT_FLEET_PLACE,
-    color: '#ffffff',
-    value: `${DEFAULT_FLEET_PLACE} #ffffff`,
+    color: '#1f2937',
+    value: `${DEFAULT_FLEET_PLACE} #1f2937`,
   },
   {
     label: 'Lanzarotte I. csoport',
@@ -18,18 +18,18 @@ const FLEET_PLACES = [
   },
   {
     label: 'Fuerteventure Szállodák Észak II. csoport',
-    color: '#008000',
-    value: 'Fuerteventure Szállodák Észak II. csoport #008000',
+    color: '#0f766e',
+    value: 'Fuerteventure Szállodák Észak II. csoport #0f766e',
   },
   {
     label: 'Fuerteventure Szállodák Dél II. Csoport',
-    color: '#add8e6',
-    value: 'Fuerteventure Szállodák Dél II. Csoport #add8e6',
+    color: '#2563eb',
+    value: 'Fuerteventure Szállodák Dél II. Csoport #2563eb',
   },
   {
     label: 'Fuerteventure Szállodák Közép II. csoport',
-    color: '#ffffff',
-    value: 'Fuerteventure Szállodák Közép II. csoport #ffffff',
+    color: '#7c2d12',
+    value: 'Fuerteventure Szállodák Közép II. csoport #7c2d12',
   },
 ] as const;
 

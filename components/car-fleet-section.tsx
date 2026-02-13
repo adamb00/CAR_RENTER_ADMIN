@@ -38,7 +38,11 @@ type CarFleetSectionProps = {
   initialRows: FleetRow[];
 };
 
-export function CarFleetSection({ carLabel, carId, initialRows }: CarFleetSectionProps) {
+export function CarFleetSection({
+  carLabel,
+  carId,
+  initialRows,
+}: CarFleetSectionProps) {
   const router = useRouter();
   const rows = initialRows;
   const [search, setSearch] = useState('');
@@ -51,16 +55,16 @@ export function CarFleetSection({ carLabel, carId, initialRows }: CarFleetSectio
       status === 'available' && 'bg-emerald-50 text-emerald-700',
       status === 'rented' && 'bg-amber-50 text-amber-700',
       status === 'maintenance' && 'bg-sky-50 text-sky-700',
-      status === 'reserved' && 'bg-slate-100 text-slate-700'
+      status === 'reserved' && 'bg-slate-100 text-slate-700',
     );
 
-  const statusSummary = useMemo(() => {
-    const summary = rows.reduce<Record<FleetStatus, number>>(
-      (acc, row) => ({ ...acc, [row.status]: (acc[row.status] ?? 0) + 1 }),
-      { available: 0, rented: 0, reserved: 0, maintenance: 0 }
-    );
-    return summary;
-  }, [rows]);
+  // const statusSummary = useMemo(() => {
+  //   const summary = rows.reduce<Record<FleetStatus, number>>(
+  //     (acc, row) => ({ ...acc, [row.status]: (acc[row.status] ?? 0) + 1 }),
+  //     { available: 0, rented: 0, reserved: 0, maintenance: 0 },
+  //   );
+  //   return summary;
+  // }, [rows]);
 
   const filteredRows = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -69,7 +73,7 @@ export function CarFleetSection({ carLabel, carId, initialRows }: CarFleetSectio
       (row) =>
         row.plate.toLowerCase().includes(term) ||
         (row.location ?? '').toLowerCase().includes(term) ||
-        STATUS_LABELS[row.status].toLowerCase().includes(term)
+        STATUS_LABELS[row.status].toLowerCase().includes(term),
     );
   }, [rows, search]);
 
@@ -101,7 +105,7 @@ export function CarFleetSection({ carLabel, carId, initialRows }: CarFleetSectio
             Az adott típusú autók aktuális állapota és adatai.
           </p>
         </div>
-        <div className='flex flex-wrap gap-2 text-sm'>
+        {/* <div className='flex flex-wrap gap-2 text-sm'>
           <span className='rounded-full bg-emerald-50 px-3 py-1 text-emerald-700'>
             Elérhető: {statusSummary['available']}
           </span>
@@ -114,7 +118,7 @@ export function CarFleetSection({ carLabel, carId, initialRows }: CarFleetSectio
           <span className='rounded-full bg-slate-100 px-3 py-1 text-slate-700'>
             Foglalt: {statusSummary['reserved']}
           </span>
-        </div>
+        </div> */}
       </div>
 
       <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between'>

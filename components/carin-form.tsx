@@ -10,19 +10,15 @@ import CarDamages from './car-damages';
 import { Detail } from './ui/detail';
 import { Button } from './ui/button';
 import { createVehicleHandoverAction } from '@/actions/createVehicleHandoverAction';
-import {
-  DEFAULT_FLEET_PLACE,
-  FLEET_PLACES,
-  getFleetPlaceLabel,
-  getFleetPlaceValue,
-} from '@/lib/fleet-places';
 
 const emptyForm = {
   take: '',
   date: '',
   time: '',
   milage: '',
-  location: DEFAULT_FLEET_PLACE,
+  returnLocation: '',
+  returnAddress: '',
+  sameAsDelivery: false,
   notes: '',
   damages: '',
   damagesImages: [] as string[],
@@ -34,30 +30,51 @@ const takeOptions = [
   { value: 'Alice Johnson', label: 'Alice Johnson' },
 ];
 
-type CaroutFormProps = {
+type CarinFormProps = {
   booking: Booking | null;
   vehicle: FleetVehicle | null;
+  handoverOutMileage?: number | null;
 };
 
-type CaroutFormValues = typeof emptyForm;
-export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
+type CarinFormValues = typeof emptyForm;
+export default function CarinForm({
+  booking,
+  vehicle,
+  handoverOutMileage,
+}: CarinFormProps) {
   console.log(booking);
 
   const normalizedInitialValues = useMemo(() => emptyForm, []);
-  const [form, setForm] = useState<CaroutFormValues>(normalizedInitialValues);
+  const [form, setForm] = useState<CarinFormValues>(normalizedInitialValues);
   const [status, setStatus] = useState<{
     type: 'success' | 'error';
     message: string;
   } | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const deliveryLocation = booking?.payload?.delivery?.locationName ?? '';
+  const deliveryAddress = booking?.payload?.delivery?.address
+    ? `${booking.payload.delivery.address.postalCode} ${booking.payload.delivery.address.city}, ${booking.payload.delivery.address.street} ${booking.payload.delivery.address.doorNumber}`
+    : '';
+  const hasDeliveryDetails = Boolean(deliveryLocation || deliveryAddress);
+
   React.useEffect(() => {
-    if (!vehicle?.odometer) return;
+    if (!hasDeliveryDetails) return;
     setForm((prev) => {
-      if (prev.milage.trim().length > 0) return prev;
-      return { ...prev, milage: vehicle.odometer.toString() };
+      if (
+        prev.sameAsDelivery ||
+        prev.returnLocation.trim().length > 0 ||
+        prev.returnAddress.trim().length > 0
+      )
+        return prev;
+      return {
+        ...prev,
+        sameAsDelivery: true,
+        returnLocation: deliveryLocation,
+        returnAddress: deliveryAddress,
+      };
     });
-  }, [vehicle?.odometer]);
+  }, [hasDeliveryDetails, deliveryAddress, deliveryLocation]);
 
   React.useEffect(() => {
     if (!vehicle?.damages) return;
@@ -68,22 +85,13 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
   }, [vehicle?.damages]);
 
   React.useEffect(() => {
-    if (!vehicle?.location) return;
-    setForm((prev) => {
-      if (prev.location.trim().length > 0 && prev.location !== DEFAULT_FLEET_PLACE)
-        return prev;
-      return { ...prev, location: getFleetPlaceLabel(vehicle.location) };
-    });
-  }, [vehicle?.location]);
-
-  React.useEffect(() => {
-    const rentalStart = booking?.rentalStart;
-    if (!rentalStart) return;
+    const rentalEnd = booking?.rentalEnd;
+    if (!rentalEnd) return;
     setForm((prev) => {
       if (prev.date.trim().length > 0) return prev;
-      return { ...prev, date: rentalStart };
+      return { ...prev, date: rentalEnd };
     });
-  }, [booking?.rentalStart]);
+  }, [booking?.rentalEnd]);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -113,7 +121,7 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
     if (!form.take.trim()) {
       setStatus({
         type: 'error',
-        message: 'Kérlek válaszd ki, ki viszi az autót.',
+        message: 'Kérlek válaszd ki, ki veszi vissza az autót.',
       });
       return;
     }
@@ -121,13 +129,54 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
     if (!form.date.trim() || !form.time.trim()) {
       setStatus({
         type: 'error',
-        message: 'Kérlek add meg az átadás dátumát és időpontját.',
+        message: 'Kérlek add meg a visszavétel dátumát és időpontját.',
+      });
+      return;
+    }
+
+    if (!form.milage.trim()) {
+      setStatus({
+        type: 'error',
+        message: 'Kérlek add meg a km óra állást.',
       });
       return;
     }
 
     const mileageValue =
       form.milage.trim().length > 0 ? Number(form.milage) : undefined;
+    if (mileageValue == null || Number.isNaN(mileageValue)) {
+      setStatus({
+        type: 'error',
+        message: 'A km óra állás nem érvényes.',
+      });
+      return;
+    }
+    if (
+      handoverOutMileage != null &&
+      !Number.isNaN(handoverOutMileage) &&
+      mileageValue < handoverOutMileage
+    ) {
+      setStatus({
+        type: 'error',
+        message: `A km óra állás nem lehet kisebb, mint a kiadáskori érték (${handoverOutMileage} km).`,
+      });
+      return;
+    }
+
+    const returnNotes = [
+      form.returnLocation.trim().length > 0
+        ? `Visszavétel helye: ${form.returnLocation.trim()}`
+        : null,
+      form.returnAddress.trim().length > 0
+        ? `Visszavétel címe: ${form.returnAddress.trim()}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const notesValue = [form.notes.trim(), returnNotes]
+      .filter((entry) => entry && entry.length > 0)
+      .join('\n');
+
     const dateValue = form.date.trim();
     const timeValue = form.time.trim();
     const handoverAt = new Date(`${dateValue}T${timeValue}`).toISOString();
@@ -139,11 +188,10 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
         handoverBy: form.take || undefined,
         mileage: mileageValue,
         handoverAt,
-        notes: form.notes.trim() || undefined,
+        notes: notesValue || undefined,
         damages: form.damages.trim() || undefined,
         damagesImages: form.damagesImages,
-        location: getFleetPlaceValue(form.location),
-        direction: 'out',
+        direction: 'in',
       });
 
       if (result?.error) {
@@ -153,7 +201,7 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
 
       setStatus({
         type: 'success',
-        message: result?.success ?? 'Kiadás rögzítve.',
+        message: result?.success ?? 'Visszavétel rögzítve.',
       });
     });
   };
@@ -199,25 +247,46 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
           }
         />
       </div>
-      <div className='grid grid-cols-2 gap-4 mb-6'>
-        <Detail
-          label='Kiszállítás helye'
-          value={
-            booking?.payload?.delivery?.locationName ?? 'Nincs kiszállítva'
-          }
-        />
-        <Detail
-          label='Kiszállítás címe'
-          value={
-            booking?.payload?.delivery?.address
-              ? `${booking.payload.delivery.address.postalCode} ${booking.payload.delivery.address.city}, ${booking.payload.delivery.address.street} ${booking.payload.delivery.address.doorNumber}`
-              : 'Nincs megadva'
-          }
-        />
-      </div>
       <form onSubmit={handleSubmit} className='grid gap-4 md:grid-cols-2'>
+        <div className='md:col-span-2 flex items-center gap-2 text-sm text-muted-foreground'>
+          <input
+            id='return-same-as-delivery'
+            type='checkbox'
+            className='h-4 w-4 rounded border border-input'
+            checked={form.sameAsDelivery}
+            onChange={(event) => {
+              const checked = event.target.checked;
+              setForm((prev) => ({
+                ...prev,
+                sameAsDelivery: checked,
+                returnLocation: checked ? deliveryLocation : '',
+                returnAddress: checked ? deliveryAddress : '',
+              }));
+            }}
+            disabled={!hasDeliveryDetails}
+          />
+          <label htmlFor='return-same-as-delivery'>
+            Visszavétel helye megegyezik a kiadás címével
+          </label>
+        </div>
+        <Input
+          label='Visszavétel helye'
+          value={form.returnLocation}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, returnLocation: e.target.value }))
+          }
+          disabled={form.sameAsDelivery}
+        />
+        <Input
+          label='Visszavétel címe'
+          value={form.returnAddress}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, returnAddress: e.target.value }))
+          }
+          disabled={form.sameAsDelivery}
+        />
         <FloatingSelect
-          label='Viszi'
+          label='Visszaveszi'
           alwaysFloatLabel
           value={form.take}
           onChange={(e) => {
@@ -259,27 +328,23 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
             setForm((prev) => ({ ...prev, time: e.target.value }))
           }
         />
-        <FloatingSelect
-          label='Autó helyszíne'
-          alwaysFloatLabel
-          value={form.location}
-          onChange={(e) =>
-            setForm((prev) => ({ ...prev, location: e.target.value }))
-          }
-        >
-          {FLEET_PLACES.map((option) => (
-            <option key={option.value} value={option.label}>
-              {option.label}
-            </option>
-          ))}
-        </FloatingSelect>
-        <Input
-          label='Km óra állás'
-          value={vehicle?.odometer ?? form.milage}
-          onChange={(e) =>
-            setForm((prev) => ({ ...prev, milage: e.target.value }))
-          }
-        />
+        <div className='space-y-1'>
+          <Input
+            label='Km óra állás'
+            type='number'
+            min={handoverOutMileage ?? 0}
+            required
+            value={form.milage}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, milage: e.target.value }))
+            }
+          />
+          {handoverOutMileage != null && (
+            <p className='text-xs text-muted-foreground'>
+              Kiadáskori km óra állás: {handoverOutMileage} km
+            </p>
+          )}
+        </div>
         <div className='md:col-span-2'>
           <FloatingTextarea
             label='Megjegyzések'
@@ -309,19 +374,8 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
           />
         </div>
         <div className='md:col-span-2 flex items-center justify-end gap-3'>
-          {status && (
-            <p
-              className={
-                status.type === 'success'
-                  ? 'text-sm text-emerald-700'
-                  : 'text-sm text-destructive'
-              }
-            >
-              {status.message}
-            </p>
-          )}
           <Button type='submit' disabled={isPending}>
-            {isPending ? 'Mentés...' : 'Kiadás rögzítése'}
+            {isPending ? 'Mentés...' : 'Visszavétel rögzítése'}
           </Button>
         </div>
       </form>

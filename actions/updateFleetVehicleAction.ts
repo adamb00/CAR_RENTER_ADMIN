@@ -35,6 +35,9 @@ export async function updateFleetVehicleAction(input: z.infer<typeof updateFleet
       data: {
         plate: data.plate.trim(),
         odometer: data.odometer ?? 0,
+        serviceIntervalKm: data.serviceIntervalKm,
+        lastServiceMileage: data.lastServiceMileage,
+        lastServiceAt: toDateOrNull(data.lastServiceAt),
         status: data.status,
         year: data.year,
         firstRegistration: toDateOrNull(data.firstRegistration),
@@ -45,13 +48,14 @@ export async function updateFleetVehicleAction(input: z.infer<typeof updateFleet
         inspectionExpiry: toDateOrNull(data.inspectionExpiry),
         notes: data.notes?.trim() || null,
         damages: data.damages?.trim() || null,
+        damagesImages: data.damagesImages ?? [],
       },
     });
 
     revalidatePath(`/cars/${data.carId}/edit`);
     revalidatePath(`/cars/${data.carId}/edit/fleet`);
 
-    return { success: 'Az autó adatai frissítve.' };
+    return { success: 'Az autó adatai frissítve.', id: data.id };
   } catch (error) {
     console.error('Failed to update fleet vehicle', error);
     return { error: 'Nem sikerült frissíteni az autót.' };

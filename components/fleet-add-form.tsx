@@ -4,10 +4,12 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import { Button } from '@/components/ui/button';
+import CarDamages from '@/components/car-damages';
 import { FloatingSelect } from '@/components/ui/floating-select';
 import { Input } from '@/components/ui/input';
 import { FloatingTextarea } from '@/components/ui/textarea';
 import { createFleetVehicleAction } from '@/actions/createFleetVehicleAction';
+import { updateFleetVehicleDamagesImagesAction } from '@/actions/updateFleetVehicleDamagesImagesAction';
 import { updateFleetVehicleAction } from '@/actions/updateFleetVehicleAction';
 import {
   DEFAULT_FLEET_PLACE,
@@ -25,6 +27,9 @@ type FleetPlacesOptions = FleetPlaceLabel;
 const emptyForm = {
   plate: '',
   odometer: '',
+  serviceIntervalKm: '',
+  lastServiceMileage: '',
+  lastServiceAt: '',
   status: 'Elérhető' as FleetStatusLabel,
   year: '',
   firstRegistration: '',
@@ -35,6 +40,7 @@ const emptyForm = {
   inspectionExpiry: '',
   notes: '',
   damages: '',
+  damagesImages: [] as string[],
 };
 
 type FleetFormValues = typeof emptyForm;
@@ -90,6 +96,7 @@ export function FleetAddForm({
       ...initialValues,
       status: statusLabelFromInput(initialValues?.status),
       location: locationLabelFromInput(initialValues?.location),
+      damagesImages: initialValues?.damagesImages ?? emptyForm.damagesImages,
     }),
     [initialValues],
   );
@@ -115,6 +122,14 @@ export function FleetAddForm({
     startTransition(async () => {
       const odometerValue =
         form.odometer.trim().length > 0 ? Number(form.odometer) : undefined;
+      const serviceIntervalValue =
+        form.serviceIntervalKm.trim().length > 0
+          ? Number(form.serviceIntervalKm)
+          : undefined;
+      const lastServiceMileageValue =
+        form.lastServiceMileage.trim().length > 0
+          ? Number(form.lastServiceMileage)
+          : undefined;
       const yearValue =
         form.year.trim().length > 0 ? Number(form.year) : undefined;
 
@@ -126,6 +141,9 @@ export function FleetAddForm({
         carId,
         plate: form.plate,
         odometer: odometerValue,
+        serviceIntervalKm: serviceIntervalValue,
+        lastServiceMileage: lastServiceMileageValue,
+        lastServiceAt: form.lastServiceAt,
         status,
         year: yearValue,
         firstRegistration: form.firstRegistration,
@@ -136,6 +154,7 @@ export function FleetAddForm({
         inspectionExpiry: form.inspectionExpiry,
         notes: form.notes,
         damages: form.damages,
+        damagesImages: form.damagesImages,
       };
 
       const result = isEditMode
@@ -158,6 +177,10 @@ export function FleetAddForm({
       );
       if (isEditMode) {
         redirectToEditPage();
+        return;
+      }
+      if (result?.id) {
+        router.push(`/cars/${carId}/edit/fleet/${result.id}`);
         return;
       }
       setForm(emptyForm);
@@ -194,6 +217,34 @@ export function FleetAddForm({
           value={form.odometer}
           onChange={(e) =>
             setForm((prev) => ({ ...prev, odometer: e.target.value }))
+          }
+        />
+        <Input
+          label='Szerviz intervallum (km)'
+          type='number'
+          inputMode='numeric'
+          min={0}
+          value={form.serviceIntervalKm}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, serviceIntervalKm: e.target.value }))
+          }
+        />
+        <Input
+          label='Utolsó szerviz km'
+          type='number'
+          inputMode='numeric'
+          min={0}
+          value={form.lastServiceMileage}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, lastServiceMileage: e.target.value }))
+          }
+        />
+        <Input
+          label='Utolsó szerviz időpontja'
+          type='date'
+          value={form.lastServiceAt}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, lastServiceAt: e.target.value }))
           }
         />
         <Input
@@ -305,6 +356,24 @@ export function FleetAddForm({
             onChange={(e) =>
               setForm((prev) => ({ ...prev, damages: e.target.value }))
             }
+          />
+        </div>
+        <div className='md:col-span-2'>
+          <CarDamages
+            carId={carId}
+            vehicleId={vehicleId}
+            initialImages={form.damagesImages}
+            onImagesChange={(images) =>
+              setForm((prev) => ({ ...prev, damagesImages: images }))
+            }
+            persistImages={async (images) => {
+              if (!vehicleId) return;
+              return updateFleetVehicleDamagesImagesAction({
+                id: vehicleId,
+                carId,
+                damagesImages: images,
+              });
+            }}
           />
         </div>
         <div className='md:col-span-2 flex items-center justify-end gap-3'>

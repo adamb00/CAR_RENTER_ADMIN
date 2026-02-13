@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import type { CSSProperties, DragEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { AlertTriangle } from 'lucide-react';
 
 import { assignFleetVehicleToBookingAction } from '@/actions/assignFleetVehicleToBookingAction';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 type BookingCalendarBooking = {
   id: string;
@@ -33,12 +35,18 @@ type BookingCalendarVehicle = {
   carLabel: string;
   carId: string;
   location: string;
+  odometer: number;
+  serviceIntervalKm?: number | null;
+  lastServiceMileage?: number | null;
 };
 
 type BookingCalendarProps = {
   bookings: BookingCalendarBooking[];
   fleetVehicles: BookingCalendarVehicle[];
+  handoverOutKeys: string[];
 };
+
+type FleetSortKey = 'car' | 'location';
 
 type UnassignedBookingCardProps = {
   booking: BookingCalendarBooking;
@@ -137,6 +145,18 @@ const toIsoDate = (value: Date) => {
 const toDate = (value?: string) =>
   value ? new Date(`${value}T00:00:00`) : null;
 
+const compareStrings = (a?: string | null, b?: string | null) =>
+  (a ?? '').localeCompare(b ?? '', 'hu', { sensitivity: 'base' });
+
+const getServiceRemainingKm = (vehicle: BookingCalendarVehicle) => {
+  if (vehicle.serviceIntervalKm == null || vehicle.lastServiceMileage == null) {
+    return null;
+  }
+  const nextDue = vehicle.lastServiceMileage + vehicle.serviceIntervalKm;
+  const remaining = nextDue - (vehicle.odometer ?? 0);
+  return Number.isFinite(remaining) ? remaining : null;
+};
+
 const getLocationColor = (location?: string | null) => {
   if (!location) return '#888888';
   const match = location.match(/#(?:[0-9a-fA-F]{3}){1,2}$/);
@@ -188,6 +208,7 @@ const rangesOverlap = (
 export function BookingCalendar({
   bookings,
   fleetVehicles,
+  handoverOutKeys,
 }: BookingCalendarProps) {
   const router = useRouter();
   const [rangeStart, setRangeStart] = useState(() => {
@@ -200,6 +221,7 @@ export function BookingCalendar({
   const [isPending, startTransition] = useTransition();
   const [activeDrag, setActiveDrag] = useState<DragPayload | null>(null);
   const [hoverVehicleId, setHoverVehicleId] = useState<string | null>(null);
+  const [fleetSort, setFleetSort] = useState<FleetSortKey>('car');
   const [contextMenuBookingId, setContextMenuBookingId] = useState<
     string | null
   >(null);
@@ -250,6 +272,11 @@ export function BookingCalendar({
     return map;
   }, [bookings, parsedRangeStart, parsedRangeEnd]);
 
+  const handoverOutSet = useMemo(
+    () => new Set(handoverOutKeys),
+    [handoverOutKeys],
+  );
+
   const bookingsByVehicle = useMemo(() => {
     const map = new Map<
       string,
@@ -273,13 +300,27 @@ export function BookingCalendar({
     return map;
   }, [bookings]);
 
+  const sortedFleetVehicles = useMemo(() => {
+    const list = [...fleetVehicles];
+    list.sort((a, b) => {
+      if (fleetSort === 'location') {
+        const locationCompare = compareStrings(a.location, b.location);
+        if (locationCompare !== 0) return locationCompare;
+      }
+      const carCompare = compareStrings(a.carLabel, b.carLabel);
+      if (carCompare !== 0) return carCompare;
+      return compareStrings(a.plate, b.plate);
+    });
+    return list;
+  }, [fleetSort, fleetVehicles]);
+
   const getAvailableFleetVehicles = (
     bookingId: string,
     rentalStart?: string,
     rentalEnd?: string,
   ) => {
-    if (!rentalStart || !rentalEnd) return fleetVehicles;
-    return fleetVehicles.filter((vehicle) => {
+    if (!rentalStart || !rentalEnd) return sortedFleetVehicles;
+    return sortedFleetVehicles.filter((vehicle) => {
       const bookedSlots = bookingsByVehicle.get(vehicle.id) ?? [];
       return !bookedSlots.some(
         (slot) =>
@@ -466,6 +507,20 @@ export function BookingCalendar({
             <option value={30}>30 nap</option>
           </select>
         </div>
+        <div className='flex items-center gap-2'>
+          <label className='text-sm text-muted-foreground' htmlFor='fleet-sort'>
+            Rendezés
+          </label>
+          <select
+            id='fleet-sort'
+            value={fleetSort}
+            onChange={(e) => setFleetSort(e.target.value as FleetSortKey)}
+            className='rounded-md border px-3 py-2 text-sm'
+          >
+            <option value='car'>Autó típus</option>
+            <option value='location'>Helyszín</option>
+          </select>
+        </div>
         {message && (
           <div className='text-sm font-medium text-emerald-600'>{message}</div>
         )}
@@ -491,12 +546,18 @@ export function BookingCalendar({
             ))}
           </div>
 
-          {fleetVehicles.map((vehicle) => {
+          {sortedFleetVehicles.map((vehicle) => {
             const booking = groupedBookings.get(vehicle.id);
             const locationColor = getLocationColor(vehicle.location);
             const menuItemStyle = {
               '--fleet-color': locationColor,
             } as CSSProperties;
+            const remainingServiceKm = getServiceRemainingKm(vehicle);
+            const isServiceDueSoon =
+              remainingServiceKm != null && remainingServiceKm <= 1000;
+            const hasOut = booking
+              ? handoverOutSet.has(`${booking.id}:${vehicle.id}`)
+              : false;
             const dropState =
               activeDrag && hoverVehicleId === vehicle.id
                 ? isVehicleAvailable(activeDrag, vehicle.id)
@@ -548,8 +609,21 @@ export function BookingCalendar({
                     isBlockedDrop && 'bg-rose-200/80',
                   )}
                 >
-                  <div className='font-semibold whitespace-nowrap'>
-                    {vehicle.plate}
+                  <div className='flex items-center gap-2 font-semibold whitespace-nowrap'>
+                    {isServiceDueSoon && (
+                      <span
+                        className='text-rose-400 cursor-help'
+                        title={`Szerviz esedékes ${Math.max(0, Math.round(remainingServiceKm ?? 0))} km-en belül`}
+                      >
+                        <AlertTriangle className='h-4 w-4' />
+                      </span>
+                    )}
+                    <Link
+                      href={`/cars/${vehicle.carId}/edit/fleet/${vehicle.id}`}
+                      className='hover:underline'
+                    >
+                      {vehicle.plate}
+                    </Link>
                   </div>
                   <div className='text-xs text-muted-foreground truncate'>
                     {vehicle.carLabel}
@@ -646,7 +720,7 @@ export function BookingCalendar({
                     </div>
                     <DropdownMenuContent align='start'>
                       <DropdownMenuItem
-                        className='data-[highlighted]:bg-[var(--fleet-color)] data-[highlighted]:text-primary-foreground'
+                        className='data-highlighted:bg-(--fleet-color) data-highlighted:text-primary-foreground'
                         style={menuItemStyle}
                         onSelect={() =>
                           router.push(`/bookings/${booking.id}/edit`)
@@ -655,7 +729,7 @@ export function BookingCalendar({
                         Megnyitás / Módosítás
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        className='data-[highlighted]:bg-[var(--fleet-color)] data-[highlighted]:text-primary-foreground'
+                        className='data-highlighted:bg-(--fleet-color) data-highlighted:text-primary-foreground'
                         style={menuItemStyle}
                         onSelect={() =>
                           router.push(`/bookings/${booking.id}/carout`)
@@ -664,11 +738,12 @@ export function BookingCalendar({
                         Kiadás
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        className='data-[highlighted]:bg-[var(--fleet-color)] data-[highlighted]:text-primary-foreground'
+                        className='data-highlighted:bg-(--fleet-color) data-highlighted:text-primary-foreground'
                         style={menuItemStyle}
                         onSelect={() =>
                           router.push(`/bookings/${booking.id}/carin`)
                         }
+                        disabled={!hasOut}
                       >
                         Visszavétel
                       </DropdownMenuItem>

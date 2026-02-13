@@ -13,6 +13,20 @@ export default async function CalendarPage() {
     }),
   ]);
 
+  const bookingIds = bookings.map((booking) => booking.id);
+  const handoverOutPairs = bookingIds.length
+    ? await db.vehicleHandover.findMany({
+        where: {
+          bookingId: { in: bookingIds },
+          direction: 'out',
+        },
+        select: { bookingId: true, fleetVehicleId: true },
+      })
+    : [];
+  const handoverOutKeys = handoverOutPairs.map(
+    (handover) => `${handover.bookingId}:${handover.fleetVehicleId}`,
+  );
+
   const fleet = fleetVehicles.map((vehicle) => ({
     id: vehicle.id,
     plate: vehicle.plate,
@@ -20,6 +34,9 @@ export default async function CalendarPage() {
     carLabel: `${vehicle.car.manufacturer} ${vehicle.car.model}`.trim(),
     carId: vehicle.car.id,
     location: vehicle.location ?? '',
+    odometer: vehicle.odometer ?? 0,
+    serviceIntervalKm: vehicle.serviceIntervalKm ?? null,
+    lastServiceMileage: vehicle.lastServiceMileage ?? null,
   }));
 
   return (
@@ -30,7 +47,11 @@ export default async function CalendarPage() {
           Foglalások áttekintése és flotta autók hozzárendelése.
         </p>
       </div>
-      <BookingCalendar bookings={bookings} fleetVehicles={fleet} />
+      <BookingCalendar
+        bookings={bookings}
+        fleetVehicles={fleet}
+        handoverOutKeys={handoverOutKeys}
+      />
     </div>
   );
 }

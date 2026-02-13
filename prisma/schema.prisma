@@ -114,10 +114,31 @@ model RentRequests {
   humanId       String?        @unique
   rentaldays    Int?
   ContactQuotes ContactQuotes? @relation(fields: [quoteid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicleHandovers VehicleHandover[]
+  bookingContract BookingContract?
 
   @@index([carid], map: "idx_rentrequests_car")
   @@index([createdAt], map: "idx_rentrequests_created_at")
   @@index([status], map: "idx_rentrequests_status")
+}
+
+model BookingContract {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId     String       @unique @db.Uuid
+  signerName    String
+  signerEmail   String?
+  contractVersion String     @default("v1")
+  contractText  String
+  signatureData String
+  lessorSignatureData String?
+  signedAt      DateTime     @default(now())
+  pdfSentAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  booking       RentRequests @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("BookingContracts")
 }
 
 model Notification {
@@ -143,6 +164,9 @@ model FleetVehicle {
   carId             String
   plate             String      @unique
   odometer          Int         @default(0)
+  serviceIntervalKm Int?
+  lastServiceMileage Int?
+  lastServiceAt     DateTime?
   status            FleetStatus @default(available)
   year              Int?
   firstRegistration DateTime?
@@ -153,11 +177,34 @@ model FleetVehicle {
   inspectionExpiry  DateTime?
   notes             String?
   damages           String?
+  damagesImages     String[]    @default([])
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
   car               Car         @relation(fields: [carId], references: [id], onDelete: Cascade)
+  handovers         VehicleHandover[]
 
   @@map("FleetVehicles")
+}
+
+model VehicleHandover {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId      String             @db.Uuid
+  fleetVehicleId String
+  direction      HandoverDirection  @default(out)
+  handoverAt     DateTime           @default(now())
+  handoverBy     String?
+  mileage        Int?
+  notes          String?
+  damages        String?
+  damagesImages  String[]           @default([])
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  booking        RentRequests       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  fleetVehicle   FleetVehicle       @relation(fields: [fleetVehicleId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([fleetVehicleId])
+  @@map("VehicleHandovers")
 }
 
 enum CarBodyType {
@@ -187,4 +234,9 @@ enum FleetStatus {
   rented
   reserved
   maintenance
+}
+
+enum HandoverDirection {
+  out
+  in
 }

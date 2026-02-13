@@ -31,6 +31,10 @@ export default async function FleetVehicleEditPage({
   const initialValues = {
     plate: fleetVehicle.plate,
     odometer: fleetVehicle.odometer?.toString() ?? '',
+    serviceIntervalKm: fleetVehicle.serviceIntervalKm?.toString() ?? '',
+    lastServiceMileage: fleetVehicle.lastServiceMileage?.toString() ?? '',
+    lastServiceAt:
+      fleetVehicle.lastServiceAt?.toISOString().slice(0, 10) ?? '',
     status: fleetVehicle.status,
     year: fleetVehicle.year?.toString() ?? '',
     firstRegistration:
@@ -43,6 +47,7 @@ export default async function FleetVehicleEditPage({
       fleetVehicle.inspectionExpiry?.toISOString().slice(0, 10) ?? '',
     notes: fleetVehicle.notes ?? '',
     damages: fleetVehicle.damages ?? '',
+    damagesImages: fleetVehicle.damagesImages ?? [],
   };
 
   return (
