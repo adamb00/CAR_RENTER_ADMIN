@@ -109,7 +109,23 @@ const formatPlainDate = (value?: string | null, locale?: string | null) => {
 const parseAmount = (value?: string | null) => {
   const trimmed = value?.trim();
   if (!trimmed) return 0;
-  const normalized = trimmed.replace(/[^\d,.\-]/g, '').replace(',', '.');
+  const raw = trimmed.replace(/[^\d,.\-]/g, '');
+  if (!raw) return 0;
+  const lastComma = raw.lastIndexOf(',');
+  const lastDot = raw.lastIndexOf('.');
+  const decimalSeparator =
+    lastComma > lastDot ? ',' : lastDot > lastComma ? '.' : '';
+
+  let normalized = raw;
+  if (decimalSeparator) {
+    const parts = raw.split(decimalSeparator);
+    const decimal = parts.pop() ?? '';
+    const integer = parts.join('').replace(/[.,]/g, '');
+    normalized = `${integer}.${decimal}`;
+  } else {
+    normalized = raw.replace(/[.,]/g, '');
+  }
+
   const parsed = parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
 };
@@ -133,6 +149,7 @@ const normalizeInsuranceSelection = (value?: string | null) => {
 const selectBookingRequestData = (
   raw: unknown,
   carId?: string | null,
+  offerAcceptedIndex?: number | null,
 ): BookingRequestData | undefined => {
   if (Array.isArray(raw)) {
     if (carId) {
@@ -145,7 +162,13 @@ const selectBookingRequestData = (
       );
       if (match) return match as BookingRequestData;
     }
-    return raw[0] as BookingRequestData | undefined;
+    const index =
+      offerAcceptedIndex != null &&
+      Number.isFinite(offerAcceptedIndex) &&
+      offerAcceptedIndex >= 0
+        ? Math.floor(offerAcceptedIndex)
+        : 0;
+    return (raw[index] ?? raw[0]) as BookingRequestData | undefined;
   }
   return raw as BookingRequestData | undefined;
 };
@@ -192,11 +215,12 @@ export const sendBookingFinalizationEmailAction = async ({
       ? await getQuoteById(booking.quoteId)
       : null;
 
-  const carId = booking.carId;
+  const carId = booking.carId ?? booking.payload?.carId ?? null;
 
   const requestData = selectBookingRequestData(
     quote?.bookingRequestData,
-    booking.carId ?? booking.payload?.carId ?? null,
+    carId,
+    quote?.offerAccepted ?? null,
   );
   const manualPricing = booking.payload?.pricing;
   const rentalStart =
@@ -206,15 +230,14 @@ export const sendBookingFinalizationEmailAction = async ({
   const effectiveLocale = localeRaw && localeRaw.length > 0 ? localeRaw : 'hu';
   const copy = getFinalizationCopy(localeRaw);
 
-  const thankYouUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/rent/thank-you?finalize=true&rentId=${encodeURIComponent(
-    booking.id,
-  )}`;
+  const manageParams = `rentId=${encodeURIComponent(booking.id)}`;
+  const thankYouUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/rent/thank-you?finalize=true&${manageParams}`;
   const contactUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/contact`;
-  const manageBaseUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/cars/${carId}/rent?rentId=${encodeURIComponent(
-    booking.id,
-  )}`;
-  const modifyUrl = `${manageBaseUrl}?action=modify`;
-  const cancelUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/rent/manage?action=cancel`;
+  const manageBaseUrl = carId
+    ? `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/cars/${carId}/rent?${manageParams}`
+    : `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/rent/manage?${manageParams}`;
+  const modifyUrl = `${manageBaseUrl}&action=modify`;
+  const cancelUrl = `${PUBLIC_SITE_BASE_URL}/${effectiveLocale}/rent/manage?${manageParams}&action=cancel`;
 
   const rawInsurance =
     requestData?.insurance ?? manualPricing?.insurance ?? null;

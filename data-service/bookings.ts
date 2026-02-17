@@ -89,6 +89,8 @@ export type BookingPayload = {
     locationName?: string;
     arrivalFlight?: string;
     departureFlight?: string;
+    arrivalHour?: string;
+    arrivalMinute?: string;
     address?: BookingAddress;
   };
   tax?: {
@@ -287,6 +289,8 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
         locationName: toOptionalString(payload.delivery.locationName),
         arrivalFlight: toOptionalString(payload.delivery.arrivalFlight),
         departureFlight: toOptionalString(payload.delivery.departureFlight),
+        arrivalHour: toOptionalString(payload.delivery.arrivalHour),
+        arrivalMinute: toOptionalString(payload.delivery.arrivalMinute),
         address: normalizeAddress(payload.delivery.address),
       }
     : undefined;

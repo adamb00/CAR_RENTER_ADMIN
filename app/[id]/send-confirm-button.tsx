@@ -101,6 +101,23 @@ const formatPlaceType = (value?: string | null) => {
   return map[value] ?? value;
 };
 
+const formatArrivalTime = (hour?: string | null, minute?: string | null) => {
+  const hourText = hour?.trim() ?? '';
+  const minuteText = minute?.trim() ?? '';
+  if (!hourText && !minuteText) return '—';
+
+  const normalizedHour =
+    hourText.length > 0 && /^\d+$/.test(hourText)
+      ? hourText.padStart(2, '0')
+      : hourText || '--';
+  const normalizedMinute =
+    minuteText.length > 0 && /^\d+$/.test(minuteText)
+      ? minuteText.padStart(2, '0')
+      : minuteText || '--';
+
+  return `${normalizedHour}:${normalizedMinute}`;
+};
+
 const requiresDeliveryAddress = (placeType?: string | null) =>
   placeType === 'airport' || placeType === 'accommodation';
 
@@ -574,6 +591,13 @@ export const SendConfirmButton = ({
             <InfoRow
               label='Érkező járat'
               value={delivery?.arrivalFlight ?? '—'}
+            />
+            <InfoRow
+              label='Érkezés ideje'
+              value={formatArrivalTime(
+                delivery?.arrivalHour,
+                delivery?.arrivalMinute,
+              )}
             />
             <InfoRow
               label='Távozó járat'

@@ -4,6 +4,11 @@ import path from 'node:path';
 import fontkit from '@pdf-lib/fontkit';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
+import {
+  DATE_LOCALE_MAP,
+  type ContractLocale,
+  resolveContractLocale,
+} from '@/lib/contract-copy';
 import type { ContractTemplate } from '@/lib/contract-template';
 
 type ContractPdfInput = {
@@ -13,7 +18,130 @@ type ContractPdfInput = {
   signedAt: Date;
   renterSignatureDataUrl: string;
   lessorSignatureDataUrl: string;
+  locale?: string | null;
 };
+
+type PdfSignatureCopy = {
+  signaturesHeading: string;
+  renterSignature: string;
+  lessorSignature: string;
+  missingSignature: string;
+  signedBy: string;
+  signedAt: string;
+};
+
+const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
+  en: {
+    signaturesHeading: 'Signatures',
+    renterSignature: 'Renter signature',
+    lessorSignature: 'Lessor signature',
+    missingSignature: 'No signature provided.',
+    signedBy: 'Signed by',
+    signedAt: 'Signed at',
+  },
+  hu: {
+    signaturesHeading: 'Aláírások',
+    renterSignature: 'Bérlő aláírása',
+    lessorSignature: 'Bérbeadó aláírása',
+    missingSignature: 'Nincs aláírás.',
+    signedBy: 'Aláírta',
+    signedAt: 'Aláírás ideje',
+  },
+  de: {
+    signaturesHeading: 'Unterschriften',
+    renterSignature: 'Unterschrift des Mieters',
+    lessorSignature: 'Unterschrift des Vermieters',
+    missingSignature: 'Keine Unterschrift vorhanden.',
+    signedBy: 'Unterzeichnet von',
+    signedAt: 'Unterzeichnet am',
+  },
+  ro: {
+    signaturesHeading: 'Semnături',
+    renterSignature: 'Semnătura chiriașului',
+    lessorSignature: 'Semnătura locatorului',
+    missingSignature: 'Nicio semnătură disponibilă.',
+    signedBy: 'Semnat de',
+    signedAt: 'Semnat la',
+  },
+  fr: {
+    signaturesHeading: 'Signatures',
+    renterSignature: 'Signature du locataire',
+    lessorSignature: 'Signature du bailleur',
+    missingSignature: 'Aucune signature disponible.',
+    signedBy: 'Signé par',
+    signedAt: 'Signé le',
+  },
+  es: {
+    signaturesHeading: 'Firmas',
+    renterSignature: 'Firma del arrendatario',
+    lessorSignature: 'Firma del arrendador',
+    missingSignature: 'No hay firma disponible.',
+    signedBy: 'Firmado por',
+    signedAt: 'Firmado el',
+  },
+  it: {
+    signaturesHeading: 'Firme',
+    renterSignature: 'Firma del locatario',
+    lessorSignature: 'Firma del locatore',
+    missingSignature: 'Nessuna firma disponibile.',
+    signedBy: 'Firmato da',
+    signedAt: 'Firmato il',
+  },
+  sk: {
+    signaturesHeading: 'Podpisy',
+    renterSignature: 'Podpis nájomcu',
+    lessorSignature: 'Podpis prenajímateľa',
+    missingSignature: 'Podpis nie je k dispozícii.',
+    signedBy: 'Podpísal',
+    signedAt: 'Podpísané dňa',
+  },
+  cz: {
+    signaturesHeading: 'Podpisy',
+    renterSignature: 'Podpis nájemce',
+    lessorSignature: 'Podpis pronajímatele',
+    missingSignature: 'Podpis není k dispozici.',
+    signedBy: 'Podepsal',
+    signedAt: 'Podepsáno dne',
+  },
+  se: {
+    signaturesHeading: 'Signaturer',
+    renterSignature: 'Hyrestagarens signatur',
+    lessorSignature: 'Uthyrarens signatur',
+    missingSignature: 'Ingen signatur tillgänglig.',
+    signedBy: 'Undertecknat av',
+    signedAt: 'Undertecknat den',
+  },
+  no: {
+    signaturesHeading: 'Signaturer',
+    renterSignature: 'Leietakers signatur',
+    lessorSignature: 'Utleiers signatur',
+    missingSignature: 'Ingen signatur tilgjengelig.',
+    signedBy: 'Signert av',
+    signedAt: 'Signert den',
+  },
+  dk: {
+    signaturesHeading: 'Signaturer',
+    renterSignature: 'Lejers signatur',
+    lessorSignature: 'Udlejers signatur',
+    missingSignature: 'Ingen signatur tilgaengelig.',
+    signedBy: 'Underskrevet af',
+    signedAt: 'Underskrevet den',
+  },
+  pl: {
+    signaturesHeading: 'Podpisy',
+    renterSignature: 'Podpis najemcy',
+    lessorSignature: 'Podpis wynajmującego',
+    missingSignature: 'Brak podpisu.',
+    signedBy: 'Podpisano przez',
+    signedAt: 'Data podpisu',
+  },
+};
+
+const bilingualLabel = (
+  locale: ContractLocale,
+  english: string,
+  localized: string,
+) => (locale === 'en' ? english : `${english} / ${localized}`);
 
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
@@ -89,7 +217,10 @@ export const buildContractPdf = async ({
   signedAt,
   renterSignatureDataUrl,
   lessorSignatureDataUrl,
+  locale,
 }: ContractPdfInput) => {
+  const resolvedLocale = resolveContractLocale(locale);
+  const localizedCopy = PDF_SIGNATURE_COPY[resolvedLocale];
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
 
@@ -160,13 +291,20 @@ export const buildContractPdf = async ({
   }
 
   cursorY -= 8;
-  page.drawText('Aláírások', {
-    x: margin,
-    y: cursorY,
-    size: 12,
-    font: fontBold,
-    color: rgb(0.1, 0.1, 0.1),
-  });
+  page.drawText(
+    bilingualLabel(
+      resolvedLocale,
+      PDF_SIGNATURE_COPY.en.signaturesHeading,
+      localizedCopy.signaturesHeading,
+    ),
+    {
+      x: margin,
+      y: cursorY,
+      size: 12,
+      font: fontBold,
+      color: rgb(0.1, 0.1, 0.1),
+    },
+  );
   cursorY -= 12;
 
   const ensureSpace = (heightNeeded: number) => {
@@ -190,13 +328,20 @@ export const buildContractPdf = async ({
 
     const signature = parseDataUrl(dataUrl);
     if (!signature) {
-      page.drawText('Nincs aláírás.', {
-        x: margin,
-        y: cursorY,
-        size: fontSize,
-        font,
-        color: rgb(0.35, 0.35, 0.35),
-      });
+      page.drawText(
+        bilingualLabel(
+          resolvedLocale,
+          PDF_SIGNATURE_COPY.en.missingSignature,
+          localizedCopy.missingSignature,
+        ),
+        {
+          x: margin,
+          y: cursorY,
+          size: fontSize,
+          font,
+          color: rgb(0.35, 0.35, 0.35),
+        },
+      );
       cursorY -= lineHeight;
       return;
     }
@@ -222,31 +367,73 @@ export const buildContractPdf = async ({
     cursorY -= signatureHeight + 10;
   };
 
-  await drawSignatureBlock('Bérlő aláírása', renterSignatureDataUrl);
-  await drawSignatureBlock('Bérbeadó aláírása', lessorSignatureDataUrl);
+  await drawSignatureBlock(
+    bilingualLabel(
+      resolvedLocale,
+      PDF_SIGNATURE_COPY.en.renterSignature,
+      localizedCopy.renterSignature,
+    ),
+    renterSignatureDataUrl,
+  );
+  await drawSignatureBlock(
+    bilingualLabel(
+      resolvedLocale,
+      PDF_SIGNATURE_COPY.en.lessorSignature,
+      localizedCopy.lessorSignature,
+    ),
+    lessorSignatureDataUrl,
+  );
 
-  const signedAtLabel = signedAt.toLocaleString('hu-HU', {
+  const signedAtEnglish = signedAt.toLocaleString('en-GB', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
+  const signedAtLocalized = signedAt.toLocaleString(
+    DATE_LOCALE_MAP[resolvedLocale],
+    {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    },
+  );
+  const signedAtValue =
+    resolvedLocale === 'en'
+      ? signedAtEnglish
+      : `${signedAtEnglish} / ${signedAtLocalized}`;
   ensureSpace(lineHeight * 3);
-  page.drawText(`Aláírta: ${signerName}`, {
-    x: margin,
-    y: cursorY - lineHeight,
-    size: fontSize,
-    font,
-    color: rgb(0.1, 0.1, 0.1),
-  });
-  page.drawText(`Aláírás ideje: ${signedAtLabel}`, {
-    x: margin,
-    y: cursorY - lineHeight * 2,
-    size: fontSize,
-    font,
-    color: rgb(0.1, 0.1, 0.1),
-  });
+  page.drawText(
+    `${bilingualLabel(
+      resolvedLocale,
+      PDF_SIGNATURE_COPY.en.signedBy,
+      localizedCopy.signedBy,
+    )}: ${signerName}`,
+    {
+      x: margin,
+      y: cursorY - lineHeight,
+      size: fontSize,
+      font,
+      color: rgb(0.1, 0.1, 0.1),
+    },
+  );
+  page.drawText(
+    `${bilingualLabel(
+      resolvedLocale,
+      PDF_SIGNATURE_COPY.en.signedAt,
+      localizedCopy.signedAt,
+    )}: ${signedAtValue}`,
+    {
+      x: margin,
+      y: cursorY - lineHeight * 2,
+      size: fontSize,
+      font,
+      color: rgb(0.1, 0.1, 0.1),
+    },
+  );
 
   const bytes = await pdfDoc.save();
   return Buffer.from(bytes);

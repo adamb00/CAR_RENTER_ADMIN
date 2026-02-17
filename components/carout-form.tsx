@@ -34,6 +34,23 @@ const takeOptions = [
   { value: 'Alice Johnson', label: 'Alice Johnson' },
 ];
 
+const formatArrivalTime = (hour?: string | null, minute?: string | null) => {
+  const hourText = hour?.trim() ?? '';
+  const minuteText = minute?.trim() ?? '';
+  if (!hourText && !minuteText) return 'Nincs megadva';
+
+  const normalizedHour =
+    hourText.length > 0 && /^\d+$/.test(hourText)
+      ? hourText.padStart(2, '0')
+      : hourText || '--';
+  const normalizedMinute =
+    minuteText.length > 0 && /^\d+$/.test(minuteText)
+      ? minuteText.padStart(2, '0')
+      : minuteText || '--';
+
+  return `${normalizedHour}:${normalizedMinute}`;
+};
+
 type CaroutFormProps = {
   booking: Booking | null;
   vehicle: FleetVehicle | null;
@@ -199,7 +216,7 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
           }
         />
       </div>
-      <div className='grid grid-cols-2 gap-4 mb-6'>
+      <div className='grid gap-4 mb-6 md:grid-cols-3'>
         <Detail
           label='Kiszállítás helye'
           value={
@@ -213,6 +230,13 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
               ? `${booking.payload.delivery.address.postalCode} ${booking.payload.delivery.address.city}, ${booking.payload.delivery.address.street} ${booking.payload.delivery.address.doorNumber}`
               : 'Nincs megadva'
           }
+        />
+        <Detail
+          label='Érkezés ideje'
+          value={formatArrivalTime(
+            booking?.payload?.delivery?.arrivalHour,
+            booking?.payload?.delivery?.arrivalMinute,
+          )}
         />
       </div>
       <form onSubmit={handleSubmit} className='grid gap-4 md:grid-cols-2'>

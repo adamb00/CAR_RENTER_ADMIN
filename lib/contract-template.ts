@@ -29,6 +29,8 @@ export type ContractData = {
   rentalEnd?: string | null;
   rentalDays?: number | null;
   rentalFee?: string | null;
+  deposit?: string | null;
+  insurance?: string | null;
   pickupLocation?: string | null;
   pickupAddress?: string | null;
 };
@@ -79,6 +81,19 @@ const normalizeFee = (value: string | null | undefined) => {
   return trimmed.replace(/\s*(€|eur)\s*$/i, '').trim();
 };
 
+const joinLabelValue = (label: string, value: string) => `${label} ${value}`;
+
+const isNumericLike = (value: string) => /^[\d.,\s-]+$/.test(value);
+
+const formatMoney = (value: string | null | undefined, fallback: string) => {
+  const trimmed = value?.trim();
+  if (!trimmed) return fallback;
+  const normalized = normalizeFee(trimmed);
+  if (!normalized) return fallback;
+  if (!isNumericLike(normalized)) return trimmed;
+  return `${normalized} EUR`;
+};
+
 export const buildContractTemplate = (
   data: ContractData,
   options?: { signedAt?: Date; locale?: string | null },
@@ -120,19 +135,9 @@ export const buildContractTemplate = (
     data.renterBirthPlace,
     '<<Customer.BirthPlace>>',
   );
-  const renterBirthDate = formatDateOr(
-    data.renterBirthDate,
-    '<<Customer.BirthDate>>',
-    locale,
-  );
   const renterIdCardNumber = formatValueOr(
     data.renterIdCardNumber,
     '<<Customer.IdCardNumber>>',
-  );
-  const renterIdCardExpireDate = formatDateOr(
-    data.renterIdCardExpireDate,
-    '<<Customer.IdCardExpireDate>>',
-    locale,
   );
   const renterDrivingLicenseNumber = formatValueOr(
     data.renterDrivingLicenseNumber,
@@ -144,74 +149,73 @@ export const buildContractTemplate = (
   );
   const carModel = formatValueOr(data.carLabel, '<<Car.Model>>');
   const carLicensePlate = formatValueOr(data.plate, '<<Car.LicensePlate>>');
-  const rentFrom = formatDateOr(data.rentalStart, '<<Rent.From>>', locale);
-  const rentTo = formatDateOr(data.rentalEnd, '<<Rent.To>>', locale);
   const rentFee = normalizeFee(data.rentalFee);
-  const rentFeePerDayLine = rentFee
-    ? `${rentFee} ${copy.rentalFeePerDaySuffix}`
-    : `<<Rent.Fee>> ${copy.rentalFeePerDaySuffix}`;
   const rentFeeOnlyLine = rentFee ?? '<<Rent.Fee>>';
   const signedAt = options?.signedAt;
-  const customToday = signedAt
-    ? formatDateShortLocale(signedAt.toISOString(), locale)
-    : '<<Custom.Today>>';
-  const renterBirthLine = `${renterBirthPlace}, ${renterBirthDate}`;
+  const depositLine = formatMoney(data.deposit, '<<Deposit>>');
+  const insuranceLine = formatMoney(data.insurance, '<<Insurance>>');
 
-  const buildBodyLines = (bodyCopy: typeof copy.body) => [
+  const buildBodyLines = (
+    bodyCopy: typeof copy.body,
+    bodyLocale: ContractLocale,
+  ) => {
+    const renterBirthDate = formatDateOr(
+      data.renterBirthDate,
+      '<<Customer.BirthDate>>',
+      bodyLocale,
+    );
+    const renterIdCardExpireDate = formatDateOr(
+      data.renterIdCardExpireDate,
+      '<<Customer.IdCardExpireDate>>',
+      bodyLocale,
+    );
+    const rentFrom = formatDateOr(data.rentalStart, '<<Rent.From>>', bodyLocale);
+    const rentTo = formatDateOr(data.rentalEnd, '<<Rent.To>>', bodyLocale);
+    const rentalFeeSuffix = CONTRACT_COPY[bodyLocale].rentalFeePerDaySuffix;
+    const rentFeePerDayLine = rentFee
+      ? `${rentFee} ${rentalFeeSuffix}`
+      : `<<Rent.Fee>> ${rentalFeeSuffix}`;
+    const customToday = signedAt
+      ? formatDateShortLocale(signedAt.toISOString(), bodyLocale)
+      : '<<Custom.Today>>';
+    const renterBirthLine = `${renterBirthPlace}, ${renterBirthDate}`;
+
+    return [
     bodyCopy.lessorHeading,
     '',
-    bodyCopy.companyLabel,
-    ownerCompanyName,
-    bodyCopy.addressLabel,
-    ownerCompanyAddress,
-    bodyCopy.registrationLabel,
-    ownerCompanyFiscal,
+    joinLabelValue(bodyCopy.companyLabel, ownerCompanyName),
+    joinLabelValue(bodyCopy.addressLabel, ownerCompanyAddress),
+    joinLabelValue(bodyCopy.registrationLabel, ownerCompanyFiscal),
     '',
     bodyCopy.renterHeading,
     '',
-    bodyCopy.renterLabel,
-    renterName,
-    bodyCopy.addressLabel,
-    renterAddress,
-    bodyCopy.birthLabel,
-    renterBirthLine,
-    bodyCopy.idNumberLabel,
-    renterIdCardNumber,
-    bodyCopy.idExpiryLabel,
-    '',
-    renterIdCardExpireDate,
-    bodyCopy.licenseLabel,
-    renterDrivingLicenseNumber,
-    bodyCopy.phoneLabel,
-    renterPhone,
+    joinLabelValue(bodyCopy.renterLabel, renterName),
+    joinLabelValue(bodyCopy.addressLabel, renterAddress),
+    joinLabelValue(bodyCopy.birthLabel, renterBirthLine),
+    joinLabelValue(bodyCopy.idNumberLabel, renterIdCardNumber),
+    joinLabelValue(bodyCopy.idExpiryLabel, renterIdCardExpireDate),
+    joinLabelValue(bodyCopy.licenseLabel, renterDrivingLicenseNumber),
+    joinLabelValue(bodyCopy.phoneLabel, renterPhone),
     '',
     bodyCopy.vehicleDetailsHeading,
     '',
-    bodyCopy.carTypeLabel,
-    carModel,
-    bodyCopy.licensePlateLabel,
-    carLicensePlate,
+    joinLabelValue(bodyCopy.carTypeLabel, carModel),
+    joinLabelValue(bodyCopy.licensePlateLabel, carLicensePlate),
     '',
     bodyCopy.rentalFeesHeading,
     '',
-    bodyCopy.rentalFeeLabel,
-    rentFeePerDayLine,
-    '',
-    rentFeeOnlyLine,
-    bodyCopy.depositLabel,
-    '1000 EUR',
-    bodyCopy.insuranceLabel,
-    '60 EUR',
+    joinLabelValue(bodyCopy.rentalFeeLabel, rentFeePerDayLine),
+    joinLabelValue(bodyCopy.depositLabel, depositLine),
+    joinLabelValue(bodyCopy.insuranceLabel, insuranceLine),
+    joinLabelValue(bodyCopy.rentalFeeLabel, rentFeeOnlyLine),
     '',
     bodyCopy.depositParagraph,
     bodyCopy.insuranceParagraph,
     '',
     bodyCopy.rentalPeriodHeading,
     '',
-    bodyCopy.rentalStartLabel,
-    rentFrom,
-    bodyCopy.rentalEndLabel,
-    rentTo,
+    joinLabelValue(bodyCopy.rentalStartLabel, rentFrom),
+    joinLabelValue(bodyCopy.rentalEndLabel, rentTo),
     '',
     bodyCopy.rentalTermsHeading,
     ...bodyCopy.rentalTermsLines,
@@ -270,13 +274,20 @@ export const buildContractTemplate = (
     '',
     '',
     bodyCopy.dateLine,
-    '',
-    '',
     bodyCopy.cityLine.replace('<<Custom.Today>>', customToday),
   ];
+  };
 
-  const englishBody = buildBodyLines(englishCopy.body).join('\n');
-  const localizedBody = buildBodyLines(copy.body).join('\n');
+  const englishBody = [
+    '=== ENGLISH VERSION ===',
+    '',
+    ...buildBodyLines(englishCopy.body, 'en'),
+  ].join('\n');
+  const localizedBody = [
+    `=== LOCAL LANGUAGE VERSION (${copy.title}) ===`,
+    '',
+    ...buildBodyLines(copy.body, locale),
+  ].join('\n');
   const body =
     locale === 'en'
       ? englishBody
@@ -368,11 +379,6 @@ export const formatContractText = (
   options?: { includeTitle?: boolean },
 ) => {
   const includeTitle = options?.includeTitle ?? true;
-  if (template.body) {
-    return (
-      includeTitle ? [template.title, '', template.body] : [template.body]
-    ).join('\n');
-  }
   const detailLines = template.details.map(
     (item) => `${item.label}: ${item.value}`,
   );
@@ -385,11 +391,14 @@ export const formatContractText = (
     '',
     ...detailLines,
     '',
-    'Terms:',
     ...termLines,
     '',
     template.footer,
   ];
+
+  if (template.body) {
+    lines.push('', template.body);
+  }
 
   return (includeTitle ? [template.title, '', ...lines] : lines).join('\n');
 };

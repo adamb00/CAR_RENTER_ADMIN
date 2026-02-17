@@ -3,6 +3,11 @@
 import type { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
+import {
+  findFleetVehicleBookingConflict,
+  formatDateForConflictMessage,
+  getAssignedFleetVehicleIdFromPayload,
+} from '@/lib/booking-conflicts';
 import { db } from '@/lib/db';
 
 type UpdateBookingScheduleInput = {
@@ -32,7 +37,7 @@ export async function updateBookingScheduleAction({
 
   const booking = await db.rentRequests.findUnique({
     where: { id: trimmedBookingId },
-    select: { payload: true, id: true },
+    select: { payload: true, id: true, rentalstart: true, rentalend: true },
   });
 
   if (!booking) {
@@ -48,6 +53,11 @@ export async function updateBookingScheduleAction({
 
   let payload = isRecord(booking.payload) ? { ...booking.payload } : undefined;
   let payloadChanged = false;
+  let effectiveRentalStart = booking.rentalstart ?? null;
+  let effectiveRentalEnd = booking.rentalend ?? null;
+  let effectiveFleetVehicleId = getAssignedFleetVehicleIdFromPayload(
+    booking.payload,
+  );
 
   if (rentalStart !== undefined || rentalEnd !== undefined) {
     if (!rentalStart || !rentalEnd) {
@@ -68,6 +78,8 @@ export async function updateBookingScheduleAction({
 
     data.rentalstart = parsedStart;
     data.rentalend = parsedEnd;
+    effectiveRentalStart = parsedStart;
+    effectiveRentalEnd = parsedEnd;
 
     if (payload && isRecord(payload.rentalPeriod)) {
       payload = {
@@ -93,6 +105,7 @@ export async function updateBookingScheduleAction({
         payloadChanged = true;
       }
       data.carid = null;
+      effectiveFleetVehicleId = null;
     } else {
       const fleetVehicle = await db.fleetVehicle.findUnique({
         where: { id: fleetVehicleId },
@@ -111,6 +124,29 @@ export async function updateBookingScheduleAction({
       };
       payloadChanged = true;
       data.carid = fleetVehicle.carId;
+      effectiveFleetVehicleId = fleetVehicle.id;
+    }
+  }
+
+  if (effectiveFleetVehicleId && effectiveRentalStart && effectiveRentalEnd) {
+    const conflictingBooking = await findFleetVehicleBookingConflict({
+      bookingIdToExclude: trimmedBookingId,
+      fleetVehicleId: effectiveFleetVehicleId,
+      rentalStart: effectiveRentalStart,
+      rentalEnd: effectiveRentalEnd,
+    });
+
+    if (conflictingBooking) {
+      const conflictLabel = conflictingBooking.humanId ?? conflictingBooking.id;
+      const conflictStart = formatDateForConflictMessage(
+        conflictingBooking.rentalstart,
+      );
+      const conflictEnd = formatDateForConflictMessage(
+        conflictingBooking.rentalend,
+      );
+      return {
+        error: `A kiválasztott autó már foglalt ebben az időszakban (${conflictLabel}: ${conflictStart} - ${conflictEnd}).`,
+      };
     }
   }
 

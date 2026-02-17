@@ -8,6 +8,7 @@ import { getQuoteById } from '@/data-service/quotes';
 import { getStatusMeta } from '@/lib/status';
 import { BookingRegistrationCheckbox } from './booking-registration-checkbox';
 import { SendConfirmButton } from './send-confirm-button';
+import { SendRejectButton } from './send-reject-button';
 import Section from '@/components/ui/section';
 import { Detail, DetailInline } from '@/components/ui/detail';
 import { formatDateShort, formatDateTimeDetail } from '@/lib/format-date';
@@ -107,6 +108,23 @@ const formatAddress = (address?: {
   return parts.length ? parts.join(', ') : '—';
 };
 
+const formatArrivalTime = (hour?: string | null, minute?: string | null) => {
+  const hourText = hour?.trim() ?? '';
+  const minuteText = minute?.trim() ?? '';
+  if (!hourText && !minuteText) return '—';
+
+  const normalizedHour =
+    hourText.length > 0 && /^\d+$/.test(hourText)
+      ? hourText.padStart(2, '0')
+      : hourText || '--';
+  const normalizedMinute =
+    minuteText.length > 0 && /^\d+$/.test(minuteText)
+      ? minuteText.padStart(2, '0')
+      : minuteText || '--';
+
+  return `${normalizedHour}:${normalizedMinute}`;
+};
+
 const booleanLabel = (value: boolean | null | undefined) => {
   if (value == null) return '—';
   return value ? 'Igen' : 'Nem';
@@ -204,9 +222,6 @@ export default async function BookingDetailPage({
     savedPricing ?? quotePricing ?? undefined;
   const showPricingBreakdown = hasPricingDetails(pricingData);
 
-  console.log('b', booking);
-  console.log('q', quote);
-
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
       <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
@@ -217,6 +232,10 @@ export default async function BookingDetailPage({
           </p>
         </div>
         <div className='flex w-full flex-col gap-3 sm:max-w-sm'>
+          <SendRejectButton
+            bookingCode={booking.humanId ?? booking.id}
+            bookingId={booking.id}
+          />
           <SendConfirmButton
             bookingCode={booking.humanId ?? booking.id}
             bookingId={booking.id}
@@ -589,6 +608,13 @@ export default async function BookingDetailPage({
           />
           <Detail label='Helyszín neve' value={delivery?.locationName} />
           <Detail label='Érkező járat' value={delivery?.arrivalFlight} />
+          <Detail
+            label='Érkezés ideje'
+            value={formatArrivalTime(
+              delivery?.arrivalHour,
+              delivery?.arrivalMinute,
+            )}
+          />
           <Detail label='Távozó járat' value={delivery?.departureFlight} />
           <Detail label='Cím' value={formatAddress(delivery?.address)} />
         </Section>

@@ -42,8 +42,6 @@ export default function CarinForm({
   vehicle,
   handoverOutMileage,
 }: CarinFormProps) {
-  console.log(booking);
-
   const normalizedInitialValues = useMemo(() => emptyForm, []);
   const [form, setForm] = useState<CarinFormValues>(normalizedInitialValues);
   const [status, setStatus] = useState<{

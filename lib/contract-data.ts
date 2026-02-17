@@ -96,6 +96,8 @@ export const buildContractDataFromBooking = (
     rentalEnd,
     rentalDays: booking.rentalDays ?? undefined,
     rentalFee: booking.payload?.pricing?.rentalFee ?? undefined,
+    deposit: booking.payload?.pricing?.deposit ?? undefined,
+    insurance: booking.payload?.pricing?.insurance ?? undefined,
     pickupLocation: booking.payload?.delivery?.locationName ?? undefined,
     pickupAddress: formatAddress(booking.payload?.delivery?.address),
   };

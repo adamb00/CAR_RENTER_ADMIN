@@ -3,6 +3,10 @@
 import type { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
+import {
+  findFleetVehicleBookingConflict,
+  formatDateForConflictMessage,
+} from '@/lib/booking-conflicts';
 import { db } from '@/lib/db';
 
 type AssignFleetVehicleInput = {
@@ -24,7 +28,13 @@ export async function assignFleetVehicleToBookingAction({
 
   const booking = await db.rentRequests.findUnique({
     where: { id: trimmedBookingId },
-    select: { payload: true, carid: true, id: true },
+    select: {
+      payload: true,
+      carid: true,
+      id: true,
+      rentalstart: true,
+      rentalend: true,
+    },
   });
 
   if (!booking) {
@@ -58,6 +68,28 @@ export async function assignFleetVehicleToBookingAction({
 
   if (!fleetVehicle) {
     return { error: 'A választott flotta autó nem található.' };
+  }
+
+  if (booking.rentalstart && booking.rentalend) {
+    const conflictingBooking = await findFleetVehicleBookingConflict({
+      bookingIdToExclude: trimmedBookingId,
+      fleetVehicleId: fleetVehicle.id,
+      rentalStart: booking.rentalstart,
+      rentalEnd: booking.rentalend,
+    });
+
+    if (conflictingBooking) {
+      const conflictLabel = conflictingBooking.humanId ?? conflictingBooking.id;
+      const conflictStart = formatDateForConflictMessage(
+        conflictingBooking.rentalstart,
+      );
+      const conflictEnd = formatDateForConflictMessage(
+        conflictingBooking.rentalend,
+      );
+      return {
+        error: `A kiválasztott autó már foglalt ebben az időszakban (${conflictLabel}: ${conflictStart} - ${conflictEnd}).`,
+      };
+    }
   }
 
   payload = {
