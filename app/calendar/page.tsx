@@ -34,6 +34,7 @@ export default async function CalendarPage() {
     carLabel: `${vehicle.car.manufacturer} ${vehicle.car.model}`.trim(),
     carId: vehicle.car.id,
     location: vehicle.location ?? '',
+    notes: vehicle.notes ?? null,
     odometer: vehicle.odometer ?? 0,
     serviceIntervalKm: vehicle.serviceIntervalKm ?? null,
     lastServiceMileage: vehicle.lastServiceMileage ?? null,

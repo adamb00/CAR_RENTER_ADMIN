@@ -9,6 +9,10 @@ import {
   getAssignedFleetVehicleIdFromPayload,
 } from '@/lib/booking-conflicts';
 import { db } from '@/lib/db';
+import {
+  getFleetServiceWindowRangeFromNotes,
+  isFleetBlockedByServiceWindow,
+} from '@/lib/fleet-service-window';
 
 type UpdateBookingScheduleInput = {
   bookingId: string;
@@ -58,6 +62,7 @@ export async function updateBookingScheduleAction({
   let effectiveFleetVehicleId = getAssignedFleetVehicleIdFromPayload(
     booking.payload,
   );
+  let effectiveFleetVehicleNotes: string | null = null;
 
   if (rentalStart !== undefined || rentalEnd !== undefined) {
     if (!rentalStart || !rentalEnd) {
@@ -109,7 +114,7 @@ export async function updateBookingScheduleAction({
     } else {
       const fleetVehicle = await db.fleetVehicle.findUnique({
         where: { id: fleetVehicleId },
-        select: { id: true, carId: true, plate: true },
+        select: { id: true, carId: true, plate: true, notes: true },
       });
 
       if (!fleetVehicle) {
@@ -125,10 +130,34 @@ export async function updateBookingScheduleAction({
       payloadChanged = true;
       data.carid = fleetVehicle.carId;
       effectiveFleetVehicleId = fleetVehicle.id;
+      effectiveFleetVehicleNotes = fleetVehicle.notes ?? null;
     }
   }
 
   if (effectiveFleetVehicleId && effectiveRentalStart && effectiveRentalEnd) {
+    if (effectiveFleetVehicleNotes == null) {
+      const fleetVehicle = await db.fleetVehicle.findUnique({
+        where: { id: effectiveFleetVehicleId },
+        select: { notes: true },
+      });
+      effectiveFleetVehicleNotes = fleetVehicle?.notes ?? null;
+    }
+
+    if (
+      isFleetBlockedByServiceWindow({
+        notes: effectiveFleetVehicleNotes,
+        rentalStart: effectiveRentalStart,
+        rentalEnd: effectiveRentalEnd,
+      })
+    ) {
+      const window = getFleetServiceWindowRangeFromNotes(
+        effectiveFleetVehicleNotes,
+      );
+      return {
+        error: `A kiválasztott autó szerviz alatt áll ebben az időszakban (${window?.fromLabel ?? '—'} - ${window?.toLabel ?? '—'}).`,
+      };
+    }
+
     const conflictingBooking = await findFleetVehicleBookingConflict({
       bookingIdToExclude: trimmedBookingId,
       fleetVehicleId: effectiveFleetVehicleId,

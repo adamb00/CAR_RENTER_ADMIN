@@ -24,6 +24,7 @@ type FleetRow = {
   year: string;
   firstRegistration: string;
   location: string;
+  locationColor?: string;
   vin: string;
   engineNumber: string;
   addedAt: string;
@@ -187,7 +188,21 @@ export function CarFleetSection({
                     {STATUS_LABELS[row.status]}
                   </span>
                 </td>
-                <td className='whitespace-nowrap px-4 py-3'>{row.location}</td>
+                <td className='whitespace-nowrap px-4 py-3'>
+                  <div className='inline-flex items-center gap-2'>
+                    <span
+                      className='h-2.5 w-2.5 rounded-full border border-black/10'
+                      style={{ backgroundColor: row.locationColor ?? '#888888' }}
+                      aria-hidden
+                    />
+                    <span
+                      className='font-medium'
+                      style={{ color: row.locationColor ?? undefined }}
+                    >
+                      {row.location}
+                    </span>
+                  </div>
+                </td>
                 <td className='whitespace-nowrap px-4 py-3'>{row.year}</td>
                 <td className='whitespace-nowrap px-4 py-3'>
                   {row.inspectionExpiry}

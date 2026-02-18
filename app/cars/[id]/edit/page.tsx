@@ -5,7 +5,8 @@ import { CarFleetSection } from '@/components/car-fleet-section';
 import { NewCarForm } from '@/components/new-car-form';
 import { CAR_COLORS, type CarColorOption } from '@/lib/car-options';
 import { db } from '@/lib/db';
-import { getFleetPlaceLabel } from '@/lib/fleet-places';
+import { getFleetPlaceColor, getFleetPlaceLabel } from '@/lib/fleet-places';
+import { formatDateForInput } from '@/lib/format-date';
 import type { CreateCarFormValues } from '@/schemas/carSchema';
 
 export default async function EditCarPage({
@@ -93,11 +94,11 @@ export default async function EditCarPage({
           year: fleet.year?.toString() ?? '',
           firstRegistration: '',
           location: getFleetPlaceLabel(fleet.location),
+          locationColor: getFleetPlaceColor(fleet.location),
           vin: '',
           engineNumber: '',
           addedAt: '',
-          inspectionExpiry:
-            fleet.inspectionExpiry?.toISOString().slice(0, 10) ?? '',
+          inspectionExpiry: formatDateForInput(fleet.inspectionExpiry),
           notes: '',
           damages: '',
         }))}

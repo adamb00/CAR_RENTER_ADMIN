@@ -8,6 +8,10 @@ import {
   formatDateForConflictMessage,
 } from '@/lib/booking-conflicts';
 import { db } from '@/lib/db';
+import {
+  getFleetServiceWindowRangeFromNotes,
+  isFleetBlockedByServiceWindow,
+} from '@/lib/fleet-service-window';
 
 type AssignFleetVehicleInput = {
   bookingId: string;
@@ -63,7 +67,7 @@ export async function assignFleetVehicleToBookingAction({
 
   const fleetVehicle = await db.fleetVehicle.findUnique({
     where: { id: fleetVehicleId },
-    select: { id: true, carId: true, plate: true },
+    select: { id: true, carId: true, plate: true, notes: true },
   });
 
   if (!fleetVehicle) {
@@ -71,6 +75,19 @@ export async function assignFleetVehicleToBookingAction({
   }
 
   if (booking.rentalstart && booking.rentalend) {
+    if (
+      isFleetBlockedByServiceWindow({
+        notes: fleetVehicle.notes,
+        rentalStart: booking.rentalstart,
+        rentalEnd: booking.rentalend,
+      })
+    ) {
+      const window = getFleetServiceWindowRangeFromNotes(fleetVehicle.notes);
+      return {
+        error: `A kiválasztott autó szerviz alatt áll ebben az időszakban (${window?.fromLabel ?? '—'} - ${window?.toLabel ?? '—'}).`,
+      };
+    }
+
     const conflictingBooking = await findFleetVehicleBookingConflict({
       bookingIdToExclude: trimmedBookingId,
       fleetVehicleId: fleetVehicle.id,

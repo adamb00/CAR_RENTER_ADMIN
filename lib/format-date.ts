@@ -22,3 +22,10 @@ export const formatDateTimeDetail = (value?: string | null) => {
     minute: '2-digit',
   });
 };
+
+export const formatDateForInput = (value?: Date | string | null) => {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
+};
