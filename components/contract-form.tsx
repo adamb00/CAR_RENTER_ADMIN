@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { createBookingContractAction } from '@/actions/createBookingContractAction';
 import type { ContractTemplate } from '@/lib/contract-template';
@@ -33,6 +34,7 @@ export default function ContractForm({
   renterEmail,
   existingContract,
 }: ContractFormProps) {
+  const router = useRouter();
   const signatureRef = useRef<SignaturePadHandle>(null);
   const lessorSignatureRef = useRef<SignaturePadHandle>(null);
   const [form, setForm] = useState({
@@ -127,6 +129,8 @@ export default function ContractForm({
         type: 'success',
         message: result?.success ?? 'Szerződés elküldve.',
       });
+      router.replace(`/bookings/${bookingId}/carout`);
+      router.refresh();
     });
   };
 

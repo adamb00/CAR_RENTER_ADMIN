@@ -1,5 +1,6 @@
 'use client';
 import React, { useMemo, useState, useTransition } from 'react';
+import Link from 'next/link';
 import { FloatingSelect } from './ui/floating-select';
 import { Input } from './ui/input';
 import { FloatingTextarea } from './ui/textarea';
@@ -33,9 +34,12 @@ const emptyForm = {
 };
 
 const takeOptions = [
-  { value: 'John Doe', label: 'John Doe' },
-  { value: 'Jane Smith', label: 'Jane Smith' },
-  { value: 'Alice Johnson', label: 'Alice Johnson' },
+  { value: 'Kis Róbert', label: 'Kis Róbert' },
+  { value: 'Hidas Andrea', label: 'Hidas Andrea' },
+  { value: 'Orosz Tamás', label: 'Orosz Tamás' },
+  { value: 'Veress Gabriella', label: 'Veress Gabriella' },
+  { value: 'Kis Viktória', label: 'Kis Viktória' },
+  { value: 'Kis Patrícia', label: 'Kis Patrícia' },
 ];
 
 const formatArrivalTime = (hour?: string | null, minute?: string | null) => {
@@ -58,10 +62,15 @@ const formatArrivalTime = (hour?: string | null, minute?: string | null) => {
 type CaroutFormProps = {
   booking: Booking | null;
   vehicle: FleetVehicle | null;
+  isContractSigned: boolean;
 };
 
 type CaroutFormValues = typeof emptyForm;
-export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
+export default function CaroutForm({
+  booking,
+  vehicle,
+  isContractSigned,
+}: CaroutFormProps) {
   const normalizedInitialValues = useMemo(() => emptyForm, []);
   const [form, setForm] = useState<CaroutFormValues>(normalizedInitialValues);
   const [status, setStatus] = useState<{
@@ -140,6 +149,15 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setStatus(null);
+
+    if (!isContractSigned) {
+      setStatus({
+        type: 'error',
+        message:
+          'A kiadás előtt kötelező a bérleti szerződés aláírása a Digitális szerződés oldalon.',
+      });
+      return;
+    }
 
     const bookingId = booking?.id;
     const fleetVehicleId =
@@ -275,6 +293,18 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
 
   return (
     <div>
+      {!isContractSigned && booking?.id ? (
+        <div className='mb-6 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900'>
+          A kiadás rögzítéséhez előbb alá kell írni a bérleti szerződést.{' '}
+          <Link
+            className='font-semibold underline underline-offset-2'
+            href={`/bookings/${booking.id}/contract`}
+          >
+            Ugrás a Digitális szerződés oldalra
+          </Link>
+          .
+        </div>
+      ) : null}
       <div className='grid md:grid-cols-3 w-full gap-4 mb-6'>
         <Detail label='Foglaló neve' value={booking?.contactName} />
         <Detail label='E-mail' value={booking?.contactEmail} />
@@ -491,7 +521,7 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
               {status.message}
             </p>
           )}
-          <Button type='submit' disabled={isPending}>
+          <Button type='submit' disabled={isPending || !isContractSigned}>
             {isPending ? 'Mentés...' : 'Kiadás rögzítése'}
           </Button>
         </div>

@@ -28,9 +28,12 @@ const emptyForm = {
 };
 
 const takeOptions = [
-  { value: 'John Doe', label: 'John Doe' },
-  { value: 'Jane Smith', label: 'Jane Smith' },
-  { value: 'Alice Johnson', label: 'Alice Johnson' },
+  { value: 'Kis Róbert', label: 'Kis Róbert' },
+  { value: 'Hidas Andrea', label: 'Hidas Andrea' },
+  { value: 'Orosz Tamás', label: 'Orosz Tamás' },
+  { value: 'Veress Gabriella', label: 'Veress Gabriella' },
+  { value: 'Kis Viktória', label: 'Kis Viktória' },
+  { value: 'Kis Patrícia', label: 'Kis Patrícia' },
 ];
 
 type CarinFormProps = {
