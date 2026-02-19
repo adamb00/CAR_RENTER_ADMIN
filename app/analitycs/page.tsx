@@ -329,8 +329,8 @@ export default async function AnalyticsPage({
             <h2 className='mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
               Foglalás szintű részletek
             </h2>
-            <div className='overflow-x-auto rounded-lg border'>
-              <table className='min-w-350 text-sm'>
+            <div className='w-full max-w-full overflow-x-auto rounded-lg border'>
+              <table className='w-full min-w-[1650px] text-sm'>
                 <thead className='sticky top-0 bg-muted/50 text-left backdrop-blur'>
                   <tr>
                     <th className='px-3 py-2 font-medium'>#</th>

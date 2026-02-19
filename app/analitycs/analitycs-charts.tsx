@@ -47,7 +47,13 @@ function EmptyChart({ message }: { message: string }) {
   );
 }
 
-function RevenueTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name?: string; value?: number }> }) {
+function RevenueTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ name?: string; value?: number }>;
+}) {
   if (!active || !payload || payload.length === 0) return null;
 
   return (
@@ -119,7 +125,11 @@ const RevenueDonut = ({ monthData }: { monthData: AnalitycsMonthData }) => {
   );
 };
 
-const FleetRevenueColumns = ({ monthData }: { monthData: AnalitycsMonthData }) => {
+const FleetRevenueColumns = ({
+  monthData,
+}: {
+  monthData: AnalitycsMonthData;
+}) => {
   const bars = monthData.perCar
     .filter((item) => item.rows > 0)
     .sort((a, b) => b.revenue - a.revenue)
@@ -139,13 +149,31 @@ const FleetRevenueColumns = ({ monthData }: { monthData: AnalitycsMonthData }) =
   return (
     <div className='h-[320px]'>
       <ResponsiveContainer width='100%' height='100%'>
-        <BarChart data={bars} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+        <BarChart
+          data={bars}
+          margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
+        >
           <CartesianGrid strokeDasharray='3 3' vertical={false} />
-          <XAxis dataKey='plate' tick={{ fontSize: 11 }} interval={0} angle={-18} textAnchor='end' height={52} />
-          <YAxis tickFormatter={(value: number) => numberFormatter.format(value)} width={70} />
+          <XAxis
+            dataKey='plate'
+            tick={{ fontSize: 11 }}
+            interval={0}
+            angle={-18}
+            textAnchor='end'
+            height={52}
+          />
+          <YAxis
+            tickFormatter={(value: number) => numberFormatter.format(value)}
+            width={70}
+          />
           <Tooltip content={<RevenueTooltip />} />
           <Legend />
-          <Bar dataKey='revenue' name='Bevétel' fill={PALETTE[1]} radius={[6, 6, 0, 0]} />
+          <Bar
+            dataKey='revenue'
+            name='Bevétel'
+            fill={PALETTE[1]}
+            radius={[6, 6, 0, 0]}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -166,7 +194,10 @@ const RevenueTrendLine = ({ monthData }: { monthData: AnalitycsMonthData }) => {
   return (
     <div className='h-[320px]'>
       <ResponsiveContainer width='100%' height='100%'>
-        <LineChart data={points} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+        <LineChart
+          data={points}
+          margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
+        >
           <CartesianGrid strokeDasharray='3 3' vertical={false} />
           <XAxis
             dataKey='code'
@@ -176,7 +207,10 @@ const RevenueTrendLine = ({ monthData }: { monthData: AnalitycsMonthData }) => {
             textAnchor='end'
             height={56}
           />
-          <YAxis tickFormatter={(value: number) => numberFormatter.format(value)} width={70} />
+          <YAxis
+            tickFormatter={(value: number) => numberFormatter.format(value)}
+            width={70}
+          />
           <Tooltip
             content={({ active, payload, label }) => {
               if (!active || !payload || payload.length === 0) return null;
@@ -184,7 +218,9 @@ const RevenueTrendLine = ({ monthData }: { monthData: AnalitycsMonthData }) => {
               return (
                 <div className='rounded-md border bg-background px-3 py-2 text-xs shadow-sm'>
                   <p>Foglalás: {label}</p>
-                  <p>Dátum: {String(payload[0]?.payload?.rentalStart ?? '-')}</p>
+                  <p>
+                    Dátum: {String(payload[0]?.payload?.rentalStart ?? '-')}
+                  </p>
                   <p>Bevétel: {formatMoney(Number(payload[0]?.value ?? 0))}</p>
                 </div>
               );
@@ -239,7 +275,9 @@ const UtilizationChart = ({ monthData }: { monthData: AnalitycsMonthData }) => {
           <p className='text-xs uppercase tracking-wide text-muted-foreground'>
             Kihasználtság
           </p>
-          <p className='text-3xl font-semibold'>{formatPercent(utilizationRaw)}</p>
+          <p className='text-3xl font-semibold'>
+            {formatPercent(utilizationRaw)}
+          </p>
           {utilizationRaw > 100 ? (
             <p className='text-xs text-amber-600'>100% feletti terhelés</p>
           ) : null}
@@ -255,14 +293,20 @@ const UtilizationChart = ({ monthData }: { monthData: AnalitycsMonthData }) => {
         </div>
         <div className='rounded-md border px-3 py-2'>
           <p className='text-xs text-muted-foreground'>Szabad kapacitás</p>
-          <p className='font-semibold'>{numberFormatter.format(freeCapacity)} nap</p>
+          <p className='font-semibold'>
+            {numberFormatter.format(freeCapacity)} nap
+          </p>
         </div>
       </div>
     </div>
   );
 };
 
-const OfferConversionChart = ({ monthData }: { monthData: AnalitycsMonthData }) => {
+const OfferConversionChart = ({
+  monthData,
+}: {
+  monthData: AnalitycsMonthData;
+}) => {
   const {
     totalOffers,
     convertedOffers,
@@ -311,7 +355,9 @@ const OfferConversionChart = ({ monthData }: { monthData: AnalitycsMonthData }) 
         </div>
         <div className='rounded-md border px-3 py-2'>
           <p className='text-xs text-muted-foreground'>Összes ajánlat</p>
-          <p className='font-semibold'>{numberFormatter.format(totalOffers)} db</p>
+          <p className='font-semibold'>
+            {numberFormatter.format(totalOffers)} db
+          </p>
         </div>
         <div className='rounded-md border px-3 py-2'>
           <p className='text-xs text-muted-foreground'>Konvertált ajánlat</p>
@@ -320,7 +366,7 @@ const OfferConversionChart = ({ monthData }: { monthData: AnalitycsMonthData }) 
           </p>
         </div>
         <div className='rounded-md border px-3 py-2'>
-          <p className='text-xs text-muted-foreground'>Registered foglalás</p>
+          <p className='text-xs text-muted-foreground'>Regisztrált foglalás</p>
           <p className='font-semibold'>
             {numberFormatter.format(registeredBookings)} db
           </p>
@@ -330,7 +376,11 @@ const OfferConversionChart = ({ monthData }: { monthData: AnalitycsMonthData }) 
   );
 };
 
-export function AnalitycsCharts({ monthData }: { monthData: AnalitycsMonthData }) {
+export function AnalitycsCharts({
+  monthData,
+}: {
+  monthData: AnalitycsMonthData;
+}) {
   return (
     <div className='grid gap-4 xl:grid-cols-2'>
       <div className='rounded-lg border p-4'>
