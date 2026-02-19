@@ -1,4 +1,4 @@
-import type { RentRequests } from '@prisma/client';
+import { Prisma, type RentRequests } from '@prisma/client';
 
 import { db } from '@/lib/db';
 import { QUOTE_DONE_STATUS } from '@/lib/constants';
@@ -47,6 +47,13 @@ export type BookingPricing = {
   deposit?: string;
   deliveryFee?: string;
   extrasFee?: string;
+  tip?: string;
+};
+
+export type BookingHandoverCosts = {
+  fuelCost?: string;
+  ferryCost?: string;
+  cleaningCost?: string;
 };
 
 export const PAYMENT_METHOD_VALUES = [
@@ -104,6 +111,11 @@ export type BookingPayload = {
     paymentMethod?: PaymentMethodValue;
   };
   pricing?: BookingPricing;
+  handoverTip?: string;
+  handoverCosts?: {
+    out?: BookingHandoverCosts;
+    in?: BookingHandoverCosts;
+  };
 };
 
 export type BookingSelfServiceChange = {
@@ -318,6 +330,25 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
         deposit: toOptionalString(payload.pricing.deposit),
         deliveryFee: toOptionalString(payload.pricing.deliveryFee),
         extrasFee: toOptionalString(payload.pricing.extrasFee),
+        tip: toOptionalString(payload.pricing.tip),
+      }
+    : undefined;
+
+  const normalizeHandoverCosts = (
+    value: unknown,
+  ): BookingHandoverCosts | undefined => {
+    if (!isRecord(value)) return undefined;
+    return {
+      fuelCost: toOptionalString(value.fuelCost),
+      ferryCost: toOptionalString(value.ferryCost),
+      cleaningCost: toOptionalString(value.cleaningCost),
+    };
+  };
+
+  const handoverCosts = isRecord(payload.handoverCosts)
+    ? {
+        out: normalizeHandoverCosts(payload.handoverCosts.out),
+        in: normalizeHandoverCosts(payload.handoverCosts.in),
       }
     : undefined;
 
@@ -348,6 +379,8 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
     tax,
     consents,
     pricing,
+    handoverTip: toOptionalString(payload.handoverTip),
+    handoverCosts,
   };
 };
 
@@ -487,6 +520,252 @@ type BookingWithQuote = RentRequests & {
   ContactQuotes: MinimalContactQuote | null;
 };
 
+type BookingPricingSnapshotRow = {
+  bookingId: string;
+  rentalFee: string | null;
+  insurance: string | null;
+  deposit: string | null;
+  deliveryFee: string | null;
+  extrasFee: string | null;
+  tip: string | null;
+};
+
+type BookingDeliveryDetailsRow = {
+  bookingId: string;
+  placeType: string | null;
+  locationName: string | null;
+  addressLine: string | null;
+  arrivalFlight: string | null;
+  departureFlight: string | null;
+  arrivalHour: string | null;
+  arrivalMinute: string | null;
+};
+
+type BookingHandoverCostRow = {
+  bookingId: string;
+  direction: 'out' | 'in';
+  costType: 'tip' | 'fuel' | 'ferry' | 'cleaning';
+  amount: unknown;
+};
+
+type BookingHandoverMarkerRow = {
+  bookingId: string;
+};
+
+const toAmountString = (value: unknown): string | undefined => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? String(value) : undefined;
+  }
+  const direct = toOptionalString(value)?.trim();
+  if (direct) return direct;
+
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toString' in value &&
+    typeof (value as { toString: () => string }).toString === 'function'
+  ) {
+    const serialized = (value as { toString: () => string }).toString().trim();
+    return serialized.length > 0 ? serialized : undefined;
+  }
+
+  return undefined;
+};
+
+const hasAnyObjectValue = (value: Record<string, unknown>) =>
+  Object.values(value).some((item) => item !== undefined);
+
+const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
+  const pricingByBookingId = new Map<string, BookingPayload['pricing']>();
+  const deliveryByBookingId = new Map<string, BookingPayload['delivery']>();
+  const handoverByBookingId = new Map<
+    string,
+    Pick<BookingPayload, 'handoverTip' | 'handoverCosts'>
+  >();
+
+  if (bookingIds.length === 0) {
+    return { pricingByBookingId, deliveryByBookingId, handoverByBookingId };
+  }
+
+  const bookingIdsSql = Prisma.join(
+    bookingIds.map((id) => Prisma.sql`${id}::uuid`),
+  );
+
+  const [pricingRows, deliveryRows, handoverCostRows, handoverMarkerRows] =
+    await Promise.all([
+      db.$queryRaw<BookingPricingSnapshotRow[]>(
+        Prisma.sql`
+          SELECT
+            "bookingId",
+            "rentalFee",
+            "insurance",
+            "deposit",
+            "deliveryFee",
+            "extrasFee",
+            "tip"
+          FROM "BookingPricingSnapshots"
+          WHERE "bookingId" IN (${bookingIdsSql})
+        `,
+      ).catch(() => []),
+      db.$queryRaw<BookingDeliveryDetailsRow[]>(
+        Prisma.sql`
+          SELECT
+            "bookingId",
+            "placeType",
+            "locationName",
+            "addressLine",
+            "arrivalFlight",
+            "departureFlight",
+            "arrivalHour",
+            "arrivalMinute"
+          FROM "BookingDeliveryDetails"
+          WHERE "bookingId" IN (${bookingIdsSql})
+        `,
+      ).catch(() => []),
+      db.$queryRaw<BookingHandoverCostRow[]>(
+        Prisma.sql`
+          SELECT
+            "bookingId",
+            "direction",
+            "costType",
+            "amount"
+          FROM "BookingHandoverCosts"
+          WHERE "bookingId" IN (${bookingIdsSql})
+        `,
+      ).catch(() => []),
+      db.$queryRaw<BookingHandoverMarkerRow[]>(
+        Prisma.sql`
+          SELECT DISTINCT
+            "bookingId"
+          FROM "VehicleHandovers"
+          WHERE "bookingId" IN (${bookingIdsSql})
+        `,
+      ).catch(() => []),
+    ]);
+
+  for (const row of pricingRows) {
+    const pricing = {
+      rentalFee: row.rentalFee ?? undefined,
+      insurance: row.insurance ?? undefined,
+      deposit: row.deposit ?? undefined,
+      deliveryFee: row.deliveryFee ?? undefined,
+      extrasFee: row.extrasFee ?? undefined,
+      tip: row.tip ?? undefined,
+    };
+    pricingByBookingId.set(
+      row.bookingId,
+      hasAnyObjectValue(pricing) ? pricing : {},
+    );
+  }
+
+  for (const row of deliveryRows) {
+    const delivery = {
+      placeType: row.placeType ?? undefined,
+      locationName: row.locationName ?? undefined,
+      arrivalFlight: row.arrivalFlight ?? undefined,
+      departureFlight: row.departureFlight ?? undefined,
+      arrivalHour: row.arrivalHour ?? undefined,
+      arrivalMinute: row.arrivalMinute ?? undefined,
+      address: row.addressLine
+        ? ({ street: row.addressLine } as BookingAddress)
+        : undefined,
+    };
+    deliveryByBookingId.set(
+      row.bookingId,
+      hasAnyObjectValue(delivery) ? delivery : {},
+    );
+  }
+
+  for (const marker of handoverMarkerRows) {
+    handoverByBookingId.set(marker.bookingId, {});
+  }
+
+  for (const row of handoverCostRows) {
+    const previous = handoverByBookingId.get(row.bookingId) ?? {};
+
+    if (row.costType === 'tip' && row.direction === 'out') {
+      handoverByBookingId.set(row.bookingId, {
+        ...previous,
+        handoverTip: toAmountString(row.amount),
+      });
+      continue;
+    }
+
+    const amount = toAmountString(row.amount);
+    if (!amount) {
+      handoverByBookingId.set(row.bookingId, previous);
+      continue;
+    }
+
+    const costField =
+      row.costType === 'fuel'
+        ? 'fuelCost'
+        : row.costType === 'ferry'
+          ? 'ferryCost'
+          : 'cleaningCost';
+
+    const existingCosts = previous.handoverCosts ?? {};
+    const directionCosts = existingCosts[row.direction] ?? {};
+
+    handoverByBookingId.set(row.bookingId, {
+      ...previous,
+      handoverCosts: {
+        ...existingCosts,
+        [row.direction]: {
+          ...directionCosts,
+          [costField]: amount,
+        },
+      },
+    });
+  }
+
+  return { pricingByBookingId, deliveryByBookingId, handoverByBookingId };
+};
+
+const applyNormalizedPayloadByBookingId = ({
+  bookingId,
+  payload,
+  pricingByBookingId,
+  deliveryByBookingId,
+  handoverByBookingId,
+}: {
+  bookingId: string;
+  payload: BookingPayload | null;
+  pricingByBookingId: Map<string, BookingPayload['pricing']>;
+  deliveryByBookingId: Map<string, BookingPayload['delivery']>;
+  handoverByBookingId: Map<
+    string,
+    Pick<BookingPayload, 'handoverTip' | 'handoverCosts'>
+  >;
+}): BookingPayload | null => {
+  const nextPayload = payload ? { ...payload } : {};
+
+  if (pricingByBookingId.has(bookingId)) {
+    nextPayload.pricing = pricingByBookingId.get(bookingId);
+  }
+
+  if (deliveryByBookingId.has(bookingId)) {
+    nextPayload.delivery = deliveryByBookingId.get(bookingId);
+  }
+
+  if (handoverByBookingId.has(bookingId)) {
+    const handover = handoverByBookingId.get(bookingId) ?? {};
+    if (handover.handoverTip) {
+      nextPayload.handoverTip = handover.handoverTip;
+    } else {
+      delete nextPayload.handoverTip;
+    }
+
+    if (handover.handoverCosts && hasAnyObjectValue(handover.handoverCosts)) {
+      nextPayload.handoverCosts = handover.handoverCosts;
+    } else {
+      delete nextPayload.handoverCosts;
+    }
+  }
+
+  return Object.keys(nextPayload).length > 0 ? nextPayload : null;
+};
+
 const normalizeBooking = (booking: BookingWithQuote): Booking => ({
   id: booking.id,
   humanId: booking.humanId ?? booking.ContactQuotes?.humanId ?? null,
@@ -548,7 +827,19 @@ export const getBookings = async (): Promise<Booking[]> => {
   });
   await syncQuoteStatusesForBookings(bookingsRaw);
 
-  const normalized = bookingsRaw.map(normalizeBooking);
+  const normalizedBase = bookingsRaw.map(normalizeBooking);
+  const normalizedPayloadParts = await getNormalizedPayloadPartsByBookingId(
+    normalizedBase.map((booking) => booking.id),
+  );
+  const normalized = normalizedBase.map((booking) => ({
+    ...booking,
+    payload: applyNormalizedPayloadByBookingId({
+      bookingId: booking.id,
+      payload: booking.payload,
+      ...normalizedPayloadParts,
+    }),
+  }));
+
   const carIds = Array.from(
     new Set(
       normalized
@@ -590,7 +881,18 @@ export const getBookingById = async (id: string): Promise<Booking | null> => {
 
   await syncQuoteStatusesForBookings([booking]);
 
-  const normalized = normalizeBooking(booking);
+  const normalizedBase = normalizeBooking(booking);
+  const normalizedPayloadParts = await getNormalizedPayloadPartsByBookingId([
+    normalizedBase.id,
+  ]);
+  const normalized = {
+    ...normalizedBase,
+    payload: applyNormalizedPayloadByBookingId({
+      bookingId: normalizedBase.id,
+      payload: normalizedBase.payload,
+      ...normalizedPayloadParts,
+    }),
+  };
   const carId = normalized.carId ?? normalized.payload?.carId;
   if (!carId) return normalized;
 
@@ -620,7 +922,18 @@ export const getBookingByQuoteId = async (
 
   await syncQuoteStatusesForBookings([booking]);
 
-  const normalized = normalizeBooking(booking);
+  const normalizedBase = normalizeBooking(booking);
+  const normalizedPayloadParts = await getNormalizedPayloadPartsByBookingId([
+    normalizedBase.id,
+  ]);
+  const normalized = {
+    ...normalizedBase,
+    payload: applyNormalizedPayloadByBookingId({
+      bookingId: normalizedBase.id,
+      payload: normalizedBase.payload,
+      ...normalizedPayloadParts,
+    }),
+  };
   const carId = normalized.carId ?? normalized.payload?.carId;
 
   if (!carId) return normalized;

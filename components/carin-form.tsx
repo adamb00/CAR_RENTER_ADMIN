@@ -16,6 +16,9 @@ const emptyForm = {
   date: '',
   time: '',
   milage: '',
+  fuelCost: '',
+  ferryCost: '',
+  cleaningCost: '',
   returnLocation: '',
   returnAddress: '',
   sameAsDelivery: false,
@@ -91,6 +94,26 @@ export default function CarinForm({
     });
   }, [booking?.rentalEnd]);
 
+  React.useEffect(() => {
+    const inCosts = booking?.payload?.handoverCosts?.in;
+    if (!inCosts) return;
+    setForm((prev) => {
+      if (
+        prev.fuelCost.trim().length > 0 ||
+        prev.ferryCost.trim().length > 0 ||
+        prev.cleaningCost.trim().length > 0
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        fuelCost: inCosts.fuelCost ?? '',
+        ferryCost: inCosts.ferryCost ?? '',
+        cleaningCost: inCosts.cleaningCost ?? '',
+      };
+    });
+  }, [booking?.payload?.handoverCosts?.in]);
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setStatus(null);
@@ -161,6 +184,48 @@ export default function CarinForm({
       return;
     }
 
+    const fuelCostRaw = form.fuelCost.trim().replace(',', '.');
+    const fuelCostValue =
+      fuelCostRaw.length > 0 ? Number(fuelCostRaw) : undefined;
+    if (
+      fuelCostValue != null &&
+      (Number.isNaN(fuelCostValue) || fuelCostValue < 0)
+    ) {
+      setStatus({
+        type: 'error',
+        message: 'A tankolás mezőbe csak nem negatív szám írható.',
+      });
+      return;
+    }
+
+    const ferryCostRaw = form.ferryCost.trim().replace(',', '.');
+    const ferryCostValue =
+      ferryCostRaw.length > 0 ? Number(ferryCostRaw) : undefined;
+    if (
+      ferryCostValue != null &&
+      (Number.isNaN(ferryCostValue) || ferryCostValue < 0)
+    ) {
+      setStatus({
+        type: 'error',
+        message: 'A komp mezőbe csak nem negatív szám írható.',
+      });
+      return;
+    }
+
+    const cleaningCostRaw = form.cleaningCost.trim().replace(',', '.');
+    const cleaningCostValue =
+      cleaningCostRaw.length > 0 ? Number(cleaningCostRaw) : undefined;
+    if (
+      cleaningCostValue != null &&
+      (Number.isNaN(cleaningCostValue) || cleaningCostValue < 0)
+    ) {
+      setStatus({
+        type: 'error',
+        message: 'A takarítás mezőbe csak nem negatív szám írható.',
+      });
+      return;
+    }
+
     const returnNotes = [
       form.returnLocation.trim().length > 0
         ? `Visszavétel helye: ${form.returnLocation.trim()}`
@@ -185,6 +250,9 @@ export default function CarinForm({
         fleetVehicleId,
         handoverBy: form.take || undefined,
         mileage: mileageValue,
+        fuelCost: fuelCostValue,
+        ferryCost: ferryCostValue,
+        cleaningCost: cleaningCostValue,
         handoverAt,
         notes: notesValue || undefined,
         damages: form.damages.trim() || undefined,
@@ -343,6 +411,39 @@ export default function CarinForm({
             </p>
           )}
         </div>
+        <Input
+          label='Tankolás (opcionális)'
+          type='number'
+          inputMode='decimal'
+          min={0}
+          step='0.01'
+          value={form.fuelCost}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, fuelCost: e.target.value }))
+          }
+        />
+        <Input
+          label='Komp (opcionális)'
+          type='number'
+          inputMode='decimal'
+          min={0}
+          step='0.01'
+          value={form.ferryCost}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, ferryCost: e.target.value }))
+          }
+        />
+        <Input
+          label='Takarítás (opcionális)'
+          type='number'
+          inputMode='decimal'
+          min={0}
+          step='0.01'
+          value={form.cleaningCost}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, cleaningCost: e.target.value }))
+          }
+        />
         <div className='md:col-span-2'>
           <FloatingTextarea
             label='Megjegyzések'

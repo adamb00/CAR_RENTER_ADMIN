@@ -38,19 +38,23 @@ type ServiceCostDraft = {
   id: string;
   serviceDate: string;
   serviceFee: string;
+  note: string;
 };
 type ServiceCostStored = {
   serviceDate: string;
   serviceFee: number;
+  note?: string;
 };
 
 const createServiceCostDraft = (
   serviceDate = '',
   serviceFee = '',
+  note = '',
 ): ServiceCostDraft => ({
   id: `cost_${Math.random().toString(36).slice(2, 10)}`,
   serviceDate,
   serviceFee,
+  note,
 });
 
 const parseFleetNotes = (
@@ -116,6 +120,10 @@ const parseFleetNotes = (
             ? ((entry as { serviceDate?: string }).serviceDate ?? '')
             : '';
         const rawFee = (entry as { serviceFee?: unknown }).serviceFee;
+        const note =
+          typeof (entry as { note?: unknown }).note === 'string'
+            ? ((entry as { note?: string }).note ?? '')
+            : '';
         const feeAsNumber =
           typeof rawFee === 'number'
             ? rawFee
@@ -123,7 +131,7 @@ const parseFleetNotes = (
               ? Number(rawFee)
               : NaN;
         if (!serviceDate || !Number.isFinite(feeAsNumber)) return null;
-        return createServiceCostDraft(serviceDate, String(feeAsNumber));
+        return createServiceCostDraft(serviceDate, String(feeAsNumber), note);
       })
       .filter((entry): entry is ServiceCostDraft => Boolean(entry));
 
@@ -326,6 +334,7 @@ export function FleetAddForm({
           serviceDate: entry.serviceDate.trim(),
           serviceFee:
             entry.serviceFee.trim().length > 0 ? Number(entry.serviceFee) : NaN,
+          note: entry.note.trim() || undefined,
         }))
         .filter(
           (entry) => entry.serviceDate && Number.isFinite(entry.serviceFee),
@@ -701,7 +710,7 @@ export function FleetAddForm({
               {form.serviceCosts.map((entry) => (
                 <div
                   key={entry.id}
-                  className='grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end'
+                  className='grid gap-3 md:grid-cols-[1fr_1fr_1.4fr_auto] md:items-end'
                 >
                   <Input
                     label='Szerviz időpontja'
@@ -730,6 +739,20 @@ export function FleetAddForm({
                         serviceCosts: prev.serviceCosts.map((item) =>
                           item.id === entry.id
                             ? { ...item, serviceFee: e.target.value }
+                            : item,
+                        ),
+                      }))
+                    }
+                  />
+                  <Input
+                    label='Megjegyzés (opcionális)'
+                    value={entry.note}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        serviceCosts: prev.serviceCosts.map((item) =>
+                          item.id === entry.id
+                            ? { ...item, note: e.target.value }
                             : item,
                         ),
                       }))

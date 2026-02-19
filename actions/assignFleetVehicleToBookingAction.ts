@@ -7,6 +7,10 @@ import {
   findFleetVehicleBookingConflict,
   formatDateForConflictMessage,
 } from '@/lib/booking-conflicts';
+import {
+  RENT_STATUS_ACCEPTED,
+  RENT_STATUS_REGISTERED,
+} from '@/lib/constants';
 import { db } from '@/lib/db';
 import {
   getFleetServiceWindowRangeFromNotes,
@@ -38,6 +42,7 @@ export async function assignFleetVehicleToBookingAction({
       id: true,
       rentalstart: true,
       rentalend: true,
+      status: true,
     },
   });
 
@@ -54,12 +59,19 @@ export async function assignFleetVehicleToBookingAction({
     delete payload.assignedFleetVehicleId;
     delete payload.assignedFleetPlate;
 
+    const data: Prisma.RentRequestsUpdateInput = {
+      carid: null,
+      payload: payload as Prisma.InputJsonValue,
+    };
+
+    if (booking.status === RENT_STATUS_REGISTERED) {
+      data.status = RENT_STATUS_ACCEPTED;
+      data.updatedAt = new Date();
+    }
+
     await db.rentRequests.update({
       where: { id: trimmedBookingId },
-      data: {
-        carid: null,
-        payload: payload as Prisma.InputJsonValue,
-      },
+      data,
     });
     revalidatePath('/calendar');
     return { success: 'Flotta autó törölve a foglalásból.' };
@@ -116,12 +128,19 @@ export async function assignFleetVehicleToBookingAction({
     assignedFleetPlate: fleetVehicle.plate,
   };
 
+  const data: Prisma.RentRequestsUpdateInput = {
+    carid: fleetVehicle.carId,
+    payload: payload as Prisma.InputJsonValue,
+  };
+
+  if (booking.status !== RENT_STATUS_REGISTERED) {
+    data.status = RENT_STATUS_REGISTERED;
+    data.updatedAt = new Date();
+  }
+
   await db.rentRequests.update({
     where: { id: trimmedBookingId },
-    data: {
-      carid: fleetVehicle.carId,
-      payload: payload as Prisma.InputJsonValue,
-    },
+    data,
   });
 
   revalidatePath('/calendar');

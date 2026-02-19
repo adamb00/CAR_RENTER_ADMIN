@@ -116,10 +116,64 @@ model RentRequests {
   ContactQuotes ContactQuotes? @relation(fields: [quoteid], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vehicleHandovers VehicleHandover[]
   bookingContract BookingContract?
+  bookingPricingSnapshot BookingPricingSnapshot?
+  bookingDeliveryDetails BookingDeliveryDetails?
+  bookingHandoverCosts BookingHandoverCost[]
 
   @@index([carid], map: "idx_rentrequests_car")
   @@index([createdAt], map: "idx_rentrequests_created_at")
   @@index([status], map: "idx_rentrequests_status")
+}
+
+model BookingPricingSnapshot {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId   String       @unique @db.Uuid
+  rentalFee   String?
+  insurance   String?
+  deposit     String?
+  deliveryFee String?
+  extrasFee   String?
+  tip         String?
+  createdAt   DateTime     @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updatedAt   DateTime     @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  booking     RentRequests @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId], map: "idx_booking_pricing_booking_id")
+  @@map("BookingPricingSnapshots")
+}
+
+model BookingDeliveryDetails {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId       String       @unique @db.Uuid
+  placeType       String?
+  locationName    String?
+  addressLine     String?
+  arrivalFlight   String?
+  departureFlight String?
+  arrivalHour     String?
+  arrivalMinute   String?
+  createdAt       DateTime     @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updatedAt       DateTime     @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  booking         RentRequests @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId], map: "idx_booking_delivery_booking_id")
+  @@map("BookingDeliveryDetails")
+}
+
+model BookingHandoverCost {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId String           @db.Uuid
+  direction HandoverDirection
+  costType  HandoverCostType
+  amount    Decimal          @db.Decimal(12, 2)
+  createdAt DateTime         @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updatedAt DateTime         @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  booking   RentRequests     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, direction, costType], map: "uniq_booking_handover_cost")
+  @@index([bookingId], map: "idx_booking_handover_cost_booking_id")
+  @@index([direction], map: "idx_booking_handover_cost_direction")
+  @@map("BookingHandoverCosts")
 }
 
 model BookingContract {
@@ -239,4 +293,11 @@ enum FleetStatus {
 enum HandoverDirection {
   out
   in
+}
+
+enum HandoverCostType {
+  tip
+  fuel
+  ferry
+  cleaning
 }

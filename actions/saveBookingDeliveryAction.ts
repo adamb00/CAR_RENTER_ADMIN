@@ -1,7 +1,5 @@
 'use server';
 
-import type { Prisma } from '@prisma/client';
-
 import type { BookingPayload } from '@/data-service/bookings';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
@@ -23,6 +21,13 @@ type SaveBookingDeliveryResult = {
   delivery?: BookingPayload['delivery'];
 };
 
+type ExistingDeliveryRow = {
+  arrivalFlight: string | null;
+  departureFlight: string | null;
+  arrivalHour: string | null;
+  arrivalMinute: string | null;
+};
+
 const sanitizeValue = (value?: string | null) => {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
@@ -39,8 +44,18 @@ const normalizePlaceType = (value?: string | null) => {
 const requiresAddress = (placeType?: string | null) =>
   placeType === 'airport' || placeType === 'accommodation';
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
+const normalizePersistenceError = (error: unknown) => {
+  if (error instanceof Error) {
+    if (
+      error.message.includes('BookingDeliveryDetails') ||
+      error.message.includes('does not exist')
+    ) {
+      return 'Hiányzó adatbázis migráció: BookingDeliveryDetails tábla még nem érhető el.';
+    }
+  }
+
+  return 'Nem sikerült elmenteni az átvétel adatait.';
+};
 
 export const saveBookingDeliveryAction = async ({
   bookingId,
@@ -69,59 +84,97 @@ export const saveBookingDeliveryAction = async ({
 
   const booking = await db.rentRequests.findUnique({
     where: { id: trimmedId },
-    select: { id: true, payload: true },
+    select: { id: true },
   });
 
   if (!booking) {
     return { error: 'A foglalás nem található.' };
   }
 
-  let basePayload: Prisma.JsonObject = {};
-
-  if (isRecord(booking.payload)) {
-    basePayload = { ...booking.payload } as Prisma.JsonObject;
+  let existingRow: ExistingDeliveryRow | undefined;
+  try {
+    const [row] = await db.$queryRaw<ExistingDeliveryRow[]>`
+      SELECT
+        "arrivalFlight",
+        "departureFlight",
+        "arrivalHour",
+        "arrivalMinute"
+      FROM "BookingDeliveryDetails"
+      WHERE "bookingId" = ${booking.id}::uuid
+      LIMIT 1
+    `;
+    existingRow = row;
+  } catch {
+    existingRow = undefined;
   }
 
-  const existingDelivery = isRecord(basePayload.delivery)
-    ? { ...basePayload.delivery }
-    : {};
-  const existingAddress = isRecord(existingDelivery.address)
-    ? { ...existingDelivery.address }
-    : {};
-
-  existingDelivery.placeType = placeType;
-
-  if (locationName) {
-    existingDelivery.locationName = locationName;
-  } else {
-    delete existingDelivery.locationName;
-  }
-
-  if (addressValue) {
-    existingDelivery.address = {
-      ...existingAddress,
-      street: addressValue,
-    };
-  } else {
-    delete existingDelivery.address;
-  }
-
-  basePayload.delivery = existingDelivery as Prisma.JsonValue;
+  const arrivalFlight = sanitizeValue(existingRow?.arrivalFlight) ?? null;
+  const departureFlight = sanitizeValue(existingRow?.departureFlight) ?? null;
+  const arrivalHour = sanitizeValue(existingRow?.arrivalHour) ?? null;
+  const arrivalMinute = sanitizeValue(existingRow?.arrivalMinute) ?? null;
 
   try {
-    await db.rentRequests.update({
-      where: { id: booking.id },
-      data: { payload: basePayload, updatedAt: new Date() },
+    await db.$transaction(async (tx) => {
+      await tx.rentRequests.update({
+        where: { id: booking.id },
+        data: { updatedAt: new Date() },
+      });
+
+      await tx.$executeRaw`
+        INSERT INTO "BookingDeliveryDetails" (
+          "bookingId",
+          "placeType",
+          "locationName",
+          "addressLine",
+          "arrivalFlight",
+          "departureFlight",
+          "arrivalHour",
+          "arrivalMinute",
+          "updatedAt"
+        )
+        VALUES (
+          ${booking.id}::uuid,
+          ${placeType ?? null},
+          ${locationName ?? null},
+          ${addressValue ?? null},
+          ${arrivalFlight},
+          ${departureFlight},
+          ${arrivalHour},
+          ${arrivalMinute},
+          timezone('utc'::text, now())
+        )
+        ON CONFLICT ("bookingId")
+        DO UPDATE SET
+          "placeType" = EXCLUDED."placeType",
+          "locationName" = EXCLUDED."locationName",
+          "addressLine" = EXCLUDED."addressLine",
+          "arrivalFlight" = EXCLUDED."arrivalFlight",
+          "departureFlight" = EXCLUDED."departureFlight",
+          "arrivalHour" = EXCLUDED."arrivalHour",
+          "arrivalMinute" = EXCLUDED."arrivalMinute",
+          "updatedAt" = timezone('utc'::text, now())
+      `;
     });
     revalidatePath('/');
     revalidatePath(`/${booking.id}`);
+    revalidatePath(`/bookings/${booking.id}/carout`);
+    revalidatePath(`/bookings/${booking.id}/carin`);
+    revalidatePath('/analitycs');
   } catch (error) {
     console.error('saveBookingDeliveryAction update', error);
-    return { error: 'Nem sikerült elmenteni az átvétel adatait.' };
+    return { error: normalizePersistenceError(error) };
   }
 
   return {
     success: 'Átvételi adatok elmentve.',
-    delivery: existingDelivery as BookingPayload['delivery'],
+    delivery: {
+      placeType,
+      locationName: locationName ?? undefined,
+      address: addressValue ? { street: addressValue } : undefined,
+      arrivalFlight: arrivalFlight ?? undefined,
+      departureFlight: departureFlight ?? undefined,
+      arrivalHour: arrivalHour ?? undefined,
+      arrivalMinute: arrivalMinute ?? undefined,
+    },
   };
 };

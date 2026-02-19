@@ -15,8 +15,9 @@ export async function createVehicleHandoverAction(
   }
 
   const data = parsed.data;
+  const direction = data.direction ?? 'out';
 
-  if (data.direction === 'in' && data.mileage == null) {
+  if (direction === 'in' && data.mileage == null) {
     return { error: 'A km óra állás kötelező visszavételnél.' };
   }
 
@@ -38,7 +39,7 @@ export async function createVehicleHandoverAction(
     return { error: 'A flottajármű nem található.' };
   }
 
-  if (data.direction === 'in' && data.mileage != null) {
+  if (direction === 'in' && data.mileage != null) {
     const handoverOut = await db.vehicleHandover.findFirst({
       where: {
         bookingId: data.bookingId,
@@ -58,55 +59,96 @@ export async function createVehicleHandoverAction(
 
   const handoverAt = data.handoverAt ? new Date(data.handoverAt) : new Date();
 
-  const shouldUpdateOdometer = data.direction === 'in' && data.mileage != null;
+  const shouldUpdateOdometer = direction === 'in' && data.mileage != null;
   const locationValue = data.location?.trim();
   const shouldUpdateLocation = Boolean(locationValue);
+  const costUpdates: Array<{
+    direction: 'out' | 'in';
+    costType: 'tip' | 'fuel' | 'ferry' | 'cleaning';
+    amount: number;
+  }> = [
+    ...(direction === 'out' && data.tip != null
+      ? [{ direction: 'out' as const, costType: 'tip' as const, amount: data.tip }]
+      : []),
+    ...(data.fuelCost != null
+      ? [{ direction: direction as 'out' | 'in', costType: 'fuel' as const, amount: data.fuelCost }]
+      : []),
+    ...(data.ferryCost != null
+      ? [{ direction: direction as 'out' | 'in', costType: 'ferry' as const, amount: data.ferryCost }]
+      : []),
+    ...(data.cleaningCost != null
+      ? [{ direction: direction as 'out' | 'in', costType: 'cleaning' as const, amount: data.cleaningCost }]
+      : []),
+  ];
 
   try {
-    const created = await (shouldUpdateOdometer || shouldUpdateLocation
-      ? db.$transaction([
-          db.vehicleHandover.create({
-            data: {
-              bookingId: data.bookingId,
-              fleetVehicleId: data.fleetVehicleId,
-              direction: data.direction ?? 'out',
-              handoverAt,
-              handoverBy: data.handoverBy?.trim() || null,
-              mileage: data.mileage,
-              notes: data.notes?.trim() || null,
-              damages: data.damages?.trim() || null,
-              damagesImages: data.damagesImages ?? [],
-            },
-            select: { id: true },
-          }),
-          db.fleetVehicle.update({
-            where: { id: data.fleetVehicleId },
-            data: {
-              ...(shouldUpdateOdometer ? { odometer: data.mileage ?? 0 } : {}),
-              ...(shouldUpdateLocation ? { location: locationValue } : {}),
-            },
-          }),
-        ]).then(([createdRow]) => createdRow)
-      : db.vehicleHandover.create({
+    const created = await db.$transaction(async (tx) => {
+      const createdRow = await tx.vehicleHandover.create({
+        data: {
+          bookingId: data.bookingId,
+          fleetVehicleId: data.fleetVehicleId,
+          direction,
+          handoverAt,
+          handoverBy: data.handoverBy?.trim() || null,
+          mileage: data.mileage,
+          notes: data.notes?.trim() || null,
+          damages: data.damages?.trim() || null,
+          damagesImages: data.damagesImages ?? [],
+        },
+        select: { id: true },
+      });
+
+      if (shouldUpdateOdometer || shouldUpdateLocation) {
+        await tx.fleetVehicle.update({
+          where: { id: data.fleetVehicleId },
           data: {
-            bookingId: data.bookingId,
-            fleetVehicleId: data.fleetVehicleId,
-            direction: data.direction ?? 'out',
-            handoverAt,
-            handoverBy: data.handoverBy?.trim() || null,
-            mileage: data.mileage,
-            notes: data.notes?.trim() || null,
-            damages: data.damages?.trim() || null,
-            damagesImages: data.damagesImages ?? [],
+            ...(shouldUpdateOdometer ? { odometer: data.mileage ?? 0 } : {}),
+            ...(shouldUpdateLocation ? { location: locationValue } : {}),
           },
-          select: { id: true },
-        }));
+        });
+      }
+
+      await tx.rentRequests.update({
+        where: { id: data.bookingId },
+        data: { updatedAt: new Date() },
+      });
+
+      for (const cost of costUpdates) {
+        await tx.$executeRaw`
+          INSERT INTO "BookingHandoverCosts" (
+            "bookingId",
+            "direction",
+            "costType",
+            "amount",
+            "updatedAt"
+          )
+          VALUES (
+            ${data.bookingId}::uuid,
+            CAST(${cost.direction} AS "HandoverDirection"),
+            CAST(${cost.costType} AS "HandoverCostType"),
+            ${cost.amount},
+            timezone('utc'::text, now())
+          )
+          ON CONFLICT ("bookingId", "direction", "costType")
+          DO UPDATE SET
+            "amount" = EXCLUDED."amount",
+            "updatedAt" = timezone('utc'::text, now())
+        `;
+      }
+
+      return createdRow;
+    });
 
     revalidatePath('/bookings');
     revalidatePath('/calendar');
     revalidatePath(`/bookings/${data.bookingId}/carout`);
+    revalidatePath(`/bookings/${data.bookingId}/carin`);
+    revalidatePath('/analitycs');
 
-    return { success: 'Kiadás rögzítve.', id: created.id };
+    return {
+      success: direction === 'in' ? 'Visszavétel rögzítve.' : 'Kiadás rögzítve.',
+      id: created.id,
+    };
   } catch (error) {
     console.error('Failed to create vehicle handover', error);
     return { error: 'Nem sikerült elmenteni a kiadást.' };

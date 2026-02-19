@@ -22,6 +22,10 @@ const emptyForm = {
   date: '',
   time: '',
   milage: '',
+  tip: '',
+  fuelCost: '',
+  ferryCost: '',
+  cleaningCost: '',
   location: DEFAULT_FLEET_PLACE,
   notes: '',
   damages: '',
@@ -58,8 +62,6 @@ type CaroutFormProps = {
 
 type CaroutFormValues = typeof emptyForm;
 export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
-  console.log(booking);
-
   const normalizedInitialValues = useMemo(() => emptyForm, []);
   const [form, setForm] = useState<CaroutFormValues>(normalizedInitialValues);
   const [status, setStatus] = useState<{
@@ -87,7 +89,10 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
   React.useEffect(() => {
     if (!vehicle?.location) return;
     setForm((prev) => {
-      if (prev.location.trim().length > 0 && prev.location !== DEFAULT_FLEET_PLACE)
+      if (
+        prev.location.trim().length > 0 &&
+        prev.location !== DEFAULT_FLEET_PLACE
+      )
         return prev;
       return { ...prev, location: getFleetPlaceLabel(vehicle.location) };
     });
@@ -101,6 +106,36 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
       return { ...prev, date: rentalStart };
     });
   }, [booking?.rentalStart]);
+
+  React.useEffect(() => {
+    const tipValue =
+      booking?.payload?.handoverTip ?? booking?.payload?.pricing?.tip;
+    if (!tipValue) return;
+    setForm((prev) => {
+      if (prev.tip.trim().length > 0) return prev;
+      return { ...prev, tip: tipValue };
+    });
+  }, [booking?.payload?.handoverTip, booking?.payload?.pricing?.tip]);
+
+  React.useEffect(() => {
+    const outCosts = booking?.payload?.handoverCosts?.out;
+    if (!outCosts) return;
+    setForm((prev) => {
+      if (
+        prev.fuelCost.trim().length > 0 ||
+        prev.ferryCost.trim().length > 0 ||
+        prev.cleaningCost.trim().length > 0
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        fuelCost: outCosts.fuelCost ?? '',
+        ferryCost: outCosts.ferryCost ?? '',
+        cleaningCost: outCosts.cleaningCost ?? '',
+      };
+    });
+  }, [booking?.payload?.handoverCosts?.out]);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -145,6 +180,65 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
 
     const mileageValue =
       form.milage.trim().length > 0 ? Number(form.milage) : undefined;
+    if (mileageValue != null && Number.isNaN(mileageValue)) {
+      setStatus({
+        type: 'error',
+        message: 'A km óra állás nem érvényes.',
+      });
+      return;
+    }
+
+    const tipRaw = form.tip.trim().replace(',', '.');
+    const tipValue = tipRaw.length > 0 ? Number(tipRaw) : undefined;
+    if (tipValue != null && (Number.isNaN(tipValue) || tipValue < 0)) {
+      setStatus({
+        type: 'error',
+        message: 'A jatt mezőbe csak nem negatív szám írható.',
+      });
+      return;
+    }
+    const fuelCostRaw = form.fuelCost.trim().replace(',', '.');
+    const fuelCostValue =
+      fuelCostRaw.length > 0 ? Number(fuelCostRaw) : undefined;
+    if (
+      fuelCostValue != null &&
+      (Number.isNaN(fuelCostValue) || fuelCostValue < 0)
+    ) {
+      setStatus({
+        type: 'error',
+        message: 'A tankolás mezőbe csak nem negatív szám írható.',
+      });
+      return;
+    }
+
+    const ferryCostRaw = form.ferryCost.trim().replace(',', '.');
+    const ferryCostValue =
+      ferryCostRaw.length > 0 ? Number(ferryCostRaw) : undefined;
+    if (
+      ferryCostValue != null &&
+      (Number.isNaN(ferryCostValue) || ferryCostValue < 0)
+    ) {
+      setStatus({
+        type: 'error',
+        message: 'A komp mezőbe csak nem negatív szám írható.',
+      });
+      return;
+    }
+
+    const cleaningCostRaw = form.cleaningCost.trim().replace(',', '.');
+    const cleaningCostValue =
+      cleaningCostRaw.length > 0 ? Number(cleaningCostRaw) : undefined;
+    if (
+      cleaningCostValue != null &&
+      (Number.isNaN(cleaningCostValue) || cleaningCostValue < 0)
+    ) {
+      setStatus({
+        type: 'error',
+        message: 'A takarítás mezőbe csak nem negatív szám írható.',
+      });
+      return;
+    }
+
     const dateValue = form.date.trim();
     const timeValue = form.time.trim();
     const handoverAt = new Date(`${dateValue}T${timeValue}`).toISOString();
@@ -155,6 +249,10 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
         fleetVehicleId,
         handoverBy: form.take || undefined,
         mileage: mileageValue,
+        tip: tipValue,
+        fuelCost: fuelCostValue,
+        ferryCost: ferryCostValue,
+        cleaningCost: cleaningCostValue,
         handoverAt,
         notes: form.notes.trim() || undefined,
         damages: form.damages.trim() || undefined,
@@ -274,36 +372,85 @@ export default function CaroutForm({ booking, vehicle }: CaroutFormProps) {
             setForm((prev) => ({ ...prev, date: e.target.value }))
           }
         />
-        <Input
-          label='Időpont'
-          type='time'
-          value={form.time}
-          required
-          onChange={(e) =>
-            setForm((prev) => ({ ...prev, time: e.target.value }))
-          }
-        />
-        <FloatingSelect
-          label='Autó helyszíne'
-          alwaysFloatLabel
-          value={form.location}
-          onChange={(e) =>
-            setForm((prev) => ({ ...prev, location: e.target.value }))
-          }
-        >
-          {FLEET_PLACES.map((option) => (
-            <option key={option.value} value={option.label}>
-              {option.label}
-            </option>
-          ))}
-        </FloatingSelect>
-        <Input
-          label='Km óra állás'
-          value={vehicle?.odometer ?? form.milage}
-          onChange={(e) =>
-            setForm((prev) => ({ ...prev, milage: e.target.value }))
-          }
-        />
+        <div className='md:col-span-2 grid gap-4 md:grid-cols-3'>
+          <Input
+            label='Időpont'
+            type='time'
+            value={form.time}
+            required
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, time: e.target.value }))
+            }
+          />
+          <FloatingSelect
+            label='Autó helyszíne'
+            alwaysFloatLabel
+            value={form.location}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, location: e.target.value }))
+            }
+          >
+            {FLEET_PLACES.map((option) => (
+              <option key={option.value} value={option.label}>
+                {option.label}
+              </option>
+            ))}
+          </FloatingSelect>
+          <Input
+            label='Km óra állás'
+            value={vehicle?.odometer ?? form.milage}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, milage: e.target.value }))
+            }
+          />
+        </div>
+        <div className='md:col-span-2 grid gap-4 md:grid-cols-4'>
+          <Input
+            label='Jatt (opcionális)'
+            type='number'
+            inputMode='decimal'
+            min={0}
+            step='0.01'
+            value={form.tip}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, tip: e.target.value }))
+            }
+          />
+          <Input
+            label='Tankolás (opcionális)'
+            type='number'
+            inputMode='decimal'
+            min={0}
+            step='0.01'
+            value={form.fuelCost}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, fuelCost: e.target.value }))
+            }
+          />
+          <Input
+            label='Komp (opcionális)'
+            type='number'
+            inputMode='decimal'
+            min={0}
+            step='0.01'
+            value={form.ferryCost}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, ferryCost: e.target.value }))
+            }
+          />
+          <Input
+            label='Takarítás (opcionális)'
+            type='number'
+            inputMode='decimal'
+            min={0}
+            step='0.01'
+            value={form.cleaningCost}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, cleaningCost: e.target.value }))
+            }
+          />
+        </div>
+
         <div className='md:col-span-2'>
           <FloatingTextarea
             label='Megjegyzések'

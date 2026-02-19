@@ -1,7 +1,5 @@
 'use server';
 
-import type { Prisma } from '@prisma/client';
-
 import type { BookingPayload } from '@/data-service/bookings';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
@@ -48,8 +46,18 @@ const normalizePricing = (
     : undefined;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
+const normalizePersistenceError = (error: unknown) => {
+  if (error instanceof Error) {
+    if (
+      error.message.includes('BookingPricingSnapshots') ||
+      error.message.includes('does not exist')
+    ) {
+      return 'Hiányzó adatbázis migráció: BookingPricingSnapshots tábla még nem érhető el.';
+    }
+  }
+
+  return 'Nem sikerült elmenteni a díjakat.';
+};
 
 export const saveBookingPricingAction = async ({
   bookingId,
@@ -63,7 +71,7 @@ export const saveBookingPricingAction = async ({
 
   const booking = await db.rentRequests.findUnique({
     where: { id: trimmedId },
-    select: { id: true, payload: true },
+    select: { id: true },
   });
 
   if (!booking) {
@@ -71,28 +79,57 @@ export const saveBookingPricingAction = async ({
   }
 
   const normalizedPricing = normalizePricing(pricing);
-  let basePayload: Prisma.JsonObject = {};
-
-  if (isRecord(booking.payload)) {
-    basePayload = { ...booking.payload } as Prisma.JsonObject;
-  }
-
-  if (normalizedPricing) {
-    basePayload.pricing = normalizedPricing as Prisma.JsonValue;
-  } else {
-    delete basePayload.pricing;
-  }
-
   try {
-    await db.rentRequests.update({
-      where: { id: booking.id },
-      data: { payload: basePayload, updatedAt: new Date() },
+    await db.$transaction(async (tx) => {
+      await tx.rentRequests.update({
+        where: { id: booking.id },
+        data: { updatedAt: new Date() },
+      });
+
+      if (normalizedPricing) {
+        await tx.$executeRaw`
+          INSERT INTO "BookingPricingSnapshots" (
+            "bookingId",
+            "rentalFee",
+            "insurance",
+            "deposit",
+            "deliveryFee",
+            "extrasFee",
+            "updatedAt"
+          )
+          VALUES (
+            ${booking.id}::uuid,
+            ${normalizedPricing.rentalFee ?? null},
+            ${normalizedPricing.insurance ?? null},
+            ${normalizedPricing.deposit ?? null},
+            ${normalizedPricing.deliveryFee ?? null},
+            ${normalizedPricing.extrasFee ?? null},
+            timezone('utc'::text, now())
+          )
+          ON CONFLICT ("bookingId")
+          DO UPDATE SET
+            "rentalFee" = EXCLUDED."rentalFee",
+            "insurance" = EXCLUDED."insurance",
+            "deposit" = EXCLUDED."deposit",
+            "deliveryFee" = EXCLUDED."deliveryFee",
+            "extrasFee" = EXCLUDED."extrasFee",
+            "updatedAt" = timezone('utc'::text, now())
+        `;
+      } else {
+        await tx.$executeRaw`
+          DELETE FROM "BookingPricingSnapshots"
+          WHERE "bookingId" = ${booking.id}::uuid
+        `;
+      }
     });
     revalidatePath('/');
     revalidatePath(`/${booking.id}`);
+    revalidatePath(`/bookings/${booking.id}/carout`);
+    revalidatePath(`/bookings/${booking.id}/carin`);
+    revalidatePath('/analitycs');
   } catch (error) {
     console.error('saveBookingPricingAction update', error);
-    return { error: 'Nem sikerült elmenteni a díjakat.' };
+    return { error: normalizePersistenceError(error) };
   }
 
   return {

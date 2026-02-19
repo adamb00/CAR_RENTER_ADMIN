@@ -80,9 +80,9 @@ const COLORS = buildRecord([
 
 export const getStatusMeta = (status?: string | null): StatusMeta => {
   const key = status ?? '';
-  const label = key ? LABELS[key] ?? key : '—';
+  const label = key ? (LABELS[key] ?? key) : '—';
   const badge = key
-    ? COLORS[key] ?? 'bg-muted text-foreground border-border'
+    ? (COLORS[key] ?? 'bg-muted text-foreground border-border')
     : 'bg-muted text-foreground border-border';
   const color = badge;
   return { label, color, badge };

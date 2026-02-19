@@ -8,6 +8,10 @@ import {
   formatDateForConflictMessage,
   getAssignedFleetVehicleIdFromPayload,
 } from '@/lib/booking-conflicts';
+import {
+  RENT_STATUS_ACCEPTED,
+  RENT_STATUS_REGISTERED,
+} from '@/lib/constants';
 import { db } from '@/lib/db';
 import {
   getFleetServiceWindowRangeFromNotes,
@@ -41,7 +45,13 @@ export async function updateBookingScheduleAction({
 
   const booking = await db.rentRequests.findUnique({
     where: { id: trimmedBookingId },
-    select: { payload: true, id: true, rentalstart: true, rentalend: true },
+    select: {
+      payload: true,
+      id: true,
+      rentalstart: true,
+      rentalend: true,
+      status: true,
+    },
   });
 
   if (!booking) {
@@ -52,6 +62,8 @@ export async function updateBookingScheduleAction({
     rentalstart?: Date | null;
     rentalend?: Date | null;
     carid?: string | null;
+    status?: string;
+    updatedAt?: Date;
     payload?: Prisma.InputJsonValue;
   } = {};
 
@@ -110,6 +122,10 @@ export async function updateBookingScheduleAction({
         payloadChanged = true;
       }
       data.carid = null;
+      if (booking.status === RENT_STATUS_REGISTERED) {
+        data.status = RENT_STATUS_ACCEPTED;
+        data.updatedAt = new Date();
+      }
       effectiveFleetVehicleId = null;
     } else {
       const fleetVehicle = await db.fleetVehicle.findUnique({
@@ -129,6 +145,10 @@ export async function updateBookingScheduleAction({
       };
       payloadChanged = true;
       data.carid = fleetVehicle.carId;
+      if (booking.status !== RENT_STATUS_REGISTERED) {
+        data.status = RENT_STATUS_REGISTERED;
+        data.updatedAt = new Date();
+      }
       effectiveFleetVehicleId = fleetVehicle.id;
       effectiveFleetVehicleNotes = fleetVehicle.notes ?? null;
     }

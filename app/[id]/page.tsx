@@ -261,10 +261,6 @@ export default async function BookingDetailPage({
             hasQuote={hasQuotePricing}
             pricing={pricingData}
           />
-          <BookingRegistrationCheckbox
-            bookingId={booking.id}
-            initialStatus={booking.status}
-          />
         </div>
       </div>
 

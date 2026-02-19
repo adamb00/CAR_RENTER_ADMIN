@@ -2,6 +2,7 @@
 
 import {
   AlertTriangle,
+  BarChart3,
   Bell,
   BookOpen,
   CalendarClock,
@@ -230,6 +231,11 @@ export function AppSidebar({
         title: 'Ajánlatkérések',
         url: '/quotes',
         icon: Inbox,
+      },
+      {
+        title: 'Statisztikák',
+        url: '/analitycs',
+        icon: BarChart3,
       },
       {
         title: 'Autók',
