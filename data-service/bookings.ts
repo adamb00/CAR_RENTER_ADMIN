@@ -46,6 +46,7 @@ export type BookingPricing = {
   insurance?: string;
   deposit?: string;
   deliveryFee?: string;
+  deliveryLocation?: string;
   extrasFee?: string;
   tip?: string;
 };
@@ -329,6 +330,7 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
         insurance: toOptionalString(payload.pricing.insurance),
         deposit: toOptionalString(payload.pricing.deposit),
         deliveryFee: toOptionalString(payload.pricing.deliveryFee),
+        deliveryLocation: toOptionalString(payload.pricing.deliveryLocation),
         extrasFee: toOptionalString(payload.pricing.extrasFee),
         tip: toOptionalString(payload.pricing.tip),
       }
@@ -593,8 +595,9 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
 
   const [pricingRows, deliveryRows, handoverCostRows, handoverMarkerRows] =
     await Promise.all([
-      db.$queryRaw<BookingPricingSnapshotRow[]>(
-        Prisma.sql`
+      db
+        .$queryRaw<BookingPricingSnapshotRow[]>(
+          Prisma.sql`
           SELECT
             "bookingId",
             "rentalFee",
@@ -606,9 +609,11 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
           FROM "BookingPricingSnapshots"
           WHERE "bookingId" IN (${bookingIdsSql})
         `,
-      ).catch(() => []),
-      db.$queryRaw<BookingDeliveryDetailsRow[]>(
-        Prisma.sql`
+        )
+        .catch(() => []),
+      db
+        .$queryRaw<BookingDeliveryDetailsRow[]>(
+          Prisma.sql`
           SELECT
             "bookingId",
             "placeType",
@@ -621,9 +626,11 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
           FROM "BookingDeliveryDetails"
           WHERE "bookingId" IN (${bookingIdsSql})
         `,
-      ).catch(() => []),
-      db.$queryRaw<BookingHandoverCostRow[]>(
-        Prisma.sql`
+        )
+        .catch(() => []),
+      db
+        .$queryRaw<BookingHandoverCostRow[]>(
+          Prisma.sql`
           SELECT
             "bookingId",
             "direction",
@@ -632,15 +639,18 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
           FROM "BookingHandoverCosts"
           WHERE "bookingId" IN (${bookingIdsSql})
         `,
-      ).catch(() => []),
-      db.$queryRaw<BookingHandoverMarkerRow[]>(
-        Prisma.sql`
+        )
+        .catch(() => []),
+      db
+        .$queryRaw<BookingHandoverMarkerRow[]>(
+          Prisma.sql`
           SELECT DISTINCT
             "bookingId"
           FROM "VehicleHandovers"
           WHERE "bookingId" IN (${bookingIdsSql})
         `,
-      ).catch(() => []),
+        )
+        .catch(() => []),
     ]);
 
   for (const row of pricingRows) {
@@ -947,4 +957,30 @@ export const getBookingByQuoteId = async (
     ...normalized,
     carLabel: car ? `${car.manufacturer} ${car.model}`.trim() : carId,
   };
+};
+
+export const getDeliveryAddressByBookingId = async (
+  bookingId: string,
+): Promise<BookingDeliveryDetailsRow | null> => {
+  const rows = await db
+    .$queryRaw<BookingDeliveryDetailsRow[]>(
+      Prisma.sql`
+        SELECT
+          "bookingId",
+          "placeType",
+          "locationName",
+          "addressLine",
+          "arrivalFlight",
+          "departureFlight",
+          "arrivalHour",
+          "arrivalMinute"
+        FROM "BookingDeliveryDetails"
+        WHERE "bookingId" = ${bookingId}::uuid
+        LIMIT 1
+      `,
+    )
+    .catch(() => []);
+
+  const [deliveryDetails] = rows;
+  return deliveryDetails ?? null;
 };

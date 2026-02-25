@@ -12,7 +12,7 @@ const FloatingSelect = React.forwardRef<HTMLSelectElement, FloatingSelectProps>(
     {
       className,
       label,
-      alwaysFloatLabel = false,
+      alwaysFloatLabel = true,
       onChange,
       onBlur,
       value,

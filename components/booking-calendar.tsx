@@ -12,14 +12,20 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   getFleetServiceWindowRangeFromNotes,
   isFleetBlockedByServiceWindow,
 } from '@/lib/fleet-service-window';
+import { getStatusMeta } from '@/lib/status';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { url } from 'node:inspector';
 
 type BookingCalendarBooking = {
   id: string;
@@ -30,6 +36,7 @@ type BookingCalendarBooking = {
   status?: string | null;
   assignedFleetVehicleId?: string;
   carLabel?: string | null;
+  deliveryLocation?: string | null;
 };
 
 type BookingCalendarVehicle = {
@@ -74,6 +81,12 @@ const UnassignedBookingCard = ({
   onDragEnd,
 }: UnassignedBookingCardProps) => {
   const [selectedVehicle, setSelectedVehicle] = useState('');
+  const selectedVehicleDetails = fleetVehicles.find(
+    (vehicle) => vehicle.id === selectedVehicle,
+  );
+  const selectedVehicleColor = selectedVehicleDetails
+    ? getLocationColor(selectedVehicleDetails.location)
+    : '#888888';
 
   return (
     <div
@@ -91,24 +104,76 @@ const UnassignedBookingCard = ({
       <div className='text-sm text-muted-foreground'>
         {booking.rentalStart} → {booking.rentalEnd}
       </div>
+      <div className='text-sm text-muted-foreground mb-4'>
+        Átvétel helye:{' '}
+        <span className='font-medium text-foreground'>
+          {booking.deliveryLocation?.trim() || '—'}
+        </span>
+      </div>
 
       <div className='space-y-1'>
-        <label className='text-xs uppercase tracking-wide text-muted-foreground'>
-          Flotta autó
-        </label>
-        <select
-          className='w-full rounded border px-3 py-2 text-sm'
-          value={selectedVehicle}
-          onChange={(e) => setSelectedVehicle(e.target.value)}
-          disabled={disabled}
-        >
-          <option value=''>Válassz autót</option>
-          {fleetVehicles.map((vehicle) => (
-            <option key={vehicle.id} value={vehicle.id}>
-              {vehicle.plate} – {vehicle.carLabel}
-            </option>
-          ))}
-        </select>
+        <div className='relative w-full'>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type='button'
+                variant='outline'
+                className='peer h-12 w-full justify-start font-normal'
+                disabled={disabled || fleetVehicles.length === 0}
+              >
+                <span className='inline-flex items-center gap-2 truncate'>
+                  <span
+                    className='h-2.5 w-2.5 shrink-0 rounded-full border border-black/10'
+                    style={{ backgroundColor: selectedVehicleColor }}
+                    aria-hidden
+                  />
+                  <span className='truncate'>
+                    {selectedVehicleDetails
+                      ? `${selectedVehicleDetails.plate} - ${selectedVehicleDetails.carLabel}`
+                      : fleetVehicles.length === 0
+                        ? 'Nincs elérhető autó'
+                        : 'Válassz autót'}
+                  </span>
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align='start'
+              className='w-[var(--radix-dropdown-menu-trigger-width)]'
+            >
+              {fleetVehicles.length === 0 ? (
+                <DropdownMenuItem disabled>
+                  Nincs elérhető autó
+                </DropdownMenuItem>
+              ) : (
+                fleetVehicles.map((vehicle) => (
+                  <DropdownMenuItem
+                    key={vehicle.id}
+                    className='cursor-pointer transition-colors hover:!bg-sky-100 hover:!text-slate-900 data-[highlighted]:!bg-sky-100 data-[highlighted]:!text-slate-900 dark:hover:!bg-sky-900/40 dark:hover:!text-slate-50 dark:data-[highlighted]:!bg-sky-900/40 dark:data-[highlighted]:!text-slate-50'
+                    onSelect={() => setSelectedVehicle(vehicle.id)}
+                  >
+                    <span className='inline-flex items-center gap-2'>
+                      <span
+                        className='h-2.5 w-2.5 rounded-full border border-black/10'
+                        style={{
+                          backgroundColor: getLocationColor(vehicle.location),
+                        }}
+                        aria-hidden
+                      />
+                      <span>{vehicle.plate}</span>
+                      <span className='text-muted-foreground'>
+                        - {vehicle.carLabel}
+                      </span>
+                    </span>
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <label className='pointer-events-none absolute -top-2 left-3 translate-x-2 bg-background px-2 text-sm text-slate-600'>
+            Flotta autó
+          </label>
+        </div>
       </div>
       <Button
         type='button'
@@ -234,6 +299,16 @@ export function BookingCalendar({
     x: number;
     y: number;
   } | null>(null);
+  const [rowContextMenuVehicleId, setRowContextMenuVehicleId] = useState<
+    string | null
+  >(null);
+  const [rowContextMenuPoint, setRowContextMenuPoint] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [rowContextMenuDateIso, setRowContextMenuDateIso] = useState<
+    string | null
+  >(null);
 
   const parsedRangeStart = useMemo(
     () => toDate(rangeStart) ?? new Date(),
@@ -418,11 +493,11 @@ export function BookingCalendar({
     [bookings],
   );
 
-  const firstColumnWidth = 300;
-  const dayColumnWidth = 140;
+  const firstColumnWidth = 380;
+  const dayColumnWidth = 100;
   const dayGridTemplate = `repeat(${days.length}, ${dayColumnWidth}px)`;
   const timelineWidth = days.length * dayColumnWidth;
-  const rowHeightClass = 'h-[76px]';
+  const rowHeightClass = 'h-[56px]';
 
   const handleAssign = (bookingId: string, fleetVehicleId: string | null) => {
     setMessage(null);
@@ -438,6 +513,12 @@ export function BookingCalendar({
       setMessage(result?.success ?? 'Mentve.');
       router.refresh();
     });
+  };
+
+  const closeRowContextMenu = () => {
+    setRowContextMenuVehicleId(null);
+    setRowContextMenuPoint(null);
+    setRowContextMenuDateIso(null);
   };
 
   const buildDragPayload = (
@@ -526,6 +607,50 @@ export function BookingCalendar({
     });
   };
 
+  const openRowContextMenu = (
+    event: React.MouseEvent<HTMLElement>,
+    vehicleId: string,
+  ) => {
+    if (activeDrag) return;
+    const target = event.target as HTMLElement;
+    if (
+      target.closest(
+        '[data-booking-chip="true"],a,button,select,input,textarea,[role="menu"]',
+      )
+    ) {
+      return;
+    }
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const relativeX = event.clientX - rect.left;
+    const clickedDayIndex =
+      days.length > 0
+        ? Math.max(
+            0,
+            Math.min(days.length - 1, Math.floor(relativeX / dayColumnWidth)),
+          )
+        : 0;
+    const clickedDateIso = days[clickedDayIndex]?.iso ?? days[0]?.iso ?? '';
+    setContextMenuBookingId(null);
+    setContextMenuPoint(null);
+    setRowContextMenuPoint({ x: event.clientX, y: event.clientY });
+    setRowContextMenuVehicleId(vehicleId);
+    setRowContextMenuDateIso(clickedDateIso);
+  };
+
+  const getAssignableUnassignedBookings = (vehicleId: string) =>
+    unassignedBookings.filter((booking) => {
+      if (!booking.rentalStart || !booking.rentalEnd) return false;
+      return isVehicleAvailable(
+        {
+          bookingId: booking.id,
+          rentalStart: booking.rentalStart,
+          rentalEnd: booking.rentalEnd,
+        },
+        vehicleId,
+      );
+    });
+
   return (
     <div className='space-y-6 h-full max-w-screen overflow-hidden min-w-0'>
       <div className='flex flex-wrap gap-3 rounded-xl border bg-card/40 p-4 shadow-sm items-center'>
@@ -595,7 +720,7 @@ export function BookingCalendar({
               <div className='flex h-11 items-center border-b border-slate-300 bg-muted/40 px-3 text-xs font-semibold uppercase text-muted-foreground'>
                 Autó
               </div>
-              {sortedFleetVehicles.map((vehicle) => {
+              {sortedFleetVehicles.map((vehicle, index) => {
                 const remainingServiceKm = getServiceRemainingKm(vehicle);
                 const isServiceDueSoon =
                   remainingServiceKm != null && remainingServiceKm <= 1000;
@@ -608,117 +733,18 @@ export function BookingCalendar({
                 const isAllowedDrop = dropState === 'allowed';
                 const isBlockedDrop = dropState === 'blocked';
                 const locationColor = getLocationColor(vehicle.location);
+                const showDateRow =
+                  (index + 1) % 10 === 0 &&
+                  index < sortedFleetVehicles.length - 1;
+
                 return (
-                  <div
-                    key={vehicle.id}
-                    className={cn(
-                      `flex ${rowHeightClass} items-center gap-3 border-b border-slate-300 bg-background px-3 transition-colors`,
-                      isAllowedDrop && 'bg-emerald-100/70',
-                      isBlockedDrop && 'bg-rose-100/70',
-                    )}
-                    onDragEnter={() => {
-                      if (activeDrag) setHoverVehicleId(vehicle.id);
-                    }}
-                    onDragOver={(event) => {
-                      if (activeDrag) {
-                        event.preventDefault();
-                        const isAllowed = isVehicleAvailable(
-                          activeDrag,
-                          vehicle.id,
-                        );
-                        event.dataTransfer.dropEffect = isAllowed
-                          ? 'move'
-                          : 'none';
-                        if (hoverVehicleId !== vehicle.id) {
-                          setHoverVehicleId(vehicle.id);
-                        }
-                      }
-                    }}
-                    onDragLeave={(event) => {
-                      const nextTarget = event.relatedTarget as Node | null;
-                      if (
-                        nextTarget &&
-                        event.currentTarget.contains(nextTarget)
-                      )
-                        return;
-                      setHoverVehicleId(null);
-                    }}
-                    onDrop={(event) => handleDropOnVehicle(event, vehicle.id)}
-                  >
-                    <div className='flex items-center gap-2 font-semibold whitespace-nowrap'>
-                      {isServiceDueSoon && (
-                        <span
-                          className='text-rose-400 cursor-help'
-                          title={`Szerviz esedékes ${Math.max(0, Math.round(remainingServiceKm ?? 0))} km-en belül`}
-                        >
-                          <AlertTriangle className='h-4 w-4' />
-                        </span>
-                      )}
-                      <Link
-                        href={`/cars/${vehicle.carId}/edit/fleet/${vehicle.id}`}
-                        className='hover:underline'
-                      >
-                        {vehicle.plate}
-                      </Link>
-                    </div>
-                    <div className='text-xs text-muted-foreground truncate'>
-                      {vehicle.carLabel}
-                    </div>
-                    <span
-                      className='h-2.5 w-2.5 rounded-full border border-black/10'
-                      style={{
-                        backgroundColor: locationColor ?? '#888888',
-                      }}
-                      aria-hidden
-                    />
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className='min-w-0 flex-1 overflow-x-auto'>
-              <div style={{ width: timelineWidth }}>
-                <div
-                  className='grid h-11 border-b border-slate-300 bg-muted/40 text-xs font-semibold uppercase text-muted-foreground'
-                  style={{ gridTemplateColumns: dayGridTemplate }}
-                >
-                  {days.map((day, idx) => (
+                  <div key={vehicle.id}>
                     <div
-                      key={idx}
-                      className='flex items-center justify-center border-l border-slate-300 px-2 text-center first:border-l-0'
-                    >
-                      {day.label}
-                    </div>
-                  ))}
-                </div>
-
-                {sortedFleetVehicles.map((vehicle) => {
-                  const booking = groupedBookings.get(vehicle.id);
-                  const serviceWindow = serviceWindowByVehicle.get(vehicle.id);
-                  const locationColor = getLocationColor(vehicle.location);
-                  const menuItemStyle = {
-                    '--fleet-color': locationColor,
-                  } as CSSProperties;
-                  const hasOut = booking
-                    ? handoverOutSet.has(`${booking.id}:${vehicle.id}`)
-                    : false;
-                  const dropState =
-                    activeDrag && hoverVehicleId === vehicle.id
-                      ? isVehicleAvailable(activeDrag, vehicle.id)
-                        ? 'allowed'
-                        : 'blocked'
-                      : null;
-                  const isAllowedDrop = dropState === 'allowed';
-                  const isBlockedDrop = dropState === 'blocked';
-                  return (
-                    <div
-                      key={vehicle.id}
                       className={cn(
-                        `${rowHeightClass} relative grid border-b border-slate-300 text-sm transition-colors`,
+                        `flex ${rowHeightClass} items-center  gap-3 border-b border-slate-300 bg-background px-3 transition-colors`,
                         isAllowedDrop && 'bg-emerald-100/70',
                         isBlockedDrop && 'bg-rose-100/70',
                       )}
-                      style={{ gridTemplateColumns: dayGridTemplate }}
                       onDragEnter={() => {
                         if (activeDrag) setHoverVehicleId(vehicle.id);
                       }}
@@ -748,32 +774,137 @@ export function BookingCalendar({
                       }}
                       onDrop={(event) => handleDropOnVehicle(event, vehicle.id)}
                     >
-                      {days.map((day, idx) => {
-                        const isServiceDay = Boolean(
-                          serviceWindow &&
-                          day.date >= serviceWindow.from &&
-                          day.date <= serviceWindow.to,
-                        );
-                        return (
-                          <div
-                            key={idx}
-                            className={cn(
-                              'border-l border-slate-300 bg-background transition-colors first:border-l-0',
-                              idx % 2 === 0 ? 'bg-background' : 'bg-muted/10',
-                              isServiceDay && 'bg-slate-300/60',
-                              isAllowedDrop && 'bg-emerald-100/70',
-                              isBlockedDrop && 'bg-rose-100/70',
-                            )}
-                          />
-                        );
-                      })}
-                      {booking && (
+                      <div className='flex items-center gap-2 font-semibold whitespace-nowrap'>
+                        {isServiceDueSoon && (
+                          <span
+                            className='text-rose-400 cursor-help'
+                            title={`Szerviz esedékes ${Math.max(0, Math.round(remainingServiceKm ?? 0))} km-en belül`}
+                          >
+                            <AlertTriangle className='h-4 w-4' />
+                          </span>
+                        )}
+                        <Link
+                          href={`/cars/${vehicle.carId}/edit/fleet/${vehicle.id}`}
+                          className='hover:underline'
+                        >
+                          {vehicle.plate}
+                        </Link>
+                      </div>
+                      <div className='text-xs text-muted-foreground truncate'>
+                        {vehicle.carLabel}
+                      </div>
+                      <span
+                        className='h-2.5 w-2.5 rounded-full border border-black/10'
+                        style={{
+                          backgroundColor: locationColor ?? '#888888',
+                        }}
+                        aria-hidden
+                      />
+                    </div>
+                    {showDateRow && (
+                      <div className='flex h-11 items-center border-b border-slate-300 bg-muted/20 px-3 text-xs font-semibold uppercase text-muted-foreground'>
+                        {/* Dátumok */}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className='min-w-0 flex-1 overflow-x-auto'>
+              <div style={{ width: timelineWidth }}>
+                <div
+                  className='grid h-11 border-b border-slate-300 bg-muted/40 text-xs font-semibold uppercase text-muted-foreground'
+                  style={{ gridTemplateColumns: dayGridTemplate }}
+                >
+                  {days.map((day, idx) => (
+                    <div
+                      key={idx}
+                      className='flex items-center justify-center border-l border-slate-300 px-2 text-center first:border-l-0'
+                    >
+                      {day.label}
+                    </div>
+                  ))}
+                </div>
+
+                {sortedFleetVehicles.map((vehicle, index) => {
+                  const booking = groupedBookings.get(vehicle.id);
+                  const serviceWindow = serviceWindowByVehicle.get(vehicle.id);
+                  const locationColor = getLocationColor(vehicle.location);
+                  const assignableUnassignedBookings =
+                    getAssignableUnassignedBookings(vehicle.id);
+                  const menuItemStyle = {
+                    '--fleet-color': locationColor,
+                  } as CSSProperties;
+                  const hasOut = booking
+                    ? handoverOutSet.has(`${booking.id}:${vehicle.id}`)
+                    : false;
+                  const dropState =
+                    activeDrag && hoverVehicleId === vehicle.id
+                      ? isVehicleAvailable(activeDrag, vehicle.id)
+                        ? 'allowed'
+                        : 'blocked'
+                      : null;
+                  const isAllowedDrop = dropState === 'allowed';
+                  const isBlockedDrop = dropState === 'blocked';
+                  const showDateRow =
+                    (index + 1) % 10 === 0 &&
+                    index < sortedFleetVehicles.length - 1;
+
+                  return (
+                    <div key={vehicle.id}>
+                      <div
+                        className={cn(
+                          `${rowHeightClass} relative grid border-b border-slate-300 text-sm transition-colors cursor-pointer`,
+                          isAllowedDrop && 'bg-emerald-100/70',
+                          isBlockedDrop && 'bg-rose-100/70',
+                        )}
+                        style={{ gridTemplateColumns: dayGridTemplate }}
+                        onDragEnter={() => {
+                          if (activeDrag) setHoverVehicleId(vehicle.id);
+                        }}
+                        onDragOver={(event) => {
+                          if (activeDrag) {
+                            event.preventDefault();
+                            const isAllowed = isVehicleAvailable(
+                              activeDrag,
+                              vehicle.id,
+                            );
+                            event.dataTransfer.dropEffect = isAllowed
+                              ? 'move'
+                              : 'none';
+                            if (hoverVehicleId !== vehicle.id) {
+                              setHoverVehicleId(vehicle.id);
+                            }
+                          }
+                        }}
+                        onDragLeave={(event) => {
+                          const nextTarget = event.relatedTarget as Node | null;
+                          if (
+                            nextTarget &&
+                            event.currentTarget.contains(nextTarget)
+                          )
+                            return;
+                          setHoverVehicleId(null);
+                        }}
+                        onDrop={(event) =>
+                          handleDropOnVehicle(event, vehicle.id)
+                        }
+                        onClick={(event) =>
+                          openRowContextMenu(event, vehicle.id)
+                        }
+                        onContextMenu={(event) =>
+                          openRowContextMenu(event, vehicle.id)
+                        }
+                      >
                         <DropdownMenu
-                          open={contextMenuBookingId === booking.id}
+                          open={rowContextMenuVehicleId === vehicle.id}
                           onOpenChange={(open) => {
-                            if (!open && contextMenuBookingId === booking.id) {
-                              setContextMenuBookingId(null);
-                              setContextMenuPoint(null);
+                            if (
+                              !open &&
+                              rowContextMenuVehicleId === vehicle.id
+                            ) {
+                              closeRowContextMenu();
                             }
                           }}
                         >
@@ -782,112 +913,275 @@ export function BookingCalendar({
                               aria-hidden='true'
                               className='pointer-events-none fixed h-1 w-1'
                               style={{
-                                left: contextMenuPoint?.x ?? 0,
-                                top: contextMenuPoint?.y ?? 0,
+                                left: rowContextMenuPoint?.x ?? 0,
+                                top: rowContextMenuPoint?.y ?? 0,
                               }}
                             />
                           </DropdownMenuTrigger>
-                          <div
-                            className='m-1 flex flex-col items-center gap-1 rounded-md px-2 py-1 text-primary-foreground shadow-sm cursor-grab active:cursor-grabbing'
-                            style={{
-                              backgroundColor: locationColor,
-                              backgroundImage: `repeating-linear-gradient(to right, transparent 0, transparent ${
-                                dayColumnWidth - 1
-                              }px, rgba(255,255,255,0.28) ${
-                                dayColumnWidth - 1
-                              }px, rgba(255,255,255,0.28) ${dayColumnWidth}px)`,
-                              boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.2)',
-                              gridColumn: `${booking.startIndex + 1} / span ${
-                                booking.span
-                              }`,
-                              gridRow: '1',
-                            }}
-                            draggable={!isPending}
-                            onContextMenu={(event) => {
-                              event.preventDefault();
-                              setContextMenuPoint({
-                                x: event.clientX,
-                                y: event.clientY,
-                              });
-                              setContextMenuBookingId(booking.id);
-                            }}
-                            onClick={(event) => {
-                              setContextMenuPoint({
-                                x: event.clientX,
-                                y: event.clientY,
-                              });
-                              setContextMenuBookingId(booking.id);
-                            }}
-                            onDragStart={(event) => {
-                              const payload = buildDragPayload(
-                                booking,
-                                vehicle.id,
-                              );
-                              if (!payload) {
-                                event.preventDefault();
-                                return;
-                              }
-                              const target = event.target as HTMLElement;
-                              if (
-                                target?.closest('select,button,input,textarea')
-                              ) {
-                                event.preventDefault();
-                                return;
-                              }
-                              event.dataTransfer.effectAllowed = 'move';
-                              event.dataTransfer.setData(
-                                'application/json',
-                                JSON.stringify(payload),
-                              );
-                              setActiveDrag(payload);
-                              setHoverVehicleId(null);
-                            }}
-                            onDragEnd={() => {
-                              setActiveDrag(null);
-                              setHoverVehicleId(null);
-                            }}
-                          >
-                            <div className='flex items-center justify-between gap-2 text-xs font-semibold'>
-                              <span className='truncate'>
-                                {booking.contactName || 'Foglalás'}
-                              </span>
-                            </div>
-                            <div className='text-[11px] opacity-90'>
-                              {booking.rentalStart} → {booking.rentalEnd}
-                            </div>
-                          </div>
                           <DropdownMenuContent align='start'>
                             <DropdownMenuItem
-                              className='data-highlighted:bg-(--fleet-color) data-highlighted:text-primary-foreground'
+                              className='data-[highlighted]:bg-(--fleet-color) data-[highlighted]:text-primary-foreground'
                               style={menuItemStyle}
-                              onSelect={() =>
-                                router.push(`/bookings/${booking.id}/edit`)
-                              }
+                              onSelect={() => {
+                                closeRowContextMenu();
+                                router.push(
+                                  '/bookings/new?' +
+                                    new URLSearchParams({
+                                      vehicleId: vehicle.id,
+                                      rentalStart:
+                                        rowContextMenuDateIso ??
+                                        days[0]?.iso ??
+                                        '',
+                                    }).toString(),
+                                );
+                              }}
                             >
-                              Megnyitás / Módosítás
+                              Új foglalás hozzáadása
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className='data-highlighted:bg-(--fleet-color) data-highlighted:text-primary-foreground'
-                              style={menuItemStyle}
-                              onSelect={() =>
-                                router.push(`/bookings/${booking.id}/carout`)
-                              }
-                            >
-                              Kiadás
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className='data-highlighted:bg-(--fleet-color) data-highlighted:text-primary-foreground'
-                              style={menuItemStyle}
-                              onSelect={() =>
-                                router.push(`/bookings/${booking.id}/carin`)
-                              }
-                              disabled={!hasOut}
-                            >
-                              Visszavétel
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger
+                                className='data-[state=open]:bg-(--fleet-color) data-[state=open]:text-primary-foreground data-[highlighted]:bg-(--fleet-color) data-[highlighted]:text-primary-foreground'
+                                style={menuItemStyle}
+                              >
+                                Meglévő foglalás hozzárendelése
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent
+                                className='max-h-80 w-[340px] overflow-y-auto'
+                                sideOffset={4}
+                              >
+                                {assignableUnassignedBookings.length === 0 ? (
+                                  <DropdownMenuItem disabled>
+                                    Nincs hozzárendelhető foglalás.
+                                  </DropdownMenuItem>
+                                ) : (
+                                  assignableUnassignedBookings.map(
+                                    (unassignedBooking) => (
+                                      <DropdownMenuItem
+                                        key={unassignedBooking.id}
+                                        className='cursor-pointer transition-colors hover:!bg-sky-100 hover:!text-slate-900 data-[highlighted]:!bg-sky-100 data-[highlighted]:!text-slate-900 dark:hover:!bg-sky-900/40 dark:hover:!text-slate-50 dark:data-[highlighted]:!bg-sky-900/40 dark:data-[highlighted]:!text-slate-50'
+                                        onSelect={() => {
+                                          closeRowContextMenu();
+                                          handleAssign(
+                                            unassignedBooking.id,
+                                            vehicle.id,
+                                          );
+                                        }}
+                                      >
+                                        {(unassignedBooking.humanId ??
+                                          unassignedBooking.contactName) +
+                                          ` (${unassignedBooking.rentalStart} - ${unassignedBooking.rentalEnd})`}
+                                      </DropdownMenuItem>
+                                    ),
+                                  )
+                                )}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
                           </DropdownMenuContent>
                         </DropdownMenu>
+                        {days.map((day, idx) => {
+                          const isServiceDay = Boolean(
+                            serviceWindow &&
+                            day.date >= serviceWindow.from &&
+                            day.date <= serviceWindow.to,
+                          );
+                          const isBookedDay = Boolean(
+                            booking &&
+                            idx >= booking.startIndex &&
+                            idx < booking.startIndex + booking.span,
+                          );
+                          return (
+                            <div
+                              key={idx}
+                              className={cn(
+                                'border-l border-slate-300 bg-background transition-colors first:border-l-0',
+                                idx % 2 === 0 ? 'bg-background' : 'bg-muted/10',
+                                isServiceDay && 'bg-slate-300/60',
+                                !isBookedDay && 'hover:bg-sky-200/70',
+                                isAllowedDrop && 'bg-emerald-100/70',
+                                isBlockedDrop && 'bg-rose-100/70',
+                              )}
+                            />
+                          );
+                        })}
+                        {booking && (
+                          <DropdownMenu
+                            open={contextMenuBookingId === booking.id}
+                            onOpenChange={(open) => {
+                              if (
+                                !open &&
+                                contextMenuBookingId === booking.id
+                              ) {
+                                setContextMenuBookingId(null);
+                                setContextMenuPoint(null);
+                              }
+                            }}
+                          >
+                            <DropdownMenuTrigger asChild>
+                              <span
+                                aria-hidden='true'
+                                className='pointer-events-none fixed h-1 w-1'
+                                style={{
+                                  left: contextMenuPoint?.x ?? 0,
+                                  top: contextMenuPoint?.y ?? 0,
+                                }}
+                              />
+                            </DropdownMenuTrigger>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div
+                                  className='m-1 flex flex-col items-center gap-1 rounded-md px-2 py-1 text-primary-foreground shadow-sm cursor-grab active:cursor-grabbing'
+                                  data-booking-chip='true'
+                                  style={{
+                                    backgroundColor: locationColor,
+                                    backgroundImage: `repeating-linear-gradient(to right, transparent 0, transparent ${
+                                      dayColumnWidth - 1
+                                    }px, rgba(255,255,255,0.28) ${
+                                      dayColumnWidth - 1
+                                    }px, rgba(255,255,255,0.28) ${dayColumnWidth}px)`,
+                                    boxShadow:
+                                      'inset 0 0 0 1px rgba(15,23,42,0.2)',
+                                    gridColumn: `${
+                                      booking.startIndex + 1
+                                    } / span ${booking.span}`,
+                                    gridRow: '1',
+                                  }}
+                                  draggable={!isPending}
+                                  onContextMenu={(event) => {
+                                    event.preventDefault();
+                                    setContextMenuPoint({
+                                      x: event.clientX,
+                                      y: event.clientY,
+                                    });
+                                    setContextMenuBookingId(booking.id);
+                                  }}
+                                  onClick={(event) => {
+                                    setContextMenuPoint({
+                                      x: event.clientX,
+                                      y: event.clientY,
+                                    });
+                                    setContextMenuBookingId(booking.id);
+                                  }}
+                                  onDragStart={(event) => {
+                                    const payload = buildDragPayload(
+                                      booking,
+                                      vehicle.id,
+                                    );
+                                    if (!payload) {
+                                      event.preventDefault();
+                                      return;
+                                    }
+                                    const target = event.target as HTMLElement;
+                                    if (
+                                      target?.closest(
+                                        'select,button,input,textarea',
+                                      )
+                                    ) {
+                                      event.preventDefault();
+                                      return;
+                                    }
+                                    event.dataTransfer.effectAllowed = 'move';
+                                    event.dataTransfer.setData(
+                                      'application/json',
+                                      JSON.stringify(payload),
+                                    );
+                                    setActiveDrag(payload);
+                                    setHoverVehicleId(null);
+                                  }}
+                                  onDragEnd={() => {
+                                    setActiveDrag(null);
+                                    setHoverVehicleId(null);
+                                  }}
+                                >
+                                  <div className='flex items-center justify-between gap-2 text-xs font-semibold'>
+                                    <span className='truncate'>
+                                      {booking.contactName || 'Foglalás'}
+                                    </span>
+                                  </div>
+                                  <div className='text-[11px] opacity-90'>
+                                    {booking.rentalStart} → {booking.rentalEnd}
+                                  </div>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side='top'
+                                sideOffset={6}
+                                className='min-w-64 space-y-1 text-xs'
+                              >
+                                <div>
+                                  <strong>Foglalás:</strong>{' '}
+                                  {booking.humanId ?? booking.id}
+                                </div>
+                                <div>
+                                  <strong>Név:</strong>{' '}
+                                  {booking.contactName || '—'}
+                                </div>
+                                <div>
+                                  <strong>Időszak:</strong>{' '}
+                                  {booking.rentalStart ?? '—'} →{' '}
+                                  {booking.rentalEnd ?? '—'}
+                                </div>
+                                <div>
+                                  <strong>Státusz:</strong>{' '}
+                                  {getStatusMeta(booking.status).label}
+                                </div>
+                                <div>
+                                  <strong>Autó:</strong> {vehicle.plate} -{' '}
+                                  {vehicle.carLabel}
+                                </div>
+                                <div>
+                                  <strong>Átvétel helye:</strong>{' '}
+                                  {booking.deliveryLocation?.trim() || '—'}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                            <DropdownMenuContent align='start'>
+                              <DropdownMenuItem
+                                className='data-[highlighted]:bg-(--fleet-color) data-[highlighted]:text-primary-foreground'
+                                style={menuItemStyle}
+                                onSelect={() =>
+                                  router.push(`/bookings/${booking.id}/edit`)
+                                }
+                              >
+                                Megnyitás / Módosítás
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className='data-[highlighted]:bg-(--fleet-color) data-[highlighted]:text-primary-foreground'
+                                style={menuItemStyle}
+                                onSelect={() =>
+                                  router.push(`/bookings/${booking.id}/carout`)
+                                }
+                              >
+                                Kiadás
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className='data-[highlighted]:bg-(--fleet-color) data-[highlighted]:text-primary-foreground'
+                                style={menuItemStyle}
+                                onSelect={() =>
+                                  router.push(`/bookings/${booking.id}/carin`)
+                                }
+                                disabled={!hasOut}
+                              >
+                                Visszavétel
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                      {showDateRow && (
+                        <div
+                          className='grid h-11 border-b border-slate-300 bg-muted/20 text-xs font-semibold uppercase text-muted-foreground'
+                          style={{ gridTemplateColumns: dayGridTemplate }}
+                        >
+                          {days.map((day, idx) => (
+                            <div
+                              key={idx}
+                              className='flex items-center justify-center border-l border-slate-300 px-2 text-center first:border-l-0'
+                            >
+                              {day.label}
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   );

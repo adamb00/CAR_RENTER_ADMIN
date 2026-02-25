@@ -1,3 +1,5 @@
+import type { Prisma } from '@prisma/client';
+
 import { db } from '@/lib/db';
 
 type BookingConflictCandidate = {
@@ -30,23 +32,26 @@ export const findFleetVehicleBookingConflict = async ({
   rentalStart,
   rentalEnd,
 }: {
-  bookingIdToExclude: string;
+  bookingIdToExclude?: string | null;
   fleetVehicleId: string;
   rentalStart: Date;
   rentalEnd: Date;
 }): Promise<BookingConflictCandidate | null> => {
-  const candidates = await db.rentRequests.findMany({
-    where: {
-      id: { not: bookingIdToExclude },
-      rentalstart: {
-        not: null,
-        lte: rentalEnd,
-      },
-      rentalend: {
-        not: null,
-        gte: rentalStart,
-      },
+  const trimmedExcludedId = bookingIdToExclude?.trim();
+  const where: Prisma.RentRequestsWhereInput = {
+    rentalstart: {
+      not: null,
+      lte: rentalEnd,
     },
+    rentalend: {
+      not: null,
+      gte: rentalStart,
+    },
+    ...(trimmedExcludedId ? { id: { not: trimmedExcludedId } } : {}),
+  };
+
+  const candidates = await db.rentRequests.findMany({
+    where,
     select: {
       id: true,
       humanId: true,
