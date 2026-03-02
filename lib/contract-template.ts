@@ -5,13 +5,14 @@ import {
   resolveContractLocale,
 } from '@/lib/contract-copy';
 
-export const CONTRACT_VERSION = 'v2' as const;
+export const CONTRACT_VERSION = 'v3' as const;
 
 export type ContractData = {
   bookingId: string;
   bookingCode?: string | null;
   locale?: string | null;
   renterName?: string | null;
+  renterNationality?: string | null;
   renterEmail?: string | null;
   renterPhone?: string | null;
   renterAddress?: string | null;
@@ -20,6 +21,7 @@ export type ContractData = {
   renterIdCardNumber?: string | null;
   renterIdCardExpireDate?: string | null;
   renterDrivingLicenseNumber?: string | null;
+  renterDrivingLicenseValidUntil?: string | null;
   ownerCompanyName?: string | null;
   ownerCompanyAddress?: string | null;
   ownerCompanyFiscal?: string | null;
@@ -92,6 +94,136 @@ const formatMoney = (value: string | null | undefined, fallback: string) => {
   if (!normalized) return fallback;
   if (!isNumericLike(normalized)) return trimmed;
   return `${normalized} EUR`;
+};
+
+const FINAL_BILINGUAL_CONTRACT_TEMPLATE = `VEHICLE RENTAL CONTRACT / GÉPJÁRMŰBÉRLETI SZERZŐDÉS
+
+• LESSEE INFORMATION / A BÉRLŐ ADATAI
+Name / Név: <<Customer.Name>>
+Nationality: <<Customer.Nationality>>
+ID or Passport No. / Személyi igazolvány vagy útlevél száma: <<Customer.IdCardNumber>>
+Address / Cím: <<Customer.Address>>
+Date of Birth / Születési dátum: <<Customer.BirthDate>>
+Driving License No. / Jogosítvány száma: <<Customer.DrivingLicenseNumber>>
+License Valid Until / Jogosítvány érvényessége: <<Customer.DrivingLicenseValidUntil>>
+Tel. Numero: <<Customer.PhoneNumber>>
+
+• VEHICLE INFORMATION / A JÁRMŰ ADATAI
+Make and Model / Márka és típus: <<Car.Model>>
+License Plate / Rendszám: <<Car.LicensePlate>>
+Fuel Level (Pick-up) / Üzemanyagszint (átvételkor): ____________________________________________
+Fuel type: 95 PETROL
+
+• RENTAL PERIOD / BÉRLETI IDŐSZAK
+From (day/hour/minute) / -tól (nap/óra/perc): <<Rent.From>>
+To (day/hour/minute) / -ig (nap/óra/perc): <<Rent.To>>
+
+• GENERAL TERMS AND CONDITIONS / ÁLTALÁNOS FELTÉTELEK
+1. Minimum Driver Requirements: The Lessee must be over 25 years old and have held a valid Category B driving license for at least 2 years.
+1. Minimális vezetői feltétel: A bérlőnek 25 év felettinek kell lennie, és legalább 2 éve érvényes B kategóriás jogosítvánnyal kell rendelkeznie.
+2. Document Validity: All documents and licenses must remain valid during the rental period.
+2. Okmányok érvényessége: Az összes okmánynak és jogosítványnak érvényesnek kell lennie a teljes bérleti idő alatt.
+3. Payment Methods: Accepted payment methods are cash, bank card (VISA/Mastercard), or Revolut.
+3. Fizetési módok: Elfogadott fizetési módok: készpénz, bankkártya (VISA/Mastercard) vagy Revolut.
+4. Deposit: A deposit of €500 is required, unless full insurance without deductible is contracted.
+4. Letét: 500 € letét fizetendő, kivéve ha a bérlő teljes körű biztosítást köt (önrész nélkül).
+5. Insurance Exclusions: Even with full insurance, the Lessee is responsible for damages caused by: wrong fuel, key loss or breakage, off-road driving, traffic fines, alcohol/drug use, or taking the vehicle to unauthorized islands.
+5. Biztosítási kizárások: Teljes körű biztosítás mellett is a bérlő felel az alábbi károkért: hibás üzemanyag tankolása, kulcs elvesztése vagy eltörése, terepen való vezetés, közlekedési bírságok, alkohol vagy drog hatása alatti vezetés, illetve a jármű engedély nélküli szigetre vitele.
+6. Fuel Policy: The vehicle must be returned with the same fuel level as when it was picked up (Full to Full).
+6. Üzemanyag-szabály: Az autót ugyanazzal az üzemanyagszinttel kell visszahozni, mint átvételkor (Tele – Tele).
+7. Island Restriction: The vehicle may not leave the island where it was rented, except with written authorization.
+7. Sziget elhagyása: A jármű nem hagyhatja el a szigetet a bérbeadó írásos engedélye nélkül.
+8. Early Return: No refunds will be made for early return or unused rental days.
+8. Korai visszahozás: A bérleti díj idő előtti visszahozás esetén nem jár vissza.
+9. Governing Law: This contract is governed by Spanish law.
+9. Irányadó jog: A jelen szerződésre a spanyol jog az irányadó.
+
+• DECLARATION AND SIGNATURES / NYILATKOZAT ÉS ALÁÍRÁS
+The Lessee declares that they have read, understood, and accepted all terms and conditions stated in this contract.
+A bérlő kijelenti, hogy a jelen szerződésben foglalt feltételeket elolvasta, megértette és elfogadta.
+Lessee / Bérlő: ____________________________________________
+Signature / Aláírás: ____________________________________________
+Date / Dátum: <<SIGNED_AT>>
+Company / Cég: ZODIACS RENT A CAR – THOMYFUERTEVENTURA S.L. 35610 C/LA MARESIA 26. +34683192422`;
+
+const replaceContractToken = (
+  source: string,
+  token: string,
+  value: string,
+) => source.replaceAll(token, value);
+
+const buildFinalBilingualContractLines = ({
+  renterName,
+  renterNationality,
+  renterIdCardNumber,
+  renterAddress,
+  renterBirthDate,
+  renterDrivingLicenseNumber,
+  renterDrivingLicenseValidUntil,
+  renterPhone,
+  carModel,
+  carLicensePlate,
+  rentFrom,
+  rentTo,
+  signedAt,
+}: {
+  renterName: string;
+  renterNationality: string;
+  renterIdCardNumber: string;
+  renterAddress: string;
+  renterBirthDate: string;
+  renterDrivingLicenseNumber: string;
+  renterDrivingLicenseValidUntil: string;
+  renterPhone: string;
+  carModel: string;
+  carLicensePlate: string;
+  rentFrom: string;
+  rentTo: string;
+  signedAt: string;
+}) => {
+  let content = FINAL_BILINGUAL_CONTRACT_TEMPLATE;
+  content = replaceContractToken(content, '<<Customer.Name>>', renterName);
+  content = replaceContractToken(
+    content,
+    '<<Customer.Nationality>>',
+    renterNationality,
+  );
+  content = replaceContractToken(
+    content,
+    '<<Customer.IdCardNumber>>',
+    renterIdCardNumber,
+  );
+  content = replaceContractToken(content, '<<Customer.Address>>', renterAddress);
+  content = replaceContractToken(
+    content,
+    '<<Customer.BirthDate>>',
+    renterBirthDate,
+  );
+  content = replaceContractToken(
+    content,
+    '<<Customer.DrivingLicenseNumber>>',
+    renterDrivingLicenseNumber,
+  );
+  content = replaceContractToken(
+    content,
+    '<<Customer.DrivingLicenseValidUntil>>',
+    renterDrivingLicenseValidUntil,
+  );
+  content = replaceContractToken(
+    content,
+    '<<Customer.PhoneNumber>>',
+    renterPhone,
+  );
+  content = replaceContractToken(content, '<<Car.Model>>', carModel);
+  content = replaceContractToken(
+    content,
+    '<<Car.LicensePlate>>',
+    carLicensePlate,
+  );
+  content = replaceContractToken(content, '<<Rent.From>>', rentFrom);
+  content = replaceContractToken(content, '<<Rent.To>>', rentTo);
+  content = replaceContractToken(content, '<<SIGNED_AT>>', signedAt);
+  return content.split('\n');
 };
 
 const EN_FULL_LEGAL_TEXT = `CAR RENTAL AGREEMENT
@@ -1351,6 +1483,10 @@ export const buildContractTemplate = (
     '<<OwnerCompany.Fiscal>>',
   );
   const renterName = formatValueOr(data.renterName, '<<Customer.Name>>');
+  const renterNationality = formatValueOr(
+    data.renterNationality,
+    '<<Customer.Nationality>>',
+  );
   const renterAddress = formatValueOr(
     data.renterAddress,
     '<<Customer.Address>>',
@@ -1367,15 +1503,30 @@ export const buildContractTemplate = (
     data.renterDrivingLicenseNumber,
     '<<Customer.DrivingLicenseNumber>>',
   );
+  const renterDrivingLicenseValidUntil = formatDateOr(
+    data.renterDrivingLicenseValidUntil ?? data.renterIdCardExpireDate,
+    '<<Customer.DrivingLicenseValidUntil>>',
+    locale,
+  );
   const renterPhone = formatValueOr(
     data.renterPhone,
     '<<Customer.PhoneNumber>>',
   );
   const carModel = formatValueOr(data.carLabel, '<<Car.Model>>');
   const carLicensePlate = formatValueOr(data.plate, '<<Car.LicensePlate>>');
+  const renterBirthDate = formatDateOr(
+    data.renterBirthDate,
+    '<<Customer.BirthDate>>',
+    locale,
+  );
+  const rentFrom = formatDateOr(data.rentalStart, '<<Rent.From>>', locale);
+  const rentTo = formatDateOr(data.rentalEnd, '<<Rent.To>>', locale);
   const rentFee = normalizeFee(data.rentalFee);
   const rentFeeOnlyLine = rentFee ?? '<<Rent.Fee>>';
   const signedAt = options?.signedAt;
+  const signedAtLine = signedAt
+    ? formatDateShortLocale(signedAt.toISOString(), locale)
+    : '<<Custom.Today>>';
   const depositLine = formatMoney(data.deposit, '<<Deposit>>');
   const insuranceLine = formatMoney(data.insurance, '<<Insurance>>');
 
@@ -1502,37 +1653,56 @@ export const buildContractTemplate = (
   ];
   };
 
-  const englishBody = [
-    '=== ENGLISH VERSION ===',
-    '',
-    ...buildLongFormLegalLines('en', signedAt),
-  ].join('\n');
+  const useFinalBilingualContract = locale === 'en' || locale === 'hu';
+  const body = useFinalBilingualContract
+    ? buildFinalBilingualContractLines({
+        renterName,
+        renterNationality,
+        renterIdCardNumber,
+        renterAddress,
+        renterBirthDate,
+        renterDrivingLicenseNumber,
+        renterDrivingLicenseValidUntil,
+        renterPhone,
+        carModel,
+        carLicensePlate,
+        rentFrom,
+        rentTo,
+        signedAt: signedAtLine,
+      }).join('\n')
+    : (() => {
+        const englishBody = [
+          '=== ENGLISH VERSION ===',
+          '',
+          ...buildLongFormLegalLines('en', signedAt),
+        ].join('\n');
 
-  const hasLocalizedLongForm = [
-    'en',
-    'hu',
-    'de',
-    'ro',
-    'fr',
-    'es',
-    'it',
-    'sk',
-    'cz',
-    'se',
-    'no',
-    'dk',
-    'pl',
-  ].includes(locale);
-  const localizedBodyLines = hasLocalizedLongForm
-    ? buildLongFormLegalLines(locale, signedAt)
-    : buildLegacyBodyLines(copy.body, locale);
+        const hasLocalizedLongForm = [
+          'en',
+          'hu',
+          'de',
+          'ro',
+          'fr',
+          'es',
+          'it',
+          'sk',
+          'cz',
+          'se',
+          'no',
+          'dk',
+          'pl',
+        ].includes(locale);
+        const localizedBodyLines = hasLocalizedLongForm
+          ? buildLongFormLegalLines(locale, signedAt)
+          : buildLegacyBodyLines(copy.body, locale);
 
-  const localizedBody = [
-    `=== LOCAL LANGUAGE VERSION (${copy.title}) ===`,
-    '',
-    ...localizedBodyLines,
-  ].join('\n');
-  const body = [englishBody, '', localizedBody].join('\n');
+        const localizedBody = [
+          `=== LOCAL LANGUAGE VERSION (${copy.title}) ===`,
+          '',
+          ...localizedBodyLines,
+        ].join('\n');
+        return [englishBody, '', localizedBody].join('\n');
+      })();
 
   return {
     title:

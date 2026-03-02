@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 
+import { getArchivedBookingIdSet } from '@/lib/booking-archive';
 import { RENT_STATUS_REGISTERED } from '@/lib/constants';
 import { db } from '@/lib/db';
 import { FLEET_NOTES_META_PREFIX } from '@/lib/fleet-service-window';
@@ -66,6 +67,14 @@ export type AnalitycsMonthData = {
   rowCount: number;
   rows: AnalitycsBookingRow[];
   perCar: AnalitycsCarBreakdown[];
+  archiveSummary: {
+    totalBookings: number;
+    activeCount: number;
+    archivedCount: number;
+    activeRevenue: number;
+    archivedRevenue: number;
+    archivedShare: number;
+  };
   quoteConversion: {
     totalOffers: number;
     convertedOffers: number;
@@ -434,7 +443,6 @@ export async function getCurrentMonthAnalitycs(
       where: {
         rentalstart: { lte: monthEnd },
         rentalend: { gte: monthStart },
-        status: RENT_STATUS_REGISTERED,
       },
       select: {
         id: true,
@@ -483,13 +491,29 @@ export async function getCurrentMonthAnalitycs(
           status: RENT_STATUS_REGISTERED,
         },
         select: {
+          id: true,
           quoteid: true,
         },
       })
     : [];
+  const archivedBookingIdSet = await getArchivedBookingIdSet([
+    ...bookings.map((booking) => booking.id),
+    ...registeredBookingsFromOffers.map((booking) => booking.id),
+  ]);
+  const activeBookings = bookings.filter(
+    (booking) =>
+      !archivedBookingIdSet.has(booking.id) &&
+      booking.status === RENT_STATUS_REGISTERED,
+  );
+  const archivedBookings = bookings.filter((booking) =>
+    archivedBookingIdSet.has(booking.id),
+  );
+  const activeRegisteredBookingsFromOffers = registeredBookingsFromOffers.filter(
+    (booking) => !archivedBookingIdSet.has(booking.id),
+  );
 
   const convertedQuoteIds = new Set(
-    registeredBookingsFromOffers
+    activeRegisteredBookingsFromOffers
       .map((booking) => booking.quoteid)
       .filter((quoteId): quoteId is string => Boolean(quoteId)),
   );
@@ -579,8 +603,10 @@ export async function getCurrentMonthAnalitycs(
   const fleetPlateSet = new Set(fleetVehicles.map((vehicle) => vehicle.plate));
   const fleetCars = fleetVehicles.length;
 
-  const rowsWithoutIndex: Array<Omit<AnalitycsBookingRow, 'rowNumber'>> =
-    bookings.flatMap((booking) => {
+  const buildRowsWithoutIndex = (
+    sourceBookings: typeof bookings,
+  ): Array<Omit<AnalitycsBookingRow, 'rowNumber'>> =>
+    sourceBookings.flatMap((booking) => {
       if (!booking.rentalstart || !booking.rentalend) {
         return [];
       }
@@ -745,6 +771,9 @@ export async function getCurrentMonthAnalitycs(
       ];
     });
 
+  const rowsWithoutIndex = buildRowsWithoutIndex(activeBookings);
+  const archivedRowsWithoutIndex = buildRowsWithoutIndex(archivedBookings);
+
   const rows: AnalitycsBookingRow[] = rowsWithoutIndex.map((row, index) => ({
     ...row,
     rowNumber: index + 2,
@@ -786,6 +815,15 @@ export async function getCurrentMonthAnalitycs(
   const service = monthServiceCosts;
   const expense = service + totals.fuelCost + totals.ferryCost + totals.cleaningCost;
   const result = totals.revenue - expense;
+  const activeCount = rowsWithoutIndex.length;
+  const archivedCount = archivedRowsWithoutIndex.length;
+  const totalBookings = activeCount + archivedCount;
+  const archivedRevenue = archivedRowsWithoutIndex.reduce(
+    (sum, row) => sum + row.revenue,
+    0,
+  );
+  const archivedShare =
+    totalBookings > 0 ? (archivedCount / totalBookings) * 100 : 0;
 
   const perCarMap = new Map<string, AnalitycsCarBreakdown>(
     fleetVehicles.map((vehicle) => [
@@ -849,6 +887,14 @@ export async function getCurrentMonthAnalitycs(
     rowCount: rows.length,
     rows,
     perCar,
+    archiveSummary: {
+      totalBookings,
+      activeCount,
+      archivedCount,
+      activeRevenue: totals.revenue,
+      archivedRevenue,
+      archivedShare,
+    },
     quoteConversion: {
       totalOffers,
       convertedOffers,

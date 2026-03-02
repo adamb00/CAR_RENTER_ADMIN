@@ -7,6 +7,7 @@ import { getBookingById } from '@/data-service/bookings';
 import { getQuoteById } from '@/data-service/quotes';
 import { getStatusMeta } from '@/lib/status';
 import { BookingRegistrationCheckbox } from './booking-registration-checkbox';
+import { ArchiveBookingButton } from './archive-booking-button';
 import { SendConfirmButton } from './send-confirm-button';
 import { SendRejectButton } from './send-reject-button';
 import Section from '@/components/ui/section';
@@ -231,7 +232,11 @@ export default async function BookingDetailPage({
             A foglalás részletes adatai és az esetleges ajánlatkérés kapcsolata.
           </p>
         </div>
-        <div className='flex w-full flex-col gap-3 sm:max-w-sm'>
+        <div className='flex w-full flex-col gap-3 sm:max-w-sm sm:items-end'>
+          <ArchiveBookingButton
+            bookingCode={booking.humanId ?? booking.id}
+            bookingId={booking.id}
+          />
           <SendRejectButton
             bookingCode={booking.humanId ?? booking.id}
             bookingId={booking.id}

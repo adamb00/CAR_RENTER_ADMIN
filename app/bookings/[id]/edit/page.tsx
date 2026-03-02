@@ -6,6 +6,7 @@ import {
   type BookingAdminInitialData,
 } from '@/components/booking-admin-edit-form';
 import { getBookingById } from '@/data-service/bookings';
+import { getArchivedBookingIdSet } from '@/lib/booking-archive';
 import { db } from '@/lib/db';
 
 const stringifyJson = (value: unknown) => JSON.stringify(value ?? null, null, 2);
@@ -13,6 +14,14 @@ const toDateInputValue = (value?: Date | null) =>
   value ? value.toISOString().slice(0, 10) : '';
 const toDateTimeInputValue = (value?: Date | null) =>
   value ? value.toISOString().slice(0, 16) : '';
+const addUtcDays = (value: Date, days: number) =>
+  new Date(
+    Date.UTC(
+      value.getUTCFullYear(),
+      value.getUTCMonth(),
+      value.getUTCDate() + days,
+    ),
+  );
 
 const toAmountString = (value: unknown) => {
   if (typeof value === 'number') {
@@ -118,6 +127,41 @@ export default async function BookingEditPage({
 
   const pricingSnapshot = pricingRows[0] ?? null;
   const deliveryDetails = deliveryRows[0] ?? null;
+  let maxExtendableRentalEnd = '';
+  let nextCarBookingCode = '';
+
+  if (booking.carid && booking.rentalend) {
+    const nextCarBookings = await db.rentRequests.findMany({
+      where: {
+        id: { not: booking.id },
+        carid: booking.carid,
+        rentalstart: {
+          not: null,
+          gt: booking.rentalend,
+        },
+      },
+      select: {
+        id: true,
+        humanId: true,
+        rentalstart: true,
+      },
+      orderBy: { rentalstart: 'asc' },
+    });
+
+    const archivedIdSet = await getArchivedBookingIdSet(
+      nextCarBookings.map((row) => row.id),
+    );
+    const nextBooking = nextCarBookings.find(
+      (row) => !archivedIdSet.has(row.id) && row.rentalstart,
+    );
+
+    if (nextBooking?.rentalstart) {
+      maxExtendableRentalEnd = toDateInputValue(
+        addUtcDays(nextBooking.rentalstart, -1),
+      );
+      nextCarBookingCode = nextBooking.humanId ?? nextBooking.id;
+    }
+  }
 
   const initial: BookingAdminInitialData = {
     id: booking.id,
@@ -132,6 +176,9 @@ export default async function BookingEditPage({
     contactPhone: booking.contactphone ?? '',
     rentalStart: toDateInputValue(booking.rentalstart),
     rentalEnd: toDateInputValue(booking.rentalend),
+    originalRentalEnd: toDateInputValue(booking.rentalend),
+    maxExtendableRentalEnd,
+    nextCarBookingCode,
     rentalDays: booking.rentaldays != null ? String(booking.rentaldays) : '',
     status: booking.status ?? '',
     updatedNote: booking.updated ?? '',

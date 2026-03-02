@@ -3,6 +3,10 @@
 import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
+import {
+  findCarBookingConflict,
+  formatDateForConflictMessage,
+} from '@/lib/booking-conflicts';
 import { db } from '@/lib/db';
 
 type UpdateBookingAdminInput = {
@@ -114,7 +118,12 @@ export const updateBookingAdminAction = async (
 
   const booking = await db.rentRequests.findUnique({
     where: { id: bookingId },
-    select: { id: true },
+    select: {
+      id: true,
+      carid: true,
+      rentalstart: true,
+      rentalend: true,
+    },
   });
   if (!booking) return { error: 'A foglalás nem található.' };
 
@@ -160,6 +169,55 @@ export const updateBookingAdminAction = async (
   if (input.rentalEnd && !rentalEnd) return { error: 'A záró dátum érvénytelen.' };
   if (rentalStart && rentalEnd && rentalEnd < rentalStart) {
     return { error: 'A záró dátum nem lehet a kezdő dátum előtt.' };
+  }
+
+  const effectiveCarId = toOptionalString(input.carId) ?? booking.carid ?? null;
+  const effectiveRentalStart = rentalStart ?? booking.rentalstart;
+  const effectiveRentalEnd = rentalEnd ?? booking.rentalend;
+
+  if (booking.rentalend && !effectiveRentalEnd) {
+    return { error: 'A bérlés vége csak hosszabbítható, törölni nem lehet.' };
+  }
+
+  if (
+    booking.rentalend &&
+    effectiveRentalEnd &&
+    effectiveRentalEnd.getTime() < booking.rentalend.getTime()
+  ) {
+    return { error: 'A bérlés vége csak hosszabbítható, rövidíteni nem lehet.' };
+  }
+
+  const isEndDateExtended = Boolean(
+    booking.rentalend &&
+      effectiveRentalEnd &&
+      effectiveRentalEnd.getTime() > booking.rentalend.getTime(),
+  );
+
+  if (
+    isEndDateExtended &&
+    effectiveCarId &&
+    effectiveRentalStart &&
+    effectiveRentalEnd
+  ) {
+    const conflictingBooking = await findCarBookingConflict({
+      bookingIdToExclude: bookingId,
+      carId: effectiveCarId,
+      rentalStart: effectiveRentalStart,
+      rentalEnd: effectiveRentalEnd,
+    });
+
+    if (conflictingBooking) {
+      const conflictLabel = conflictingBooking.humanId ?? conflictingBooking.id;
+      const conflictStart = formatDateForConflictMessage(
+        conflictingBooking.rentalstart,
+      );
+      const conflictEnd = formatDateForConflictMessage(
+        conflictingBooking.rentalend,
+      );
+      return {
+        error: `A bérlés vége csak addig hosszabbítható, amíg ugyanarra az autóra nincs másik foglalás (${conflictLabel}: ${conflictStart} - ${conflictEnd}).`,
+      };
+    }
   }
 
   const rentalDays = parseIntegerOrNull(input.rentalDays);

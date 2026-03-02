@@ -80,6 +80,7 @@ export const buildContractDataFromBooking = (
     bookingCode: booking.humanId ?? booking.id,
     locale: booking.locale ?? booking.payload?.locale ?? null,
     renterName,
+    renterNationality: driver?.location?.country ?? undefined,
     renterEmail: recipient,
     renterPhone,
     renterAddress,
@@ -89,6 +90,8 @@ export const buildContractDataFromBooking = (
     renterIdCardExpireDate: driver?.document?.validUntil ?? undefined,
     renterDrivingLicenseNumber:
       driver?.document?.drivingLicenceNumber ?? undefined,
+    renterDrivingLicenseValidUntil:
+      driver?.document?.drivingLicenceValidUntil ?? undefined,
     ownerCompanyName: ADMIN_SIGNATURE.company,
     carLabel: booking.carLabel ?? booking.carId ?? undefined,
     plate,

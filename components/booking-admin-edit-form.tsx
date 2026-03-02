@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FloatingSelect } from '@/components/ui/floating-select';
 import { FloatingTextarea } from '@/components/ui/textarea';
+import { getStatusMeta } from '@/lib/status';
 
 type HandoverDirectionValue = 'out' | 'in';
 type HandoverCostTypeValue = 'tip' | 'fuel' | 'ferry' | 'cleaning';
@@ -72,6 +73,9 @@ export type BookingAdminInitialData = {
   contactPhone: string;
   rentalStart: string;
   rentalEnd: string;
+  originalRentalEnd: string;
+  maxExtendableRentalEnd: string;
+  nextCarBookingCode: string;
   rentalDays: string;
   status: string;
   updatedNote: string;
@@ -152,7 +156,10 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
     }));
   };
 
-  const updateContractField = (key: keyof BookingContractForm, value: string) => {
+  const updateContractField = (
+    key: keyof BookingContractForm,
+    value: string,
+  ) => {
     setForm((prev) => ({
       ...prev,
       bookingContract: { ...prev.bookingContract, [key]: value },
@@ -185,6 +192,27 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
     }));
   };
 
+  const LOCALE_LABELS: Record<string, string> = {
+    hu: 'Magyar',
+    en: 'Angol',
+    de: 'Német',
+    ro: 'Román',
+    fr: 'Francia',
+    es: 'Spanyol',
+    it: 'Olasz',
+    sk: 'Szlovák',
+    cz: 'Cseh',
+    se: 'Svéd',
+    no: 'Norvég',
+    dk: 'Dán',
+    pl: 'Lengyel',
+  };
+
+  const formatLocale = (locale: string | null | undefined) =>
+    locale ? (LOCALE_LABELS[locale] ?? locale) : '—';
+
+  const meta = getStatusMeta(form.status);
+
   const updateVehicleHandoverField = (
     index: number,
     key: keyof VehicleHandoverForm,
@@ -211,9 +239,46 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
     }));
   };
 
+  const hasRentalEndUpperLimit = Boolean(
+    form.maxExtendableRentalEnd &&
+      (!form.originalRentalEnd ||
+        form.maxExtendableRentalEnd >= form.originalRentalEnd),
+  );
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMessage(null);
+
+    if (form.originalRentalEnd && !form.rentalEnd) {
+      setMessage({
+        type: 'error',
+        text: 'A bérlés vége csak hosszabbítható, törölni nem lehet.',
+      });
+      return;
+    }
+
+    if (form.originalRentalEnd && form.rentalEnd < form.originalRentalEnd) {
+      setMessage({
+        type: 'error',
+        text: 'A bérlés vége csak hosszabbítható, rövidíteni nem lehet.',
+      });
+      return;
+    }
+
+    if (
+      hasRentalEndUpperLimit &&
+      form.rentalEnd &&
+      form.rentalEnd > form.maxExtendableRentalEnd
+    ) {
+      setMessage({
+        type: 'error',
+        text:
+          form.nextCarBookingCode
+            ? `A bérlés vége legfeljebb ${form.maxExtendableRentalEnd} lehet (következő foglalás: ${form.nextCarBookingCode}).`
+            : `A bérlés vége legfeljebb ${form.maxExtendableRentalEnd} lehet.`,
+      });
+      return;
+    }
 
     const handoverCostsPayload = form.handoverCosts
       .map((row) => ({
@@ -285,38 +350,30 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
       <div className='rounded-lg border p-4 space-y-4'>
         <h2 className='text-base font-semibold'>Foglalás adatok</h2>
         <div className='grid gap-4 md:grid-cols-3'>
-          <Input label='Azonosító' value={form.id} readOnly />
           <Input label='Létrehozva' value={form.createdAt} readOnly />
-          <Input label='Frissítve' value={form.updatedAt} readOnly />
+
           <Input
-            label='Emberi azonosító'
+            label='Azonosító'
             value={form.humanId}
             onChange={(event) => updateBaseField('humanId', event.target.value)}
           />
           <Input
-            label='Nyelvkód'
-            value={form.locale}
+            label='Nyelv'
+            value={formatLocale(form.locale)}
             onChange={(event) => updateBaseField('locale', event.target.value)}
           />
           <Input
             label='Állapot'
-            value={form.status}
+            value={meta?.label ?? form.status}
             onChange={(event) => updateBaseField('status', event.target.value)}
           />
-          <Input
-            label='Autó azonosító'
-            value={form.carId}
-            onChange={(event) => updateBaseField('carId', event.target.value)}
-          />
-          <Input
-            label='Ajánlat azonosító'
-            value={form.quoteId}
-            onChange={(event) => updateBaseField('quoteId', event.target.value)}
-          />
+
           <Input
             label='Bérleti napok száma'
             value={form.rentalDays}
-            onChange={(event) => updateBaseField('rentalDays', event.target.value)}
+            onChange={(event) =>
+              updateBaseField('rentalDays', event.target.value)
+            }
           />
           <Input
             label='Kapcsolattartó neve'
@@ -343,42 +400,35 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             label='Bérlés kezdete'
             type='date'
             value={form.rentalStart}
-            onChange={(event) => updateBaseField('rentalStart', event.target.value)}
+            onChange={(event) =>
+              updateBaseField('rentalStart', event.target.value)
+            }
           />
           <Input
             label='Bérlés vége'
             type='date'
             value={form.rentalEnd}
-            onChange={(event) => updateBaseField('rentalEnd', event.target.value)}
+            onChange={(event) =>
+              updateBaseField('rentalEnd', event.target.value)
+            }
+            min={form.originalRentalEnd || undefined}
+            max={hasRentalEndUpperLimit ? form.maxExtendableRentalEnd : undefined}
           />
-          <FloatingTextarea
-            label='Frissítési megjegyzés'
-            value={form.updatedNote}
-            onChange={(event) => updateBaseField('updatedNote', event.target.value)}
-            className='md:col-span-3 min-h-24'
-          />
-          <FloatingTextarea
-            label='Adatcsomag (JSON)'
-            value={form.payloadJson}
-            onChange={(event) => updateBaseField('payloadJson', event.target.value)}
-            className='md:col-span-3 min-h-64 font-mono text-xs'
-          />
+          {form.originalRentalEnd ? (
+            <p className='text-xs text-muted-foreground md:col-span-3'>
+              Eredeti bérlés vége: {form.originalRentalEnd}. Csak hosszabbítás
+              engedett.
+              {hasRentalEndUpperLimit
+                ? ` Legkésőbbi hosszabbítható dátum: ${form.maxExtendableRentalEnd}${form.nextCarBookingCode ? ` (következő foglalás: ${form.nextCarBookingCode}).` : '.'}`
+                : ''}
+            </p>
+          ) : null}
         </div>
       </div>
 
       <div className='rounded-lg border p-4 space-y-4'>
         <div className='flex items-center justify-between'>
-          <h2 className='text-base font-semibold'>Árazási adatok</h2>
-          <label className='flex items-center gap-2 text-sm'>
-            <input
-              type='checkbox'
-              checked={form.hasPricingSnapshot}
-              onChange={(event) =>
-                updateBaseField('hasPricingSnapshot', event.target.checked)
-              }
-            />
-            Aktív rekord
-          </label>
+          <h2 className='text-base font-semibold'>Árazás</h2>
         </div>
         <div className='grid gap-4 md:grid-cols-3'>
           <Input
@@ -400,7 +450,9 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
           <Input
             label='Kaució'
             value={form.pricingSnapshot.deposit}
-            onChange={(event) => updatePricingField('deposit', event.target.value)}
+            onChange={(event) =>
+              updatePricingField('deposit', event.target.value)
+            }
             disabled={!form.hasPricingSnapshot}
           />
           <Input
@@ -431,22 +483,14 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
       <div className='rounded-lg border p-4 space-y-4'>
         <div className='flex items-center justify-between'>
           <h2 className='text-base font-semibold'>Kiszállítási adatok</h2>
-          <label className='flex items-center gap-2 text-sm'>
-            <input
-              type='checkbox'
-              checked={form.hasDeliveryDetails}
-              onChange={(event) =>
-                updateBaseField('hasDeliveryDetails', event.target.checked)
-              }
-            />
-            Aktív rekord
-          </label>
         </div>
         <div className='grid gap-4 md:grid-cols-3'>
           <Input
             label='Átadás hely típusa'
             value={form.deliveryDetails.placeType}
-            onChange={(event) => updateDeliveryField('placeType', event.target.value)}
+            onChange={(event) =>
+              updateDeliveryField('placeType', event.target.value)
+            }
             disabled={!form.hasDeliveryDetails}
           />
           <Input
@@ -496,261 +540,6 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
               updateDeliveryField('arrivalMinute', event.target.value)
             }
             disabled={!form.hasDeliveryDetails}
-          />
-        </div>
-      </div>
-
-      <div className='rounded-lg border p-4 space-y-4'>
-        <div className='flex items-center justify-between'>
-          <h2 className='text-base font-semibold'>Átadás költségek</h2>
-          <Button type='button' variant='outline' size='sm' onClick={addHandoverCost}>
-            Sor hozzáadása
-          </Button>
-        </div>
-        {form.handoverCosts.length === 0 && (
-          <p className='text-sm text-muted-foreground'>Nincs rögzített sor.</p>
-        )}
-        <div className='space-y-3'>
-          {form.handoverCosts.map((row, index) => (
-            <div key={index} className='grid gap-3 rounded-md border p-3 md:grid-cols-4'>
-              <FloatingSelect
-                label='Irány'
-                value={row.direction}
-                onChange={(event) =>
-                  updateHandoverCostField(index, 'direction', event.target.value)
-                }
-              >
-                <option value='out'>Kiadás</option>
-                <option value='in'>Visszavétel</option>
-              </FloatingSelect>
-              <FloatingSelect
-                label='Költség típusa'
-                value={row.costType}
-                onChange={(event) =>
-                  updateHandoverCostField(index, 'costType', event.target.value)
-                }
-              >
-                <option value='tip'>Borravaló</option>
-                <option value='fuel'>Tankolás</option>
-                <option value='ferry'>Komp</option>
-                <option value='cleaning'>Takarítás</option>
-              </FloatingSelect>
-              <Input
-                label='Összeg'
-                type='number'
-                step='0.01'
-                value={row.amount}
-                onChange={(event) =>
-                  updateHandoverCostField(index, 'amount', event.target.value)
-                }
-              />
-              <Button
-                type='button'
-                variant='destructive'
-                onClick={() => removeHandoverCost(index)}
-              >
-                Törlés
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className='rounded-lg border p-4 space-y-4'>
-        <div className='flex items-center justify-between'>
-          <h2 className='text-base font-semibold'>Jármű átadás-átvétel</h2>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            onClick={addVehicleHandover}
-          >
-            Sor hozzáadása
-          </Button>
-        </div>
-        {form.vehicleHandovers.length === 0 && (
-          <p className='text-sm text-muted-foreground'>Nincs rögzített sor.</p>
-        )}
-        <div className='space-y-3'>
-          {form.vehicleHandovers.map((row, index) => (
-            <div key={index} className='space-y-3 rounded-md border p-3'>
-              <div className='grid gap-3 md:grid-cols-4'>
-                <Input
-                  label='Flottaautó azonosító'
-                  value={row.fleetVehicleId}
-                  onChange={(event) =>
-                    updateVehicleHandoverField(
-                      index,
-                      'fleetVehicleId',
-                      event.target.value,
-                    )
-                  }
-                />
-                <FloatingSelect
-                  label='Irány'
-                  value={row.direction}
-                  onChange={(event) =>
-                    updateVehicleHandoverField(
-                      index,
-                      'direction',
-                      event.target.value,
-                    )
-                  }
-                >
-                  <option value='out'>Kiadás</option>
-                  <option value='in'>Visszavétel</option>
-                </FloatingSelect>
-                <Input
-                  label='Átadás időpontja'
-                  type='datetime-local'
-                  value={row.handoverAt}
-                  onChange={(event) =>
-                    updateVehicleHandoverField(
-                      index,
-                      'handoverAt',
-                      event.target.value,
-                    )
-                  }
-                />
-                <Input
-                  label='Átadó személy'
-                  value={row.handoverBy}
-                  onChange={(event) =>
-                    updateVehicleHandoverField(
-                      index,
-                      'handoverBy',
-                      event.target.value,
-                    )
-                  }
-                />
-                <Input
-                  label='Kilométeróra állás'
-                  type='number'
-                  value={row.mileage}
-                  onChange={(event) =>
-                    updateVehicleHandoverField(index, 'mileage', event.target.value)
-                  }
-                />
-              </div>
-              <div className='grid gap-3 md:grid-cols-2'>
-                <FloatingTextarea
-                  label='Megjegyzés'
-                  value={row.notes}
-                  onChange={(event) =>
-                    updateVehicleHandoverField(index, 'notes', event.target.value)
-                  }
-                  className='min-h-20'
-                />
-                <FloatingTextarea
-                  label='Sérülések'
-                  value={row.damages}
-                  onChange={(event) =>
-                    updateVehicleHandoverField(index, 'damages', event.target.value)
-                  }
-                  className='min-h-20'
-                />
-              </div>
-              <FloatingTextarea
-                label='Sérülésképek (soronként egy URL)'
-                value={row.damagesImages}
-                onChange={(event) =>
-                  updateVehicleHandoverField(
-                    index,
-                    'damagesImages',
-                    event.target.value,
-                  )
-                }
-                className='min-h-20 font-mono text-xs'
-              />
-              <Button
-                type='button'
-                variant='destructive'
-                onClick={() => removeVehicleHandover(index)}
-              >
-                Sor törlése
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className='rounded-lg border p-4 space-y-4'>
-        <div className='flex items-center justify-between'>
-          <h2 className='text-base font-semibold'>Szerződés adatok</h2>
-          <label className='flex items-center gap-2 text-sm'>
-            <input
-              type='checkbox'
-              checked={form.hasBookingContract}
-              onChange={(event) =>
-                updateBaseField('hasBookingContract', event.target.checked)
-              }
-            />
-            Aktív rekord
-          </label>
-        </div>
-        <div className='grid gap-4 md:grid-cols-2'>
-          <Input
-            label='Aláíró neve'
-            value={form.bookingContract.signerName}
-            onChange={(event) =>
-              updateContractField('signerName', event.target.value)
-            }
-            disabled={!form.hasBookingContract}
-          />
-          <Input
-            label='Aláíró e-mail'
-            value={form.bookingContract.signerEmail}
-            onChange={(event) =>
-              updateContractField('signerEmail', event.target.value)
-            }
-            disabled={!form.hasBookingContract}
-          />
-          <Input
-            label='Szerződés verzió'
-            value={form.bookingContract.contractVersion}
-            onChange={(event) =>
-              updateContractField('contractVersion', event.target.value)
-            }
-            disabled={!form.hasBookingContract}
-          />
-          <Input
-            label='Aláírás időpontja'
-            type='datetime-local'
-            value={form.bookingContract.signedAt}
-            onChange={(event) => updateContractField('signedAt', event.target.value)}
-            disabled={!form.hasBookingContract}
-          />
-          <Input
-            label='PDF kiküldés időpontja'
-            type='datetime-local'
-            value={form.bookingContract.pdfSentAt}
-            onChange={(event) => updateContractField('pdfSentAt', event.target.value)}
-            disabled={!form.hasBookingContract}
-          />
-          <Input
-            label='Bérlő aláírás adata'
-            value={form.bookingContract.signatureData}
-            onChange={(event) =>
-              updateContractField('signatureData', event.target.value)
-            }
-            disabled={!form.hasBookingContract}
-          />
-          <Input
-            label='Bérbeadó aláírás adata'
-            value={form.bookingContract.lessorSignatureData}
-            onChange={(event) =>
-              updateContractField('lessorSignatureData', event.target.value)
-            }
-            disabled={!form.hasBookingContract}
-          />
-          <FloatingTextarea
-            label='Szerződés szövege'
-            value={form.bookingContract.contractText}
-            onChange={(event) =>
-              updateContractField('contractText', event.target.value)
-            }
-            className='md:col-span-2 min-h-32'
-            disabled={!form.hasBookingContract}
           />
         </div>
       </div>

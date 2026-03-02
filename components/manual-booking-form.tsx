@@ -216,9 +216,14 @@ const splitExtras = (value: string) =>
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
 
-type ValidationField = 'contactName' | 'contactEmail' | 'rentalStart' | 'rentalEnd';
+type ValidationField =
+  | 'contactName'
+  | 'contactEmail'
+  | 'contactPhone'
+  | 'carId'
+  | 'rentalStart'
+  | 'rentalEnd';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const INVALID_FIELD_CLASS = 'border-rose-500 focus:border-rose-600 focus:ring-rose-500';
 
 export function ManualBookingForm({
@@ -306,6 +311,8 @@ export function ManualBookingForm({
     if (
       key === 'contactName' ||
       key === 'contactEmail' ||
+      key === 'contactPhone' ||
+      key === 'carId' ||
       key === 'rentalStart' ||
       key === 'rentalEnd'
     ) {
@@ -325,6 +332,11 @@ export function ManualBookingForm({
       fleetVehicleId,
       carId: selectedFleet?.carId ?? prev.carId,
     }));
+    setInvalidFields((prev) => prev.filter((item) => item !== 'carId'));
+  };
+
+  const handleCarChange = (carId: string) => {
+    updateField('carId', carId);
   };
 
   const updateChild = (index: number, key: keyof ChildDraft, value: string) => {
@@ -409,26 +421,19 @@ export function ManualBookingForm({
 
     if (!values.contactName.trim()) fields.push('contactName');
 
-    const email = values.contactEmail.trim();
-    if (!email || !EMAIL_PATTERN.test(email)) fields.push('contactEmail');
-
-    if (!values.rentalStart) fields.push('rentalStart');
-    if (!values.rentalEnd) fields.push('rentalEnd');
-
-    if (values.rentalStart && values.rentalEnd && values.rentalEnd < values.rentalStart) {
+    if (
+      values.rentalStart &&
+      values.rentalEnd &&
+      values.rentalEnd < values.rentalStart
+    ) {
       if (!fields.includes('rentalEnd')) fields.push('rentalEnd');
     }
 
     let messageText = '';
     if (fields.includes('contactName')) {
       messageText = 'A név megadása kötelező.';
-    } else if (fields.includes('contactEmail')) {
-      messageText = 'Érvényes e-mail cím megadása kötelező.';
-    } else if (
-      fields.includes('rentalStart') ||
-      fields.includes('rentalEnd')
-    ) {
-      messageText = 'A kezdő és záró dátum megadása kötelező.';
+    } else if (fields.includes('rentalEnd')) {
+      messageText = 'A záró dátum nem lehet a kezdő dátum előtt.';
     }
 
     return { fields, messageText };
@@ -567,6 +572,16 @@ export function ManualBookingForm({
             prev.includes('contactEmail') ? prev : [...prev, 'contactEmail'],
           );
           requestAnimationFrame(() => focusField(formElement, 'contactEmail'));
+        } else if (result.error.toLowerCase().includes('telefon')) {
+          setInvalidFields((prev) =>
+            prev.includes('contactPhone') ? prev : [...prev, 'contactPhone'],
+          );
+          requestAnimationFrame(() => focusField(formElement, 'contactPhone'));
+        } else if (result.error.toLowerCase().includes('autó')) {
+          setInvalidFields((prev) =>
+            prev.includes('carId') ? prev : [...prev, 'carId'],
+          );
+          requestAnimationFrame(() => focusField(formElement, 'carId'));
         } else if (result.error.toLowerCase().includes('záró dátum')) {
           setInvalidFields((prev) =>
             prev.includes('rentalEnd') ? prev : [...prev, 'rentalEnd'],
@@ -615,7 +630,6 @@ export function ManualBookingForm({
             type='email'
             value={form.contactEmail}
             onChange={(event) => updateField('contactEmail', event.target.value)}
-            required
             data-field='contactEmail'
             className={cn(isFieldInvalid('contactEmail') && INVALID_FIELD_CLASS)}
           />
@@ -623,6 +637,8 @@ export function ManualBookingForm({
             label='Telefon'
             value={form.contactPhone}
             onChange={(event) => updateField('contactPhone', event.target.value)}
+            data-field='contactPhone'
+            className={cn(isFieldInvalid('contactPhone') && INVALID_FIELD_CLASS)}
           />
 
           <FloatingSelect
@@ -663,6 +679,22 @@ export function ManualBookingForm({
             ))}
           </FloatingSelect>
 
+          <FloatingSelect
+            label='Autó'
+            value={form.carId}
+            onChange={(event) => handleCarChange(event.target.value)}
+            data-field='carId'
+            disabled={lockFleetVehicle || Boolean(form.fleetVehicleId)}
+            className={cn(isFieldInvalid('carId') && INVALID_FIELD_CLASS)}
+          >
+            <option value=''>Válassz autót</option>
+            {carOptions.map((car) => (
+              <option key={car.id} value={car.id}>
+                {car.label}
+              </option>
+            ))}
+          </FloatingSelect>
+
           <Input
             label='Bérelt napok száma (opcionális)'
             type='number'
@@ -677,7 +709,6 @@ export function ManualBookingForm({
             type='date'
             value={form.rentalStart}
             onChange={(event) => updateField('rentalStart', event.target.value)}
-            required
             data-field='rentalStart'
             className={cn(isFieldInvalid('rentalStart') && INVALID_FIELD_CLASS)}
           />
@@ -687,7 +718,6 @@ export function ManualBookingForm({
             type='date'
             value={form.rentalEnd}
             onChange={(event) => updateField('rentalEnd', event.target.value)}
-            required
             data-field='rentalEnd'
             className={cn(isFieldInvalid('rentalEnd') && INVALID_FIELD_CLASS)}
           />

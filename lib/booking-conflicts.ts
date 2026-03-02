@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 
+import { getArchivedBookingIdSet } from '@/lib/booking-archive';
 import { db } from '@/lib/db';
 
 type BookingConflictCandidate = {
@@ -38,7 +39,7 @@ export const findFleetVehicleBookingConflict = async ({
   rentalEnd: Date;
 }): Promise<BookingConflictCandidate | null> => {
   const trimmedExcludedId = bookingIdToExclude?.trim();
-  const where: Prisma.RentRequestsWhereInput = {
+  const where = {
     rentalstart: {
       not: null,
       lte: rentalEnd,
@@ -48,7 +49,7 @@ export const findFleetVehicleBookingConflict = async ({
       gte: rentalStart,
     },
     ...(trimmedExcludedId ? { id: { not: trimmedExcludedId } } : {}),
-  };
+  } as Prisma.RentRequestsWhereInput;
 
   const candidates = await db.rentRequests.findMany({
     where,
@@ -61,12 +62,61 @@ export const findFleetVehicleBookingConflict = async ({
     },
     orderBy: { rentalstart: 'asc' },
   });
+  const archivedIdSet = await getArchivedBookingIdSet(
+    candidates.map((candidate) => candidate.id),
+  );
 
   return (
     candidates.find(
       (candidate) =>
+        !archivedIdSet.has(candidate.id) &&
         getAssignedFleetVehicleIdFromPayload(candidate.payload) ===
         fleetVehicleId,
     ) ?? null
+  );
+};
+
+export const findCarBookingConflict = async ({
+  bookingIdToExclude,
+  carId,
+  rentalStart,
+  rentalEnd,
+}: {
+  bookingIdToExclude?: string | null;
+  carId: string;
+  rentalStart: Date;
+  rentalEnd: Date;
+}): Promise<BookingConflictCandidate | null> => {
+  const trimmedExcludedId = bookingIdToExclude?.trim();
+  const where = {
+    carid: carId,
+    rentalstart: {
+      not: null,
+      lte: rentalEnd,
+    },
+    rentalend: {
+      not: null,
+      gte: rentalStart,
+    },
+    ...(trimmedExcludedId ? { id: { not: trimmedExcludedId } } : {}),
+  } as Prisma.RentRequestsWhereInput;
+
+  const candidates = await db.rentRequests.findMany({
+    where,
+    select: {
+      id: true,
+      humanId: true,
+      rentalstart: true,
+      rentalend: true,
+      payload: true,
+    },
+    orderBy: { rentalstart: 'asc' },
+  });
+  const archivedIdSet = await getArchivedBookingIdSet(
+    candidates.map((candidate) => candidate.id),
+  );
+
+  return (
+    candidates.find((candidate) => !archivedIdSet.has(candidate.id)) ?? null
   );
 };

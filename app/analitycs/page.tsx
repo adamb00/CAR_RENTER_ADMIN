@@ -185,7 +185,11 @@ export default async function AnalyticsPage({
 
         <div className='mb-4 flex flex-wrap gap-2 text-sm'>
           <span className='rounded-md border px-2 py-1'>
-            Foglalások: <strong>{monthData.rowCount}</strong>
+            Aktív foglalások: <strong>{monthData.rowCount}</strong>
+          </span>
+          <span className='rounded-md border px-2 py-1'>
+            Archivált foglalások:{' '}
+            <strong>{monthData.archiveSummary.archivedCount}</strong>
           </span>
           <span className='rounded-md border px-2 py-1'>
             Flotta: <strong>{formatNumber(monthData.totals.fleetCars)}</strong>

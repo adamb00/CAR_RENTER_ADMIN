@@ -1,8 +1,6 @@
 import { BookingCalendar } from '@/components/booking-calendar';
-import { Button } from '@/components/ui/button';
-import { db } from '@/lib/db';
 import { getBookings } from '@/data-service/bookings';
-import Link from 'next/link';
+import { db } from '@/lib/db';
 
 export default async function CalendarPage() {
   const [bookings, fleetVehicles] = await Promise.all([
@@ -33,6 +31,7 @@ export default async function CalendarPage() {
     const deliveryLocation =
       booking.payload?.delivery?.locationName?.trim() ||
       booking.payload?.delivery?.address?.street?.trim() ||
+      booking.payload?.pricing?.deliveryLocation?.trim() ||
       null;
 
     return {
@@ -45,6 +44,7 @@ export default async function CalendarPage() {
       assignedFleetVehicleId: booking.assignedFleetVehicleId,
       carLabel: booking.carLabel ?? null,
       deliveryLocation,
+      pricing: booking.payload?.pricing ?? booking.pricing ?? null,
     };
   });
 

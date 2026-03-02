@@ -14,23 +14,22 @@ export default async function BookingIssuePage({
 
   const booking = await getBookingById(id);
   const vehicle = await getVehicleById(booking?.assignedFleetVehicleId ?? '');
-  const signedContract =
-    booking?.id
-      ? await db.bookingContract.findUnique({
-          where: { bookingId: booking.id },
-          select: {
-            id: true,
-            signedAt: true,
-            signatureData: true,
-            lessorSignatureData: true,
-          },
-        })
-      : null;
+  const signedContract = booking?.id
+    ? await db.bookingContract.findUnique({
+        where: { bookingId: booking.id },
+        select: {
+          id: true,
+          signedAt: true,
+          signatureData: true,
+          lessorSignatureData: true,
+        },
+      })
+    : null;
   const isContractSigned = Boolean(
     signedContract?.id &&
-      signedContract.signedAt &&
-      signedContract.signatureData &&
-      signedContract.lessorSignatureData,
+    signedContract.signedAt &&
+    signedContract.signatureData &&
+    signedContract.lessorSignatureData,
   );
 
   return (
@@ -62,8 +61,7 @@ export default async function BookingIssuePage({
           Foglalt autó:{' '}
           <span className='font-medium text-foreground'>
             {booking?.carLabel} &bull; {formatDateShort(booking?.rentalStart)} -{' '}
-            {formatDateShort(booking?.rentalEnd)} &bull; {booking?.rentalDays}{' '}
-            nap
+            {formatDateShort(booking?.rentalEnd)}
           </span>
         </p>
       </div>

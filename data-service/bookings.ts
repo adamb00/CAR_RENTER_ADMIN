@@ -1,5 +1,6 @@
 import { Prisma, type RentRequests } from '@prisma/client';
 
+import { getArchivedBookingIdSet } from '@/lib/booking-archive';
 import { db } from '@/lib/db';
 import { QUOTE_DONE_STATUS } from '@/lib/constants';
 
@@ -151,6 +152,7 @@ export type Booking = {
   updatedAt: string | null;
   payload: BookingPayload | null;
   selfServiceEvents?: BookingSelfServiceEvent[];
+  pricing?: BookingPricing | null;
 };
 
 const toDateString = (value?: Date | null) =>
@@ -835,9 +837,15 @@ export const getBookings = async (): Promise<Booking[]> => {
     orderBy: { createdAt: 'desc' },
     include: CONTACT_QUOTE_INCLUDE,
   });
-  await syncQuoteStatusesForBookings(bookingsRaw);
+  const archivedIdSet = await getArchivedBookingIdSet(
+    bookingsRaw.map((booking) => booking.id),
+  );
+  const activeBookingsRaw = bookingsRaw.filter(
+    (booking) => !archivedIdSet.has(booking.id),
+  );
+  await syncQuoteStatusesForBookings(activeBookingsRaw);
 
-  const normalizedBase = bookingsRaw.map(normalizeBooking);
+  const normalizedBase = activeBookingsRaw.map(normalizeBooking);
   const normalizedPayloadParts = await getNormalizedPayloadPartsByBookingId(
     normalizedBase.map((booking) => booking.id),
   );
@@ -922,11 +930,15 @@ export const getBookingByQuoteId = async (
 ): Promise<Booking | null> => {
   const trimmedQuoteId = quoteId.trim();
   if (!trimmedQuoteId) return null;
-  const booking = await db.rentRequests.findFirst({
+  const bookings = await db.rentRequests.findMany({
     where: { quoteid: trimmedQuoteId },
     orderBy: { createdAt: 'desc' },
     include: CONTACT_QUOTE_INCLUDE,
   });
+  const archivedIdSet = await getArchivedBookingIdSet(
+    bookings.map((booking) => booking.id),
+  );
+  const booking = bookings.find((candidate) => !archivedIdSet.has(candidate.id));
 
   if (!booking) return null;
 
