@@ -7,22 +7,7 @@ import { getQuoteById } from '@/data-service/quotes';
 import { db } from '@/lib/db';
 import { getStatusMeta } from '@/lib/status';
 import { BookingRequestButton } from './booking-request-button';
-
-const LOCALE_LABELS: Record<string, string> = {
-  hu: 'Magyar',
-  en: 'Angol',
-  de: 'Német',
-  ro: 'Román',
-  fr: 'Francia',
-  es: 'Spanyol',
-  it: 'Olasz',
-  sk: 'Szlovák',
-  cz: 'Cseh',
-  se: 'Svéd',
-  no: 'Norvég',
-  dk: 'Dán',
-  pl: 'Lengyel',
-};
+import { LOCALE_LABELS } from '@/lib/constants';
 
 type PricingBreakdown = {
   rentalFee?: string | null;
@@ -210,7 +195,10 @@ export default async function QuoteDetailPage({
               label='Átvétel helye'
               value={formatPlaceType(quote.delivery?.placeType)}
             />
-            <Detail label='Helyszín neve' value={quote.delivery?.locationName} />
+            <Detail
+              label='Helyszín neve'
+              value={quote.delivery?.locationName}
+            />
             <Detail
               label='Cím'
               value={

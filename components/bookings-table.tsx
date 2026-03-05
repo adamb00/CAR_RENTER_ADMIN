@@ -1,132 +1,21 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
 import {
-  ColumnDef,
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table';
 import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { Booking } from '@/data-service/bookings';
-import { getStatusMeta } from '@/lib/status';
-
-const LOCALE_LABELS: Record<string, string> = {
-  hu: 'Magyar',
-  en: 'Angol',
-  de: 'Német',
-  ro: 'Román',
-  fr: 'Francia',
-  es: 'Spanyol',
-  it: 'Olasz',
-  sk: 'Szlovák',
-  cz: 'Cseh',
-  se: 'Svéd',
-  no: 'Norvég',
-  dk: 'Dán',
-  pl: 'Lengyel',
-};
-
-const formatDate = (value: string | null | undefined) => {
-  if (!value) return '—';
-  const date = new Date(value);
-  return isNaN(date.getTime()) ? value : date.toLocaleString('hu-HU');
-};
-
-const formatLocale = (locale: string | null | undefined) =>
-  locale ? LOCALE_LABELS[locale] ?? locale : '—';
-
-const formatPeriod = (booking: Booking) => {
-  const start = booking.rentalStart ?? booking.payload?.rentalPeriod?.startDate;
-  const end = booking.rentalEnd ?? booking.payload?.rentalPeriod?.endDate;
-  return start || end ? `${start ?? '—'} → ${end ?? '—'}` : '—';
-};
+import { BookingTableColumns } from './booking-table-columns';
 
 export function BookingsTable({ data }: { data: Booking[] }) {
   const [search, setSearch] = useState('');
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
   const router = useRouter();
-
-  const columns = useMemo<ColumnDef<Booking>[]>(
-    () => [
-      {
-        header: 'Foglaló',
-        cell: ({ row }) => (
-          <div className='flex flex-col gap-1'>
-            <div className='text-base font-semibold text-foreground'>
-              {row.original.contactName || '—'}
-            </div>
-            <div className='text-base font-semibold text-foreground'>
-              {row.original.humanId || '—'}
-            </div>
-            <div className='text-sm text-muted-foreground'>
-              {row.original.contactEmail || '—'}
-            </div>
-            <div className='text-xs text-muted-foreground'>
-              {row.original.contactPhone || '—'}
-            </div>
-          </div>
-        ),
-      },
-      {
-        header: 'Időszak',
-        cell: ({ row }) => (
-          <div className='whitespace-nowrap text-muted-foreground'>
-            {formatPeriod(row.original)}
-          </div>
-        ),
-      },
-      {
-        header: 'Autó',
-        cell: ({ row }) => (
-          <div className='text-muted-foreground'>
-            {row.original.carLabel ||
-              row.original.carId ||
-              row.original.payload?.carId ||
-              row.original.quoteId ||
-              '—'}
-          </div>
-        ),
-      },
-      {
-        header: 'Állapot',
-        cell: ({ row }) => (
-          <div className='text-muted-foreground'>
-            {(() => {
-              const meta = getStatusMeta(row.original.status);
-              return (
-                <span
-                  className={`inline-flex items-center rounded-full border px-2 py-1 text-xs font-semibold ${meta.badge}`}
-                >
-                  {meta.label}
-                </span>
-              );
-            })()}
-          </div>
-        ),
-      },
-      {
-        header: 'Nyelv',
-        cell: ({ row }) => (
-          <div className='text-muted-foreground'>
-            {formatLocale(row.original.locale)}
-          </div>
-        ),
-      },
-      {
-        header: 'Beérkezett',
-        accessorKey: 'createdAt',
-        cell: ({ row }) => (
-          <div className='whitespace-nowrap text-muted-foreground'>
-            {formatDate(row.original.createdAt)}
-          </div>
-        ),
-      },
-    ],
-    []
-  );
 
   const filteredData = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -172,7 +61,7 @@ export function BookingsTable({ data }: { data: Booking[] }) {
 
   const table = useReactTable({
     data: paginatedData,
-    columns,
+    columns: BookingTableColumns,
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -216,7 +105,7 @@ export function BookingsTable({ data }: { data: Booking[] }) {
                     ? null
                     : flexRender(
                         header.column.columnDef.header,
-                        header.getContext()
+                        header.getContext(),
                       )}
                 </th>
               ))}
@@ -227,7 +116,7 @@ export function BookingsTable({ data }: { data: Booking[] }) {
           {table.getRowModel().rows.length === 0 ? (
             <tr>
               <td
-                colSpan={columns.length}
+                colSpan={BookingTableColumns.length}
                 className='px-4 py-6 text-center text-muted-foreground'
               >
                 Nincs találat a jelenlegi szűrőkkel.

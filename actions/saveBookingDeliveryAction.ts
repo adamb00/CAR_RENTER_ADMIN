@@ -2,6 +2,7 @@
 
 import type { BookingPayload } from '@/data-service/bookings';
 import { db } from '@/lib/db';
+import { resolveDeliveryIsland } from '@/lib/delivery-island';
 import { revalidatePath } from 'next/cache';
 
 type DeliveryInput = {
@@ -112,6 +113,12 @@ export const saveBookingDeliveryAction = async ({
   const departureFlight = sanitizeValue(existingRow?.departureFlight) ?? null;
   const arrivalHour = sanitizeValue(existingRow?.arrivalHour) ?? null;
   const arrivalMinute = sanitizeValue(existingRow?.arrivalMinute) ?? null;
+  const island = resolveDeliveryIsland({
+    locationName,
+    addressLine: addressValue,
+    arrivalFlight,
+    departureFlight,
+  });
 
   try {
     await db.$transaction(async (tx) => {
@@ -126,6 +133,7 @@ export const saveBookingDeliveryAction = async ({
           "placeType",
           "locationName",
           "addressLine",
+          "island",
           "arrivalFlight",
           "departureFlight",
           "arrivalHour",
@@ -137,6 +145,7 @@ export const saveBookingDeliveryAction = async ({
           ${placeType ?? null},
           ${locationName ?? null},
           ${addressValue ?? null},
+          ${island},
           ${arrivalFlight},
           ${departureFlight},
           ${arrivalHour},
@@ -148,6 +157,7 @@ export const saveBookingDeliveryAction = async ({
           "placeType" = EXCLUDED."placeType",
           "locationName" = EXCLUDED."locationName",
           "addressLine" = EXCLUDED."addressLine",
+          "island" = EXCLUDED."island",
           "arrivalFlight" = EXCLUDED."arrivalFlight",
           "departureFlight" = EXCLUDED."departureFlight",
           "arrivalHour" = EXCLUDED."arrivalHour",

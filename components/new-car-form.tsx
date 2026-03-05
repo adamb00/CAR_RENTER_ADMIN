@@ -2,14 +2,9 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Upload, X } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import type {
-  ChangeEvent,
-  FocusEvent,
-  ReactNode,
-  SelectHTMLAttributes,
-} from 'react';
+import { useRouter } from 'next/navigation';
+import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -17,6 +12,7 @@ import { createCarAction } from '@/actions/createCarAction';
 import { updateCarAction } from '@/actions/updateCarAction';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FloatingSelect } from '@/components/ui/floating-select';
 import {
   Form,
   FormControl,
@@ -38,12 +34,11 @@ import {
   CAR_TRANSMISSIONS,
 } from '@/lib/car-options';
 import { cn } from '@/lib/utils';
-import { FloatingSelect } from '@/components/ui/floating-select';
 import {
   CreateCarFormSchema,
+  transformCarFormValues,
   type CreateCarFormInput,
   type CreateCarFormValues,
-  transformCarFormValues,
 } from '@/schemas/carSchema';
 
 const MAX_IMAGES = 3;
@@ -79,12 +74,12 @@ const DEFAULT_VALUES: Partial<CreateCarFormInput> = {
 };
 
 const buildDefaultValues = (
-  initialValues?: Partial<CreateCarFormInput>
+  initialValues?: Partial<CreateCarFormInput>,
 ): CreateCarFormInput =>
   ({
     ...DEFAULT_VALUES,
     ...initialValues,
-  } as CreateCarFormInput);
+  }) as CreateCarFormInput;
 
 type CarFormMode = 'create' | 'edit';
 
@@ -104,7 +99,7 @@ const FormSection = ({
   <section
     className={cn(
       'space-y-5 rounded-xl border bg-card/40 p-6 shadow-sm',
-      className
+      className,
     )}
   >
     <div className='space-y-1.5'>
@@ -140,12 +135,12 @@ export function NewCarForm({
 
   const mergedDefaultValues = useMemo<CreateCarFormInput>(
     () => buildDefaultValues(initialValues),
-    [initialValues]
+    [initialValues],
   );
 
   const form = useForm<CreateCarFormInput, any, CreateCarFormValues>({
     resolver: zodResolver<CreateCarFormInput, any, CreateCarFormValues>(
-      CreateCarFormSchema
+      CreateCarFormSchema,
     ),
     defaultValues: mergedDefaultValues,
   });
@@ -234,7 +229,7 @@ export function NewCarForm({
 
       const nextImages = [...currentImages, ...uploadedUrls].slice(
         0,
-        MAX_IMAGES
+        MAX_IMAGES,
       );
       form.setValue('images', nextImages, {
         shouldDirty: true,
@@ -409,72 +404,72 @@ export function NewCarForm({
                 />
                 <FormField
                   control={form.control}
-                name='seats'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type='number'
-                        inputMode='numeric'
-                        min={1}
-                        label='Szállítható személyek'
-                        value={
-                          typeof field.value === 'number'
-                            ? field.value
-                            : (field.value as string | undefined) ?? ''
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                  name='seats'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type='number'
+                          inputMode='numeric'
+                          min={1}
+                          label='Szállítható személyek'
+                          value={
+                            typeof field.value === 'number'
+                              ? field.value
+                              : ((field.value as string | undefined) ?? '')
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
                 <FormField
                   control={form.control}
-                name='smallLuggage'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type='number'
-                        inputMode='numeric'
-                        min={0}
-                        label='Kis bőröndök száma'
-                        value={
-                          typeof field.value === 'number'
-                            ? field.value
-                            : (field.value as string | undefined) ?? ''
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                  name='smallLuggage'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type='number'
+                          inputMode='numeric'
+                          min={0}
+                          label='Kis bőröndök száma'
+                          value={
+                            typeof field.value === 'number'
+                              ? field.value
+                              : ((field.value as string | undefined) ?? '')
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
                 <FormField
                   control={form.control}
-                name='largeLuggage'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type='number'
-                        inputMode='numeric'
-                        min={0}
-                        label='Nagy bőröndök száma'
-                        value={
-                          typeof field.value === 'number'
-                            ? field.value
-                            : (field.value as string | undefined) ?? ''
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                  name='largeLuggage'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type='number'
+                          inputMode='numeric'
+                          min={0}
+                          label='Nagy bőröndök száma'
+                          value={
+                            typeof field.value === 'number'
+                              ? field.value
+                              : ((field.value as string | undefined) ?? '')
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
             </FormSection>
@@ -591,7 +586,7 @@ export function NewCarForm({
                                     'flex items-center justify-between rounded-md border px-3 py-2 text-sm transition',
                                     isSelected
                                       ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                                      : 'hover:border-primary/60'
+                                      : 'hover:border-primary/60',
                                   )}
                                 >
                                   <span className='flex items-center gap-2'>
@@ -610,7 +605,7 @@ export function NewCarForm({
                                       'text-xs font-semibold uppercase tracking-wide',
                                       isSelected
                                         ? 'text-primary'
-                                        : 'text-muted-foreground'
+                                        : 'text-muted-foreground',
                                     )}
                                   >
                                     {isSelected ? 'Kiválasztva' : 'Hozzáadás'}
@@ -641,7 +636,7 @@ export function NewCarForm({
 
                   const handleRemoveImage = (url: string) => {
                     const nextImages = selectedImages.filter(
-                      (image) => image !== url
+                      (image) => image !== url,
                     );
                     field.onChange(nextImages);
                   };
@@ -655,7 +650,7 @@ export function NewCarForm({
                             className={cn(
                               'flex flex-wrap gap-3 rounded-md border border-dashed p-4',
                               !selectedImages.length &&
-                                'justify-center text-sm text-muted-foreground'
+                                'justify-center text-sm text-muted-foreground',
                             )}
                           >
                             {selectedImages.length === 0 && (
@@ -726,7 +721,7 @@ export function NewCarForm({
                   'rounded-md border px-4 py-3 text-sm',
                   status.type === 'success'
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
-                    : 'border-destructive/40 bg-destructive/10 text-destructive-foreground'
+                    : 'border-destructive/40 bg-destructive/10 text-destructive-foreground',
                 )}
               >
                 {status.message}
@@ -742,8 +737,8 @@ export function NewCarForm({
               {isPending
                 ? 'Mentés...'
                 : isEditMode
-                ? 'Autó módosítása'
-                : 'Autó felvitele'}
+                  ? 'Autó módosítása'
+                  : 'Autó felvitele'}
             </Button>
           </form>
         </Form>

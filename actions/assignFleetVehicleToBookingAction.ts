@@ -61,6 +61,8 @@ export async function assignFleetVehicleToBookingAction({
 
     const data: Prisma.RentRequestsUpdateInput = {
       carid: null,
+      assignedFleetVehicleId: null,
+      assignedFleetPlate: null,
       payload: payload as Prisma.InputJsonValue,
     };
 
@@ -124,12 +126,12 @@ export async function assignFleetVehicleToBookingAction({
   payload = {
     ...payload,
     carId: fleetVehicle.carId,
-    assignedFleetVehicleId: fleetVehicle.id,
-    assignedFleetPlate: fleetVehicle.plate,
   };
 
   const data: Prisma.RentRequestsUpdateInput = {
     carid: fleetVehicle.carId,
+    assignedFleetVehicleId: fleetVehicle.id,
+    assignedFleetPlate: fleetVehicle.plate,
     payload: payload as Prisma.InputJsonValue,
   };
 

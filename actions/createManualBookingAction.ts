@@ -399,8 +399,9 @@ export async function createManualBookingAction({
   }
 
   const effectiveStatus =
-    normalizedStatus ??
-    (selectedFleet ? RENT_STATUS_REGISTERED : RENT_STATUS_ACCEPTED);
+    selectedFleet
+      ? RENT_STATUS_REGISTERED
+      : (normalizedStatus ?? RENT_STATUS_ACCEPTED);
 
   if (trimmedSelfServiceEventsJson) {
     try {
@@ -557,8 +558,6 @@ export async function createManualBookingAction({
 
   if (selectedFleet) {
     payload.carId = selectedFleet.carId;
-    payload.assignedFleetVehicleId = selectedFleet.id;
-    payload.assignedFleetPlate = selectedFleet.plate;
   } else if (trimmedCarId) {
     payload.carId = trimmedCarId;
   } else if (trimmedCarLabel) {
@@ -622,6 +621,8 @@ export async function createManualBookingAction({
           data: {
             locale: trimmedLocale,
             carid: selectedFleet?.carId ?? trimmedCarId ?? null,
+            assignedFleetVehicleId: selectedFleet?.id ?? null,
+            assignedFleetPlate: selectedFleet?.plate ?? null,
             quoteid: linkedQuoteId,
             contactname: trimmedName,
             contactemail: trimmedEmail ?? '',

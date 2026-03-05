@@ -6,8 +6,13 @@ import { revalidatePath } from 'next/cache';
 import {
   findCarBookingConflict,
   formatDateForConflictMessage,
+  getAssignedFleetPlateFromPayload,
+  getAssignedFleetVehicleIdFromPayload,
+  hasAssignedFleetAssignment,
 } from '@/lib/booking-conflicts';
+import { RENT_STATUS_REGISTERED } from '@/lib/constants';
 import { db } from '@/lib/db';
+import { resolveDeliveryIsland } from '@/lib/delivery-island';
 
 type UpdateBookingAdminInput = {
   bookingId: string;
@@ -110,6 +115,23 @@ const parseJson = <T,>(label: string, raw?: string): { data?: T; error?: string 
   }
 };
 
+const stripAssignedFleetFromPayload = (
+  payload: Prisma.InputJsonValue | null | undefined,
+): Prisma.InputJsonValue | null => {
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    Array.isArray(payload)
+  ) {
+    return payload ?? null;
+  }
+
+  const record = { ...(payload as Record<string, unknown>) };
+  delete record.assignedFleetVehicleId;
+  delete record.assignedFleetPlate;
+  return record as Prisma.InputJsonValue;
+};
+
 export const updateBookingAdminAction = async (
   input: UpdateBookingAdminInput,
 ): Promise<UpdateBookingAdminResult> => {
@@ -123,6 +145,8 @@ export const updateBookingAdminAction = async (
       carid: true,
       rentalstart: true,
       rentalend: true,
+      assignedFleetVehicleId: true,
+      assignedFleetPlate: true,
     },
   });
   if (!booking) return { error: 'A foglalás nem található.' };
@@ -288,6 +312,32 @@ export const updateBookingAdminAction = async (
   const pricingData = toRecordOrNull<BookingPricingSnapshotInput>(pricingParsed.data);
   const deliveryData = toRecordOrNull<BookingDeliveryDetailsInput>(deliveryParsed.data);
   const contractData = toRecordOrNull<BookingContractInput>(bookingContractParsed.data);
+  const payloadForStatus = payloadParsed.data;
+  const payloadForStorage = stripAssignedFleetFromPayload(payloadParsed.data);
+  const payloadAssignedFleetVehicleId = getAssignedFleetVehicleIdFromPayload(
+    payloadParsed.data,
+  );
+  const payloadAssignedFleetPlate = getAssignedFleetPlateFromPayload(
+    payloadParsed.data,
+  );
+  const payloadHasAssignedFleet =
+    Boolean(payloadAssignedFleetVehicleId) && Boolean(payloadAssignedFleetPlate);
+  const effectiveAssignedFleetVehicleId =
+    payloadHasAssignedFleet
+      ? payloadAssignedFleetVehicleId
+      : (booking.assignedFleetVehicleId ?? null);
+  const effectiveAssignedFleetPlate =
+    payloadHasAssignedFleet
+      ? payloadAssignedFleetPlate
+      : (booking.assignedFleetPlate ?? null);
+  const statusFromInput = toOptionalString(input.status) ?? 'new';
+  const effectiveStatus = hasAssignedFleetAssignment({
+    assignedFleetVehicleId: effectiveAssignedFleetVehicleId,
+    assignedFleetPlate: effectiveAssignedFleetPlate,
+    payload: payloadForStatus,
+  })
+    ? RENT_STATUS_REGISTERED
+    : statusFromInput;
 
   try {
     await db.$transaction(async (tx) => {
@@ -297,6 +347,8 @@ export const updateBookingAdminAction = async (
           humanId: toOptionalString(input.humanId) ?? null,
           locale: toOptionalString(input.locale) ?? 'hu',
           carid: toOptionalString(input.carId) ?? null,
+          assignedFleetVehicleId: effectiveAssignedFleetVehicleId,
+          assignedFleetPlate: effectiveAssignedFleetPlate,
           quoteid: toOptionalString(input.quoteId) ?? null,
           contactname: toOptionalString(input.contactName) ?? '',
           contactemail: toOptionalString(input.contactEmail) ?? '',
@@ -304,9 +356,9 @@ export const updateBookingAdminAction = async (
           rentalstart: rentalStart,
           rentalend: rentalEnd,
           rentaldays: rentalDays,
-          status: toOptionalString(input.status) ?? 'new',
+          status: effectiveStatus,
           updated: toOptionalString(input.updatedNote) ?? null,
-          payload: payloadParsed.data ?? Prisma.DbNull,
+          payload: payloadForStorage ?? Prisma.DbNull,
         },
       });
 
@@ -376,6 +428,12 @@ export const updateBookingAdminAction = async (
           toOptionalString(String(deliveryData.arrivalHour ?? '')) ?? null;
         const arrivalMinute =
           toOptionalString(String(deliveryData.arrivalMinute ?? '')) ?? null;
+        const island = resolveDeliveryIsland({
+          locationName,
+          addressLine,
+          arrivalFlight,
+          departureFlight,
+        });
 
         await tx.$executeRaw`
           INSERT INTO "BookingDeliveryDetails" (
@@ -383,6 +441,7 @@ export const updateBookingAdminAction = async (
             "placeType",
             "locationName",
             "addressLine",
+            "island",
             "arrivalFlight",
             "departureFlight",
             "arrivalHour",
@@ -394,6 +453,7 @@ export const updateBookingAdminAction = async (
             ${placeType},
             ${locationName},
             ${addressLine},
+            ${island},
             ${arrivalFlight},
             ${departureFlight},
             ${arrivalHour},
@@ -405,6 +465,7 @@ export const updateBookingAdminAction = async (
             "placeType" = EXCLUDED."placeType",
             "locationName" = EXCLUDED."locationName",
             "addressLine" = EXCLUDED."addressLine",
+            "island" = EXCLUDED."island",
             "arrivalFlight" = EXCLUDED."arrivalFlight",
             "departureFlight" = EXCLUDED."departureFlight",
             "arrivalHour" = EXCLUDED."arrivalHour",

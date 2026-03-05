@@ -359,17 +359,22 @@ const selectQuotePricing = (
 
 const resolvePlate = ({
   payload,
+  assignedFleetPlate,
   handoverPlate,
   assignedFleetVehicleId,
   fleetPlateById,
   fallback,
 }: {
   payload: Prisma.JsonValue | null;
+  assignedFleetPlate?: string | null;
   handoverPlate?: string;
   assignedFleetVehicleId?: string;
   fleetPlateById: Map<string, string>;
   fallback: string;
 }): string => {
+  const columnPlate = toTrimmedString(assignedFleetPlate);
+  if (columnPlate) return columnPlate;
+
   if (isRecord(payload)) {
     const payloadPlate = toTrimmedString(payload.assignedFleetPlate);
     if (payloadPlate) return payloadPlate;
@@ -449,6 +454,8 @@ export async function getCurrentMonthAnalitycs(
         humanId: true,
         status: true,
         carid: true,
+        assignedFleetVehicleId: true,
+        assignedFleetPlate: true,
         payload: true,
         rentalstart: true,
         rentalend: true,
@@ -723,9 +730,11 @@ export async function getCurrentMonthAnalitycs(
 
       const revenue = rentalFee + insurance + delivery - tip;
 
-      const assignedFleetVehicleId = isRecord(booking.payload)
-        ? toTrimmedString(booking.payload.assignedFleetVehicleId)
-        : undefined;
+      const assignedFleetVehicleId =
+        toTrimmedString(booking.assignedFleetVehicleId) ??
+        (isRecord(booking.payload)
+          ? toTrimmedString(booking.payload.assignedFleetVehicleId)
+          : undefined);
 
       const handoverPlate =
         booking.vehicleHandovers[0]?.fleetVehicle.plate ?? undefined;
@@ -737,6 +746,7 @@ export async function getCurrentMonthAnalitycs(
 
       const plate = resolvePlate({
         payload: booking.payload,
+        assignedFleetPlate: booking.assignedFleetPlate,
         handoverPlate,
         assignedFleetVehicleId,
         fleetPlateById,

@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 
 import { createBookingContractAction } from '@/actions/createBookingContractAction';
 import type { ContractTemplate } from '@/lib/contract-template';
-import { formatDateTimeDetail } from '@/lib/format-date';
+import { formatDateTimeDetail } from '@/lib/format/format-date';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import SignaturePad, { type SignaturePadHandle } from '@/components/signature-pad';
+import SignaturePad, {
+  type SignaturePadHandle,
+} from '@/components/signature-pad';
 
 type ExistingContract = {
   signedAt: string;
@@ -103,7 +105,9 @@ export default function ContractForm({
     }
 
     const lessorSignatureData =
-      form.lessorSignatureData || lessorSignatureRef.current?.getDataUrl() || '';
+      form.lessorSignatureData ||
+      lessorSignatureRef.current?.getDataUrl() ||
+      '';
     if (!lessorSignatureData || lessorSignatureRef.current?.isEmpty()) {
       setStatus({
         type: 'error',
@@ -159,9 +163,7 @@ export default function ContractForm({
             ))}
           </ul>
         </div>
-        <p className='mt-4 text-sm text-muted-foreground'>
-          {template.footer}
-        </p>
+        <p className='mt-4 text-sm text-muted-foreground'>{template.footer}</p>
       </div>
 
       <form onSubmit={handleSubmit} className='grid gap-4 md:grid-cols-2'>
@@ -173,11 +175,7 @@ export default function ContractForm({
             setForm((prev) => ({ ...prev, signerName: event.target.value }))
           }
         />
-        <Input
-          label='E-mail cím'
-          value={renterEmail ?? '—'}
-          disabled
-        />
+        <Input label='E-mail cím' value={renterEmail ?? '—'} disabled />
         <div className='md:col-span-2 grid gap-4 md:grid-cols-2'>
           <div className='space-y-2'>
             <div className='flex items-center justify-between'>

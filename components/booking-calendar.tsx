@@ -30,7 +30,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { url } from 'node:inspector';
 import { BookingPricing } from '@/data-service/bookings';
 
 type BookingCalendarBooking = {
@@ -43,6 +42,7 @@ type BookingCalendarBooking = {
   assignedFleetVehicleId?: string;
   carLabel?: string | null;
   deliveryLocation?: string | null;
+  deliveryIsland?: string | null;
   pricing?: BookingPricing | null;
 };
 
@@ -255,6 +255,35 @@ const getLocationColor = (location?: string | null) => {
   return match?.[0] ?? '#888888';
 };
 
+const getLocationLabel = (location?: string | null) => {
+  const trimmed = location?.trim();
+  if (!trimmed) return 'Nincs megadva';
+  const withoutColor = trimmed.replace(/\s*#(?:[0-9a-fA-F]{3}){1,2}\s*$/, '');
+  const normalized = withoutColor.trim();
+  return normalized || trimmed;
+};
+
+const normalizeIsland = (value?: string | null) =>
+  value
+    ?.trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') ?? '';
+
+const getBookingIslandColor = (island?: string | null) => {
+  const normalized = normalizeIsland(island);
+  if (normalized.includes('lanzarote')) return '#0000ff';
+  if (normalized.includes('fuerteventura')) return '#ffa500';
+  return '#64748b';
+};
+
+const getBookingIslandLabel = (island?: string | null) => {
+  const normalized = normalizeIsland(island);
+  if (normalized.includes('lanzarote')) return 'Lanzarote';
+  if (normalized.includes('fuerteventura')) return 'Fuerteventura';
+  return 'Ismeretlen sziget';
+};
+
 const formatFeeWithEuro = (value?: string | null) => {
   const trimmed = value?.trim();
   if (!trimmed) return '—';
@@ -427,6 +456,21 @@ export function BookingCalendar({
     });
     return list;
   }, [fleetSort, fleetVehicles]);
+
+  const locationLegend = useMemo(() => {
+    const items = new Map<string, { label: string; color: string }>();
+    for (const vehicle of fleetVehicles) {
+      const label = getLocationLabel(vehicle.location);
+      const color = getLocationColor(vehicle.location);
+      const key = `${label}|${color.toLowerCase()}`;
+      if (!items.has(key)) {
+        items.set(key, { label, color });
+      }
+    }
+    return Array.from(items.values()).sort((a, b) =>
+      compareStrings(a.label, b.label),
+    );
+  }, [fleetVehicles]);
 
   const fleetVehicleById = useMemo(
     () => new Map(fleetVehicles.map((vehicle) => [vehicle.id, vehicle])),
@@ -761,6 +805,71 @@ export function BookingCalendar({
             {formatDate(parsedRangeStart)} – {formatDate(parsedRangeEnd)}
           </span>
         </div>
+        <div className='flex flex-col flex-wrap items-start gap-2 rounded-lg border border-slate-200 bg-muted/20 px-3 py-2 text-xs text-muted-foreground'>
+          <div className='flex flex-wrap gap-4'>
+            <span className='font-semibold text-foreground'>
+              Jelmagyarázat:
+            </span>
+            <span className='inline-flex items-center gap-2'>
+              <span className='h-3 w-3 rounded-sm border border-slate-400 bg-slate-300/60' />
+              Szerviz nap
+            </span>
+            <span className='inline-flex items-center gap-2'>
+              <span className='h-3 w-3 rounded-sm border border-emerald-300 bg-emerald-100/70' />
+              Húzható cél
+            </span>
+            <span className='inline-flex items-center gap-2'>
+              <span className='h-3 w-3 rounded-sm border border-rose-300 bg-rose-100/70' />
+              Nem dobható cél
+            </span>
+            <span className='inline-flex items-center gap-2'>
+              <span
+                className='h-3 w-3 rounded-sm border border-black/15'
+                style={{ backgroundColor: '#64748b' }}
+              />
+              Foglalás sáv (ismeretlen sziget)
+            </span>
+            <span className='inline-flex items-center gap-2'>
+              <span
+                className='h-3 w-3 rounded-sm border border-black/15'
+                style={{ backgroundColor: getBookingIslandColor('Lanzarote') }}
+              />
+              Lanzarote foglalás
+            </span>
+            <span className='inline-flex items-center gap-2'>
+              <span
+                className='h-3 w-3 rounded-sm border border-black/15'
+                style={{
+                  backgroundColor: getBookingIslandColor('Fuerteventura'),
+                }}
+              />
+              Fuerteventura foglalás
+            </span>
+            <span className='inline-flex items-center gap-2'>
+              <AlertTriangle className='h-3.5 w-3.5 text-rose-500' />
+              Közelgő szerviz
+            </span>
+          </div>
+
+          {locationLegend.length > 0 && (
+            <div className='flex flex-wrap gap-4 items-center'>
+              <span className='font-semibold text-foreground'>Helyszínek:</span>
+              {locationLegend.map((item) => (
+                <span
+                  key={`${item.label}-${item.color.toLowerCase()}`}
+                  className='inline-flex items-center gap-2 bg-background/80 px-2 py-1 text-foreground'
+                >
+                  <span
+                    className='h-2.5 w-2.5 rounded-full border border-black/10'
+                    style={{ backgroundColor: item.color }}
+                    aria-hidden
+                  />
+                  {item.label}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
         <div className='rounded-lg border border-slate-300 bg-background min-w-0'>
           <div className='flex min-w-0'>
             <div
@@ -878,13 +987,18 @@ export function BookingCalendar({
                 </div>
 
                 {sortedFleetVehicles.map((vehicle, index) => {
-                  const bookingsForVehicle = groupedBookings.get(vehicle.id) ?? [];
+                  const bookingsForVehicle =
+                    groupedBookings.get(vehicle.id) ?? [];
                   const serviceWindow = serviceWindowByVehicle.get(vehicle.id);
-                  const locationColor = getLocationColor(vehicle.location);
+                  const firstBookingForVehicle = bookingsForVehicle[0];
+                  const bookingIslandColor = getBookingIslandColor(
+                    firstBookingForVehicle?.deliveryIsland,
+                  );
                   const assignableUnassignedBookings =
                     getAssignableUnassignedBookings(vehicle.id);
                   const menuItemStyle = {
-                    '--fleet-color': locationColor,
+                    '--fleet-color':
+                      bookingIslandColor ?? getLocationColor(vehicle.location),
                   } as CSSProperties;
                   const dropState =
                     activeDrag && hoverVehicleId === vehicle.id
@@ -1015,9 +1129,11 @@ export function BookingCalendar({
                                           );
                                         }}
                                       >
-                                        {(unassignedBooking.humanId ??
-                                          unassignedBooking.contactName) +
-                                          ` (${unassignedBooking.rentalStart} - ${unassignedBooking.rentalEnd})`}
+                                        {unassignedBooking.humanId &&
+                                        unassignedBooking.contactName
+                                          ? `${unassignedBooking.humanId} | ${unassignedBooking.contactName} |
+                                           (${unassignedBooking.rentalStart} - ${unassignedBooking.rentalEnd})`
+                                          : ''}
                                       </DropdownMenuItem>
                                     ),
                                   )
@@ -1055,6 +1171,15 @@ export function BookingCalendar({
                           const hasOut = handoverOutSet.has(
                             `${booking.id}:${vehicle.id}`,
                           );
+                          const bookingColor = getBookingIslandColor(
+                            booking.deliveryIsland,
+                          );
+                          const bookingMenuItemStyle = {
+                            '--fleet-color': bookingColor,
+                          } as CSSProperties;
+                          const bookingIslandLabel = getBookingIslandLabel(
+                            booking.deliveryIsland,
+                          );
                           return (
                             <DropdownMenu
                               key={booking.id}
@@ -1085,7 +1210,7 @@ export function BookingCalendar({
                                     className='m-1 flex flex-col items-center gap-1 rounded-md px-2 py-1 text-primary-foreground shadow-sm cursor-grab active:cursor-grabbing'
                                     data-booking-chip='true'
                                     style={{
-                                      backgroundColor: locationColor,
+                                      backgroundColor: bookingColor,
                                       backgroundImage: `repeating-linear-gradient(to right, transparent 0, transparent ${
                                         dayColumnWidth - 1
                                       }px, rgba(255,255,255,0.28) ${
@@ -1123,7 +1248,8 @@ export function BookingCalendar({
                                         event.preventDefault();
                                         return;
                                       }
-                                      const target = event.target as HTMLElement;
+                                      const target =
+                                        event.target as HTMLElement;
                                       if (
                                         target?.closest(
                                           'select,button,input,textarea',
@@ -1151,7 +1277,8 @@ export function BookingCalendar({
                                       </span>
                                     </div>
                                     <div className='text-[11px] opacity-90'>
-                                      {booking.rentalStart} → {booking.rentalEnd}
+                                      {booking.rentalStart} →{' '}
+                                      {booking.rentalEnd}
                                     </div>
                                   </div>
                                 </TooltipTrigger>
@@ -1186,8 +1313,14 @@ export function BookingCalendar({
                                     {booking.deliveryLocation?.trim() || '—'}
                                   </div>
                                   <div>
+                                    <strong>Sziget:</strong>{' '}
+                                    {bookingIslandLabel}
+                                  </div>
+                                  <div>
                                     <strong>Bérleti díj:</strong>{' '}
-                                    {formatFeeWithEuro(booking.pricing?.rentalFee)}
+                                    {formatFeeWithEuro(
+                                      booking.pricing?.rentalFee,
+                                    )}
                                   </div>
                                   <div>
                                     <strong>Kiszállási díj:</strong>{' '}
@@ -1197,15 +1330,21 @@ export function BookingCalendar({
                                   </div>
                                   <div>
                                     <strong>Biztosítási díj:</strong>{' '}
-                                    {formatFeeWithEuro(booking.pricing?.insurance)}
+                                    {formatFeeWithEuro(
+                                      booking.pricing?.insurance,
+                                    )}
                                   </div>
                                   <div>
                                     <strong>Kaució:</strong>{' '}
-                                    {formatFeeWithEuro(booking.pricing?.deposit)}
+                                    {formatFeeWithEuro(
+                                      booking.pricing?.deposit,
+                                    )}
                                   </div>
                                   <div>
                                     <strong>Extrák díja:</strong>{' '}
-                                    {formatFeeWithEuro(booking.pricing?.extrasFee)}
+                                    {formatFeeWithEuro(
+                                      booking.pricing?.extrasFee,
+                                    )}
                                   </div>
                                 </TooltipContent>
                               </Tooltip>
@@ -1218,7 +1357,7 @@ export function BookingCalendar({
                                 </DropdownMenuItem> */}
                                 <DropdownMenuItem
                                   className='data-[highlighted]:bg-(--fleet-color) data-[highlighted]:text-primary-foreground'
-                                  style={menuItemStyle}
+                                  style={bookingMenuItemStyle}
                                   onSelect={() =>
                                     router.push(`/bookings/${booking.id}/edit`)
                                   }
@@ -1227,16 +1366,18 @@ export function BookingCalendar({
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   className='data-[highlighted]:bg-(--fleet-color) data-[highlighted]:text-primary-foreground'
-                                  style={menuItemStyle}
+                                  style={bookingMenuItemStyle}
                                   onSelect={() =>
-                                    router.push(`/bookings/${booking.id}/carout`)
+                                    router.push(
+                                      `/bookings/${booking.id}/carout`,
+                                    )
                                   }
                                 >
                                   Kiadás
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   className='data-[highlighted]:bg-(--fleet-color) data-[highlighted]:text-primary-foreground'
-                                  style={menuItemStyle}
+                                  style={bookingMenuItemStyle}
                                   onSelect={() =>
                                     router.push(`/bookings/${booking.id}/carin`)
                                   }

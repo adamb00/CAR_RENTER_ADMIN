@@ -8,7 +8,8 @@ import BookingConfirmationEmail, {
 } from '@/components/emails/booking-confirmation-email';
 import { getBookingById } from '@/data-service/bookings';
 import { getQuoteById } from '@/data-service/quotes';
-import { BOOKING_EMAIL_FROM, RENT_STATUS_ACCEPTED } from '@/lib/constants';
+import { BOOKING_EMAIL_FROM, RENT_STATUS_ACCEPTED, RENT_STATUS_REGISTERED } from '@/lib/constants';
+import { hasAssignedFleetAssignment } from '@/lib/booking-conflicts';
 import type { BookingRequestData } from '@/types/booking-request';
 import {
   BOOKING_FROM_ADDRESS,
@@ -150,9 +151,17 @@ export const sendBookingConfirmationEmailAction = async ({
   }
 
   try {
+    const nextStatus = hasAssignedFleetAssignment({
+      assignedFleetVehicleId: booking.assignedFleetVehicleId,
+      assignedFleetPlate: booking.assignedFleetPlate,
+      payload: booking.payload,
+    })
+      ? RENT_STATUS_REGISTERED
+      : RENT_STATUS_ACCEPTED;
+
     await db.rentRequests.update({
       where: { id: booking.id },
-      data: { status: RENT_STATUS_ACCEPTED, updatedAt: new Date() },
+      data: { status: nextStatus, updatedAt: new Date() },
     });
     revalidatePath('/');
     revalidatePath(`/${booking.id}`);

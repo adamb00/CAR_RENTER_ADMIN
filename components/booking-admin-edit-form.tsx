@@ -6,8 +6,7 @@ import { useState, useTransition } from 'react';
 import { updateBookingAdminAction } from '@/actions/updateBookingAdminAction';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FloatingSelect } from '@/components/ui/floating-select';
-import { FloatingTextarea } from '@/components/ui/textarea';
+import { formatLocale } from '@/lib/format/format-locale';
 import { getStatusMeta } from '@/lib/status';
 
 type HandoverDirectionValue = 'out' | 'in';
@@ -94,23 +93,6 @@ type BookingAdminEditFormProps = {
   initial: BookingAdminInitialData;
 };
 
-const NEW_HANDOVER_COST: BookingHandoverCostForm = {
-  direction: 'out',
-  costType: 'tip',
-  amount: '',
-};
-
-const NEW_VEHICLE_HANDOVER: VehicleHandoverForm = {
-  fleetVehicleId: '',
-  direction: 'out',
-  handoverAt: '',
-  handoverBy: '',
-  mileage: '',
-  notes: '',
-  damages: '',
-  damagesImages: '',
-};
-
 export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{
@@ -156,93 +138,12 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
     }));
   };
 
-  const updateContractField = (
-    key: keyof BookingContractForm,
-    value: string,
-  ) => {
-    setForm((prev) => ({
-      ...prev,
-      bookingContract: { ...prev.bookingContract, [key]: value },
-    }));
-  };
-
-  const updateHandoverCostField = (
-    index: number,
-    key: keyof BookingHandoverCostForm,
-    value: string,
-  ) => {
-    setForm((prev) => {
-      const next = [...prev.handoverCosts];
-      next[index] = { ...next[index], [key]: value } as BookingHandoverCostForm;
-      return { ...prev, handoverCosts: next };
-    });
-  };
-
-  const removeHandoverCost = (index: number) => {
-    setForm((prev) => ({
-      ...prev,
-      handoverCosts: prev.handoverCosts.filter((_, i) => i !== index),
-    }));
-  };
-
-  const addHandoverCost = () => {
-    setForm((prev) => ({
-      ...prev,
-      handoverCosts: [...prev.handoverCosts, { ...NEW_HANDOVER_COST }],
-    }));
-  };
-
-  const LOCALE_LABELS: Record<string, string> = {
-    hu: 'Magyar',
-    en: 'Angol',
-    de: 'Német',
-    ro: 'Román',
-    fr: 'Francia',
-    es: 'Spanyol',
-    it: 'Olasz',
-    sk: 'Szlovák',
-    cz: 'Cseh',
-    se: 'Svéd',
-    no: 'Norvég',
-    dk: 'Dán',
-    pl: 'Lengyel',
-  };
-
-  const formatLocale = (locale: string | null | undefined) =>
-    locale ? (LOCALE_LABELS[locale] ?? locale) : '—';
-
   const meta = getStatusMeta(form.status);
-
-  const updateVehicleHandoverField = (
-    index: number,
-    key: keyof VehicleHandoverForm,
-    value: string,
-  ) => {
-    setForm((prev) => {
-      const next = [...prev.vehicleHandovers];
-      next[index] = { ...next[index], [key]: value } as VehicleHandoverForm;
-      return { ...prev, vehicleHandovers: next };
-    });
-  };
-
-  const removeVehicleHandover = (index: number) => {
-    setForm((prev) => ({
-      ...prev,
-      vehicleHandovers: prev.vehicleHandovers.filter((_, i) => i !== index),
-    }));
-  };
-
-  const addVehicleHandover = () => {
-    setForm((prev) => ({
-      ...prev,
-      vehicleHandovers: [...prev.vehicleHandovers, { ...NEW_VEHICLE_HANDOVER }],
-    }));
-  };
 
   const hasRentalEndUpperLimit = Boolean(
     form.maxExtendableRentalEnd &&
-      (!form.originalRentalEnd ||
-        form.maxExtendableRentalEnd >= form.originalRentalEnd),
+    (!form.originalRentalEnd ||
+      form.maxExtendableRentalEnd >= form.originalRentalEnd),
   );
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -272,10 +173,9 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
     ) {
       setMessage({
         type: 'error',
-        text:
-          form.nextCarBookingCode
-            ? `A bérlés vége legfeljebb ${form.maxExtendableRentalEnd} lehet (következő foglalás: ${form.nextCarBookingCode}).`
-            : `A bérlés vége legfeljebb ${form.maxExtendableRentalEnd} lehet.`,
+        text: form.nextCarBookingCode
+          ? `A bérlés vége legfeljebb ${form.maxExtendableRentalEnd} lehet (következő foglalás: ${form.nextCarBookingCode}).`
+          : `A bérlés vége legfeljebb ${form.maxExtendableRentalEnd} lehet.`,
       });
       return;
     }
@@ -412,7 +312,9 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
               updateBaseField('rentalEnd', event.target.value)
             }
             min={form.originalRentalEnd || undefined}
-            max={hasRentalEndUpperLimit ? form.maxExtendableRentalEnd : undefined}
+            max={
+              hasRentalEndUpperLimit ? form.maxExtendableRentalEnd : undefined
+            }
           />
           {form.originalRentalEnd ? (
             <p className='text-xs text-muted-foreground md:col-span-3'>

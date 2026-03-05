@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 
+import { hasAssignedFleetAssignment } from '@/lib/booking-conflicts';
 import { db } from '@/lib/db';
 import {
   RENT_STATUS_ACCEPTED,
@@ -32,7 +33,13 @@ export const setBookingRegisteredAction = async ({
 
   const booking = await db.rentRequests.findUnique({
     where: { id: trimmedId },
-    select: { id: true, status: true },
+    select: {
+      id: true,
+      status: true,
+      payload: true,
+      assignedFleetVehicleId: true,
+      assignedFleetPlate: true,
+    },
   });
 
   if (!booking) {
@@ -49,6 +56,21 @@ export const setBookingRegisteredAction = async ({
     return {
       success: 'A foglalás még nem rögzített státuszú.',
       status: currentStatus,
+    };
+  }
+
+  if (
+    !registered &&
+    hasAssignedFleetAssignment({
+      assignedFleetVehicleId: booking.assignedFleetVehicleId,
+      assignedFleetPlate: booking.assignedFleetPlate,
+      payload: booking.payload,
+    })
+  ) {
+    return {
+      success:
+        'A foglaláshoz autó van rendelve, ezért a státusz regisztrált marad.',
+      status: RENT_STATUS_REGISTERED,
     };
   }
 

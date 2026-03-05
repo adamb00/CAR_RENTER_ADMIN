@@ -100,6 +100,8 @@ model RentRequests {
   id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   locale        String
   carid         String?
+  assignedFleetVehicleId String?
+  assignedFleetPlate String?
   quoteid       String?        @db.Uuid
   contactname   String
   contactemail  String
@@ -122,6 +124,7 @@ model RentRequests {
   bookingHandoverCosts BookingHandoverCost[]
 
   @@index([carid], map: "idx_rentrequests_car")
+  @@index([assignedFleetVehicleId], map: "idx_rentrequests_assigned_fleet_vehicle")
   @@index([createdAt], map: "idx_rentrequests_created_at")
   @@index([status], map: "idx_rentrequests_status")
 }
@@ -149,6 +152,7 @@ model BookingDeliveryDetails {
   placeType       String?
   locationName    String?
   addressLine     String?
+  island          String?
   arrivalFlight   String?
   departureFlight String?
   arrivalHour     String?
@@ -158,6 +162,7 @@ model BookingDeliveryDetails {
   booking         RentRequests @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId], map: "idx_booking_delivery_booking_id")
+  @@index([island], map: "idx_booking_delivery_island")
   @@map("BookingDeliveryDetails")
 }
 

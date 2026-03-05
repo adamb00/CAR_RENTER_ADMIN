@@ -1,6 +1,7 @@
 import { BookingCalendar } from '@/components/booking-calendar';
 import { getBookings } from '@/data-service/bookings';
 import { db } from '@/lib/db';
+import { resolveDeliveryIsland } from '@/lib/delivery-island';
 
 export default async function CalendarPage() {
   const [bookings, fleetVehicles] = await Promise.all([
@@ -33,6 +34,14 @@ export default async function CalendarPage() {
       booking.payload?.delivery?.address?.street?.trim() ||
       booking.payload?.pricing?.deliveryLocation?.trim() ||
       null;
+    const deliveryIsland =
+      booking.deliveryIsland ??
+      resolveDeliveryIsland({
+        locationName: deliveryLocation,
+        addressLine: booking.payload?.delivery?.address?.street ?? null,
+        arrivalFlight: booking.payload?.delivery?.arrivalFlight ?? null,
+        departureFlight: booking.payload?.delivery?.departureFlight ?? null,
+      });
 
     return {
       id: booking.id,
@@ -44,6 +53,7 @@ export default async function CalendarPage() {
       assignedFleetVehicleId: booking.assignedFleetVehicleId,
       carLabel: booking.carLabel ?? null,
       deliveryLocation,
+      deliveryIsland,
       pricing: booking.payload?.pricing ?? booking.pricing ?? null,
     };
   });

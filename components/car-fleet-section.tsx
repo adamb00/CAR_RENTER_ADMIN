@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 type FleetStatus = 'available' | 'rented' | 'reserved' | 'maintenance';
+
 const STATUS_LABELS: Record<FleetStatus, string> = {
   available: 'Elérhető',
   rented: 'Kikölcsönözve',
@@ -192,7 +193,9 @@ export function CarFleetSection({
                   <div className='inline-flex items-center gap-2'>
                     <span
                       className='h-2.5 w-2.5 rounded-full border border-black/10'
-                      style={{ backgroundColor: row.locationColor ?? '#888888' }}
+                      style={{
+                        backgroundColor: row.locationColor ?? '#888888',
+                      }}
                       aria-hidden
                     />
                     <span

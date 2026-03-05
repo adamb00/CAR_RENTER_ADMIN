@@ -1,3 +1,5 @@
+import { FleetEditSection } from '@/components/fleet-add-form';
+
 export const DEFAULT_LOGIN_REDIRECT = '/';
 
 export const CONTACT_STATUS_NEW = 'new' as const;
@@ -57,3 +59,44 @@ export const BRAND = {
   orange: '#fb8500',
   background: '#f7f9fb',
 };
+
+export const LOCALE_LABELS: Record<string, string> = {
+  hu: 'Magyar',
+  en: 'Angol',
+  de: 'Német',
+  ro: 'Román',
+  fr: 'Francia',
+  es: 'Spanyol',
+  it: 'Olasz',
+  sk: 'Szlovák',
+  cz: 'Cseh',
+  se: 'Svéd',
+  no: 'Norvég',
+  dk: 'Dán',
+  pl: 'Lengyel',
+};
+
+export const PALETTE = ['#2563eb', '#0ea5e9', '#14b8a6', '#f97316', '#ef4444'];
+
+export const MONTH_KEY_PATTERN = /^(\d{4})-(0[1-9]|1[0-2])$/;
+
+export const MONTHS = [
+  'Január',
+  'Február',
+  'Március',
+  'Április',
+  'Május',
+  'Június',
+  'Július',
+  'Augusztus',
+  'Szeptember',
+  'Október',
+  'November',
+  'December',
+] as const;
+
+export const FLEET_EDIT_SECTIONS: { id: FleetEditSection; label: string }[] = [
+  { id: 'base', label: 'Alapadatok' },
+  { id: 'service', label: 'Szerviz adatok' },
+  { id: 'costs', label: 'Költségek' },
+];

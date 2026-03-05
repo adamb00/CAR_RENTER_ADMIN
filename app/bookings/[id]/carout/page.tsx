@@ -2,7 +2,7 @@ import CaroutForm from '@/components/carout-form';
 import { getBookingById } from '@/data-service/bookings';
 import { getVehicleById } from '@/data-service/cars';
 import { db } from '@/lib/db';
-import { formatDateShort } from '@/lib/format-date';
+import { formatDate } from '@/lib/format/format-date';
 import Link from 'next/link';
 
 export default async function BookingIssuePage({
@@ -60,8 +60,9 @@ export default async function BookingIssuePage({
         <p className='text-sm text-muted-foreground'>
           Foglalt autó:{' '}
           <span className='font-medium text-foreground'>
-            {booking?.carLabel} &bull; {formatDateShort(booking?.rentalStart)} -{' '}
-            {formatDateShort(booking?.rentalEnd)}
+            {booking?.carLabel} &bull;{' '}
+            {formatDate(booking?.rentalStart, 'short')} -{' '}
+            {formatDate(booking?.rentalEnd, 'short')}
           </span>
         </p>
       </div>

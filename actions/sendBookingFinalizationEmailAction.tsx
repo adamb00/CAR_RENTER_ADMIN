@@ -11,6 +11,7 @@ import {
   LOGO_URL,
   ADMIN_SIGNATURE,
   RENT_STATUS_FORM_SUBMITTED,
+  RENT_STATUS_REGISTERED,
 } from '@/lib/constants';
 import {
   BOOKING_FROM_ADDRESS,
@@ -22,6 +23,7 @@ import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getFinalizationCopy } from '@/components/emails/utils/finalization-copy';
 import type { BookingRequestData } from '@/types/booking-request';
+import { hasAssignedFleetAssignment } from '@/lib/booking-conflicts';
 
 type SendBookingFinalizationEmailInput = {
   bookingId: string;
@@ -421,10 +423,18 @@ export const sendBookingFinalizationEmailAction = async ({
   }
 
   try {
+    const nextStatus = hasAssignedFleetAssignment({
+      assignedFleetVehicleId: booking.assignedFleetVehicleId,
+      assignedFleetPlate: booking.assignedFleetPlate,
+      payload: booking.payload,
+    })
+      ? RENT_STATUS_REGISTERED
+      : RENT_STATUS_FORM_SUBMITTED;
+
     await db.rentRequests.update({
       where: { id: booking.id },
       data: {
-        status: RENT_STATUS_FORM_SUBMITTED,
+        status: nextStatus,
         updatedAt: new Date(),
       },
     });

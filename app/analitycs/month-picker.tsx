@@ -1,69 +1,24 @@
 'use client';
 
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  CalendarDays,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import {
+  buildMonthKey,
+  parseMonthKey,
+  shiftMonthKey,
+} from '@/components/analitycs/utils';
+import { MONTHS } from '@/lib/constants';
 
 type MonthPickerProps = {
   value: string;
   className?: string;
-};
-
-type ParsedMonthKey = {
-  year: number;
-  month: number;
-};
-
-const MONTH_KEY_PATTERN = /^(\d{4})-(0[1-9]|1[0-2])$/;
-
-const MONTHS = [
-  'Január',
-  'Február',
-  'Március',
-  'Április',
-  'Május',
-  'Június',
-  'Július',
-  'Augusztus',
-  'Szeptember',
-  'Október',
-  'November',
-  'December',
-] as const;
-
-const buildMonthKey = (year: number, month: number) =>
-  `${year}-${String(month).padStart(2, '0')}`;
-
-const parseMonthKey = (value?: string | null): ParsedMonthKey => {
-  const trimmed = value?.trim();
-  const now = new Date();
-
-  if (!trimmed) {
-    return {
-      year: now.getUTCFullYear(),
-      month: now.getUTCMonth() + 1,
-    };
-  }
-
-  const match = trimmed.match(MONTH_KEY_PATTERN);
-  if (!match) {
-    return {
-      year: now.getUTCFullYear(),
-      month: now.getUTCMonth() + 1,
-    };
-  }
-
-  return {
-    year: Number.parseInt(match[1], 10),
-    month: Number.parseInt(match[2], 10),
-  };
-};
-
-const shiftMonthKey = (value: string, diff: number): string => {
-  const parsed = parseMonthKey(value);
-  const date = new Date(Date.UTC(parsed.year, parsed.month - 1 + diff, 1));
-  return buildMonthKey(date.getUTCFullYear(), date.getUTCMonth() + 1);
 };
 
 export function MonthPicker({ value, className }: MonthPickerProps) {
@@ -124,7 +79,10 @@ export function MonthPicker({ value, className }: MonthPickerProps) {
   const currentLabel = `${MONTHS[parsedValue.month - 1]} ${parsedValue.year}`;
 
   return (
-    <div ref={containerRef} className={cn('relative inline-flex items-center gap-2', className)}>
+    <div
+      ref={containerRef}
+      className={cn('relative inline-flex items-center gap-2', className)}
+    >
       <button
         type='button'
         disabled={isPending}
@@ -143,7 +101,12 @@ export function MonthPicker({ value, className }: MonthPickerProps) {
       >
         <CalendarDays className='h-4 w-4 text-muted-foreground' />
         <span>{currentLabel}</span>
-        <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', open && 'rotate-180')} />
+        <ChevronDown
+          className={cn(
+            'h-4 w-4 text-muted-foreground transition-transform',
+            open && 'rotate-180',
+          )}
+        />
       </button>
 
       <button
@@ -169,7 +132,9 @@ export function MonthPicker({ value, className }: MonthPickerProps) {
             </button>
             <select
               value={selectedYear}
-              onChange={(event) => setSelectedYear(Number.parseInt(event.target.value, 10))}
+              onChange={(event) =>
+                setSelectedYear(Number.parseInt(event.target.value, 10))
+              }
               className='h-8 flex-1 rounded-md border bg-background px-2 text-sm'
             >
               {yearOptions.map((year) => (
@@ -193,7 +158,8 @@ export function MonthPicker({ value, className }: MonthPickerProps) {
               const monthNumber = index + 1;
               const monthKey = buildMonthKey(selectedYear, monthNumber);
               const isActive =
-                parsedValue.year === selectedYear && parsedValue.month === monthNumber;
+                parsedValue.year === selectedYear &&
+                parsedValue.month === monthNumber;
 
               return (
                 <button
@@ -220,7 +186,9 @@ export function MonthPicker({ value, className }: MonthPickerProps) {
             type='button'
             onClick={() => {
               const now = new Date();
-              navigateTo(buildMonthKey(now.getUTCFullYear(), now.getUTCMonth() + 1));
+              navigateTo(
+                buildMonthKey(now.getUTCFullYear(), now.getUTCMonth() + 1),
+              );
               setOpen(false);
             }}
             className='mt-3 w-full rounded-md border px-3 py-2 text-sm hover:bg-muted'

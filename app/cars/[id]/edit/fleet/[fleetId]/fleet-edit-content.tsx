@@ -5,16 +5,11 @@ import {
   FleetAddForm,
   type FleetEditSection,
 } from '@/components/fleet-add-form';
+import { FLEET_EDIT_SECTIONS } from '@/lib/constants';
 import { db } from '@/lib/db';
 import { getFleetPlaceLabel } from '@/lib/fleet-places';
-import { formatDateForInput } from '@/lib/format-date';
+import { formatDateForInput } from '@/lib/format/format-date';
 import { cn } from '@/lib/utils';
-
-const FLEET_EDIT_SECTIONS: { id: FleetEditSection; label: string }[] = [
-  { id: 'base', label: 'Alapadatok' },
-  { id: 'service', label: 'Szerviz adatok' },
-  { id: 'costs', label: 'Költségek' },
-];
 
 type FleetEditContentProps = {
   carId: string;

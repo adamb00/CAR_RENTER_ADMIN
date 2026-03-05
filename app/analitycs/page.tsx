@@ -1,32 +1,18 @@
 import { getCurrentMonthAnalitycs } from '@/lib/analitycs-db';
+import {
+  formatDailyFee,
+  formatMoney,
+  formatNumber,
+  percentFormatter,
+} from '@/lib/format/format-number';
+import { getStatusMeta } from '@/lib/status';
 import { AnalitycsCharts } from './analitycs-charts';
 import { MonthPicker } from './month-picker';
 import { SummaryTooltipLabel } from './summary-tooltip-label';
-import { getStatusMeta } from '@/lib/status';
+import { getSummaryRows } from '@/components/analitycs/summary-rows';
 
 export const revalidate = 0;
 export const runtime = 'nodejs';
-
-const numberFormatter = new Intl.NumberFormat('hu-HU', {
-  maximumFractionDigits: 2,
-});
-
-const percentFormatter = new Intl.NumberFormat('hu-HU', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-const formatNumber = (value: number) => numberFormatter.format(value);
-
-const formatMoney = (value: number) => `${numberFormatter.format(value)} EUR`;
-
-const formatDailyFee = (value: number | string) => {
-  if (typeof value === 'number') {
-    return `${numberFormatter.format(value)} EUR/nap`;
-  }
-
-  return value;
-};
 
 type PageSearchParams = Record<string, string | string[] | undefined>;
 
@@ -62,109 +48,8 @@ export default async function AnalyticsPage({
     );
   }
 
-  const summaryRows: Array<{
-    label: string;
-    value: string;
-    description: string;
-  }> = [
-    {
-      label: 'Átvitt napok',
-      value: `${formatNumber(monthData.totals.carriedDays)} nap`,
-      description:
-        "A foglalás sorok 'Átvitt' oszlopának összege. Az átnyúló hónaprészből származó napokat mutatja.",
-    },
-    {
-      label: 'Bérleti napok',
-      value: `${formatNumber(monthData.totals.totalRentalDays)} nap`,
-      description:
-        "A foglalás sorok 'Nap' oszlopának összege. Soronként: Nap = Aktuális + Átvitt.",
-    },
-    {
-      label: 'Bérleti díj',
-      value: formatMoney(monthData.totals.rentalFee),
-      description:
-        'A foglalások bérleti díjainak összege (rentalFee), elsősorban a foglalás pricing adataiból.',
-    },
-    {
-      label: 'Biztosítás',
-      value: formatMoney(monthData.totals.insurance),
-      description:
-        'A biztosítási díjak összege a foglalások alapján (pricing/ajánlat adatokból).',
-    },
-    {
-      label: 'Kiszállítás',
-      value: formatMoney(monthData.totals.delivery),
-      description:
-        'A kiszállítási díjak összege a foglalások pricing vagy ajánlat adataiból.',
-    },
-    {
-      label: 'Levonás / Jatt',
-      value: formatMoney(monthData.totals.tip),
-      description:
-        'Levonásként kezelt tétel: kiadáskor rögzített jatt (handoverTip), vagy tip/discount mezők összege.',
-    },
-    {
-      label: 'Szerviz',
-      value: formatMoney(monthData.totals.service),
-      description:
-        'A flotta autók költséglistájában rögzített szerviz tételek havi összege (serviceCosts).',
-    },
-    {
-      label: 'Tankolás',
-      value: formatMoney(monthData.totals.fuelCost),
-      description:
-        'Kiadás és visszavétel során rögzített tankolás költségek összege (handoverCosts.out/in.fuelCost).',
-    },
-    {
-      label: 'Komp',
-      value: formatMoney(monthData.totals.ferryCost),
-      description:
-        'Kiadás és visszavétel során rögzített komp költségek összege (handoverCosts.out/in.ferryCost).',
-    },
-    {
-      label: 'Takarítás',
-      value: formatMoney(monthData.totals.cleaningCost),
-      description:
-        'Kiadás és visszavétel során rögzített takarítás költségek összege (handoverCosts.out/in.cleaningCost).',
-    },
-    {
-      label: 'Bevétel',
+  const summaryRows = getSummaryRows(monthData);
 
-      value: formatMoney(monthData.totals.revenue),
-      description:
-        'Képlet: Bevétel = Bérleti díj + Biztosítás + Kiszállítás - Levonás / Jatt.',
-    },
-    {
-      label: 'Effektív napok',
-      value: `${formatNumber(monthData.totals.effectiveDays)} nap`,
-      description:
-        'Jelenleg a bérleti napokkal azonos mutató, a teljes kihasznált napmennyiséget jelzi.',
-    },
-    {
-      label: 'Havi kapacitás',
-      value: `${formatNumber(monthData.totals.monthCapacity)} nap`,
-      description:
-        'Képlet: Flotta autók száma × hónap napjai - (Flotta autók száma × 4).',
-    },
-    {
-      label: 'Kihasználtság',
-      value: `${percentFormatter.format(monthData.totals.utilization)} %`,
-      description:
-        'Képlet: Kihasználtság = Effektív napok / Havi kapacitás × 100.',
-    },
-    {
-      label: 'Ajánlat konverzió',
-      value: `${percentFormatter.format(monthData.quoteConversion.conversionRate)} %`,
-      description:
-        "Képlet: Konvertált ajánlatok / Összes ajánlat × 100. Konvertált = a hónap ajánlataiból 'registered' foglalás lett.",
-    },
-    {
-      label: 'Eredmény',
-      value: formatMoney(monthData.totals.result),
-      description:
-        'Képlet: Eredmény = Bevétel - (Szerviz + Tankolás + Komp + Takarítás).',
-    },
-  ];
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
       <div className='space-y-1'>
@@ -206,7 +91,10 @@ export default async function AnalyticsPage({
           <span className='rounded-md border px-2 py-1'>
             Ajánlat konverzió:{' '}
             <strong>
-              {percentFormatter.format(monthData.quoteConversion.conversionRate)}%
+              {percentFormatter.format(
+                monthData.quoteConversion.conversionRate,
+              )}
+              %
             </strong>
           </span>
         </div>
@@ -334,7 +222,7 @@ export default async function AnalyticsPage({
               Foglalás szintű részletek
             </h2>
             <div className='w-full max-w-full overflow-x-auto rounded-lg border'>
-              <table className='w-full min-w-[1650px] text-sm'>
+              <table className='w-full min-w-412.5 text-sm'>
                 <thead className='sticky top-0 bg-muted/50 text-left backdrop-blur'>
                   <tr>
                     <th className='px-3 py-2 font-medium'>#</th>

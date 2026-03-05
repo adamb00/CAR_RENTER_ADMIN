@@ -1,7 +1,7 @@
 import CarinForm from '@/components/carin-form';
 import { getBookingById } from '@/data-service/bookings';
 import { getVehicleById } from '@/data-service/cars';
-import { formatDateShort } from '@/lib/format-date';
+import { formatDate } from '@/lib/format/format-date';
 import { db } from '@/lib/db';
 
 export default async function BookingReturnPage({
@@ -44,9 +44,10 @@ export default async function BookingReturnPage({
         <p className='text-sm text-muted-foreground'>
           Foglalt autó:{' '}
           <span className='font-medium text-foreground'>
-            {booking?.carLabel} &bull; {formatDateShort(booking?.rentalStart)} -{' '}
-            {formatDateShort(booking?.rentalEnd)} &bull; {booking?.rentalDays}{' '}
-            nap
+            {booking?.carLabel} &bull;{' '}
+            {formatDate(booking?.rentalStart, 'short')} -{' '}
+            {formatDate(booking?.rentalEnd, 'short')} &bull;{' '}
+            {booking?.rentalDays} nap
           </span>
         </p>
       </div>

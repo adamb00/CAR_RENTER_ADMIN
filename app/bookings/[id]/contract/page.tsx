@@ -2,9 +2,12 @@ import ContractForm from '@/components/contract-form';
 import { getBookingById } from '@/data-service/bookings';
 import { getVehicleById } from '@/data-service/cars';
 import { db } from '@/lib/db';
-import { buildContractTemplate, formatContractText } from '@/lib/contract-template';
+import {
+  buildContractTemplate,
+  formatContractText,
+} from '@/lib/contract-template';
 import { buildContractDataFromBooking } from '@/lib/contract-data';
-import { formatDateShort } from '@/lib/format-date';
+import { formatDate } from '@/lib/format/format-date';
 import Link from 'next/link';
 
 export default async function BookingContractPage({
@@ -44,7 +47,12 @@ export default async function BookingContractPage({
 
   const existingContract = await db.bookingContract.findUnique({
     where: { bookingId: booking.id },
-    select: { signedAt: true, signerName: true, signatureData: true, lessorSignatureData: true },
+    select: {
+      signedAt: true,
+      signerName: true,
+      signatureData: true,
+      lessorSignatureData: true,
+    },
   });
 
   const contractData = buildContractDataFromBooking(booking, vehicle);
@@ -75,8 +83,8 @@ export default async function BookingContractPage({
         <p className='text-sm text-muted-foreground'>
           Foglalt autó:{' '}
           <span className='font-medium text-foreground'>
-            {booking.carLabel} &bull; {formatDateShort(booking.rentalStart)} -{' '}
-            {formatDateShort(booking.rentalEnd)} &bull;{' '}
+            {booking.carLabel} &bull; {formatDate(booking.rentalStart, 'short')}{' '}
+            - {formatDate(booking.rentalEnd, 'short')} &bull;{' '}
             {booking.rentalDays ?? '—'} nap
           </span>
         </p>

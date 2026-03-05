@@ -6,7 +6,9 @@ import { revalidatePath } from 'next/cache';
 import {
   findFleetVehicleBookingConflict,
   formatDateForConflictMessage,
+  getAssignedFleetPlateFromPayload,
   getAssignedFleetVehicleIdFromPayload,
+  hasAssignedFleetAssignment,
 } from '@/lib/booking-conflicts';
 import {
   RENT_STATUS_ACCEPTED,
@@ -51,6 +53,8 @@ export async function updateBookingScheduleAction({
       rentalstart: true,
       rentalend: true,
       status: true,
+      assignedFleetVehicleId: true,
+      assignedFleetPlate: true,
     },
   });
 
@@ -62,6 +66,8 @@ export async function updateBookingScheduleAction({
     rentalstart?: Date | null;
     rentalend?: Date | null;
     carid?: string | null;
+    assignedFleetVehicleId?: string | null;
+    assignedFleetPlate?: string | null;
     status?: string;
     updatedAt?: Date;
     payload?: Prisma.InputJsonValue;
@@ -71,9 +77,11 @@ export async function updateBookingScheduleAction({
   let payloadChanged = false;
   let effectiveRentalStart = booking.rentalstart ?? null;
   let effectiveRentalEnd = booking.rentalend ?? null;
-  let effectiveFleetVehicleId = getAssignedFleetVehicleIdFromPayload(
-    booking.payload,
-  );
+  let effectiveFleetVehicleId =
+    booking.assignedFleetVehicleId ??
+    getAssignedFleetVehicleIdFromPayload(booking.payload);
+  let effectiveFleetPlate =
+    booking.assignedFleetPlate ?? getAssignedFleetPlateFromPayload(booking.payload);
   let effectiveFleetVehicleNotes: string | null = null;
 
   if (rentalStart !== undefined || rentalEnd !== undefined) {
@@ -122,11 +130,14 @@ export async function updateBookingScheduleAction({
         payloadChanged = true;
       }
       data.carid = null;
+      data.assignedFleetVehicleId = null;
+      data.assignedFleetPlate = null;
       if (booking.status === RENT_STATUS_REGISTERED) {
         data.status = RENT_STATUS_ACCEPTED;
         data.updatedAt = new Date();
       }
       effectiveFleetVehicleId = null;
+      effectiveFleetPlate = null;
     } else {
       const fleetVehicle = await db.fleetVehicle.findUnique({
         where: { id: fleetVehicleId },
@@ -140,16 +151,17 @@ export async function updateBookingScheduleAction({
       payload = {
         ...(payload ?? {}),
         carId: fleetVehicle.carId,
-        assignedFleetVehicleId: fleetVehicle.id,
-        assignedFleetPlate: fleetVehicle.plate,
       };
       payloadChanged = true;
       data.carid = fleetVehicle.carId;
+      data.assignedFleetVehicleId = fleetVehicle.id;
+      data.assignedFleetPlate = fleetVehicle.plate;
       if (booking.status !== RENT_STATUS_REGISTERED) {
         data.status = RENT_STATUS_REGISTERED;
         data.updatedAt = new Date();
       }
       effectiveFleetVehicleId = fleetVehicle.id;
+      effectiveFleetPlate = fleetVehicle.plate;
       effectiveFleetVehicleNotes = fleetVehicle.notes ?? null;
     }
   }
@@ -201,6 +213,28 @@ export async function updateBookingScheduleAction({
 
   if (payloadChanged && payload) {
     data.payload = payload as Prisma.InputJsonValue;
+  }
+
+  const payloadForStatus = payloadChanged ? payload : booking.payload;
+  const statusAssignedFleetVehicleId =
+    data.assignedFleetVehicleId !== undefined
+      ? data.assignedFleetVehicleId
+      : effectiveFleetVehicleId;
+  const statusAssignedFleetPlate =
+    data.assignedFleetPlate !== undefined
+      ? data.assignedFleetPlate
+      : effectiveFleetPlate;
+  if (
+    hasAssignedFleetAssignment({
+      assignedFleetVehicleId: statusAssignedFleetVehicleId,
+      assignedFleetPlate: statusAssignedFleetPlate,
+      payload: payloadForStatus,
+    }) &&
+    booking.status !== RENT_STATUS_REGISTERED &&
+    data.status !== RENT_STATUS_REGISTERED
+  ) {
+    data.status = RENT_STATUS_REGISTERED;
+    data.updatedAt = new Date();
   }
 
   await db.rentRequests.update({

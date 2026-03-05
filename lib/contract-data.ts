@@ -73,7 +73,10 @@ export const buildContractDataFromBooking = (
   const rentalEnd =
     booking.rentalEnd ?? booking.payload?.rentalPeriod?.endDate;
   const plate =
-    vehicle?.plate ?? booking.payload?.assignedFleetPlate ?? undefined;
+    vehicle?.plate ??
+    booking.assignedFleetPlate ??
+    booking.payload?.assignedFleetPlate ??
+    undefined;
 
   return {
     bookingId: booking.id,

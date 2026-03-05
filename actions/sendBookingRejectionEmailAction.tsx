@@ -138,7 +138,12 @@ export const sendBookingRejectionEmailAction = async ({
   try {
     await db.rentRequests.update({
       where: { id: booking.id },
-      data: { status: RENT_STATUS_CANCELLED, updatedAt: new Date() },
+      data: {
+        status: RENT_STATUS_CANCELLED,
+        assignedFleetVehicleId: null,
+        assignedFleetPlate: null,
+        updatedAt: new Date(),
+      },
     });
     revalidatePath('/');
     revalidatePath(`/${booking.id}`);

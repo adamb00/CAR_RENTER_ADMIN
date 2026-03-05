@@ -6,7 +6,7 @@ import { NewCarForm } from '@/components/new-car-form';
 import { CAR_COLORS, type CarColorOption } from '@/lib/car-options';
 import { db } from '@/lib/db';
 import { getFleetPlaceColor, getFleetPlaceLabel } from '@/lib/fleet-places';
-import { formatDateForInput } from '@/lib/format-date';
+import { formatDateForInput } from '@/lib/format/format-date';
 import type { CreateCarFormValues } from '@/schemas/carSchema';
 
 export default async function EditCarPage({
@@ -62,7 +62,7 @@ export default async function EditCarPage({
     colors: car.colors
       .map((color: { name: string }) => color.name)
       .filter((name: string): name is CarColorOption =>
-        (CAR_COLORS as readonly string[]).includes(name)
+        (CAR_COLORS as readonly string[]).includes(name),
       ),
     images: car.images,
   };

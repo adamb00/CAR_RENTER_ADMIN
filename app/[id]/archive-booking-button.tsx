@@ -6,8 +6,7 @@ import { useState, useTransition } from 'react';
 
 import { archiveBookingAction } from '@/actions/archiveBookingAction';
 import { Button } from '@/components/ui/button';
-
-type StatusMessage = { type: 'success' | 'error'; message: string };
+import { StatusMessage } from '@/components/confirm-button/types';
 
 type ArchiveBookingButtonProps = {
   bookingId: string;

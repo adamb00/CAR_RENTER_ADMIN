@@ -8,6 +8,7 @@ type BookingConflictCandidate = {
   humanId: string | null;
   rentalstart: Date | null;
   rentalend: Date | null;
+  assignedFleetVehicleId?: string | null;
   payload: unknown;
 };
 
@@ -22,6 +23,40 @@ export const getAssignedFleetVehicleIdFromPayload = (
   return typeof vehicleId === 'string' && vehicleId.trim()
     ? vehicleId.trim()
     : null;
+};
+
+export const getAssignedFleetPlateFromPayload = (
+  payload: unknown,
+): string | null => {
+  if (!isRecord(payload)) return null;
+  const plate = payload.assignedFleetPlate;
+  return typeof plate === 'string' && plate.trim() ? plate.trim() : null;
+};
+
+export const hasAssignedFleetInPayload = (payload: unknown): boolean =>
+  Boolean(
+    getAssignedFleetVehicleIdFromPayload(payload) &&
+      getAssignedFleetPlateFromPayload(payload),
+  );
+
+const toTrimmedString = (value: unknown): string | null =>
+  typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+
+export const hasAssignedFleetAssignment = ({
+  assignedFleetVehicleId,
+  assignedFleetPlate,
+  payload,
+}: {
+  assignedFleetVehicleId?: unknown;
+  assignedFleetPlate?: unknown;
+  payload?: unknown;
+}): boolean => {
+  const vehicleId =
+    toTrimmedString(assignedFleetVehicleId) ??
+    getAssignedFleetVehicleIdFromPayload(payload);
+  const plate =
+    toTrimmedString(assignedFleetPlate) ?? getAssignedFleetPlateFromPayload(payload);
+  return Boolean(vehicleId && plate);
 };
 
 export const formatDateForConflictMessage = (value?: Date | null) =>
@@ -58,6 +93,7 @@ export const findFleetVehicleBookingConflict = async ({
       humanId: true,
       rentalstart: true,
       rentalend: true,
+      assignedFleetVehicleId: true,
       payload: true,
     },
     orderBy: { rentalstart: 'asc' },
@@ -70,8 +106,9 @@ export const findFleetVehicleBookingConflict = async ({
     candidates.find(
       (candidate) =>
         !archivedIdSet.has(candidate.id) &&
-        getAssignedFleetVehicleIdFromPayload(candidate.payload) ===
-        fleetVehicleId,
+        (toTrimmedString(candidate.assignedFleetVehicleId) ??
+          getAssignedFleetVehicleIdFromPayload(candidate.payload)) ===
+          fleetVehicleId,
     ) ?? null
   );
 };
