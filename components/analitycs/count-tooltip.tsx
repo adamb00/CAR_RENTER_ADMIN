@@ -1,5 +1,4 @@
 import { numberFormatter } from '@/lib/format/format-number';
-import React from 'react';
 
 export default function CountTooltip({
   active,

@@ -1,13 +1,12 @@
 import { AnalitycsMonthData } from '@/lib/analitycs-db';
 import { PALETTE } from '@/lib/constants';
-import { numberFormatter } from '@/lib/format/format-number';
+import { formatPercent, numberFormatter } from '@/lib/format/format-number';
 import {
   PolarAngleAxis,
   RadialBar,
   RadialBarChart,
   ResponsiveContainer,
 } from 'recharts';
-import { formatPercent } from './utils';
 
 export default function UtilizationChart({
   monthData,

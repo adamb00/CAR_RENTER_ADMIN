@@ -1,4 +1,4 @@
-import { formatMoney } from './utils';
+import { formatMoney } from '@/lib/format/format-number';
 
 export default function RevenueTooltip({
   active,

@@ -1,6 +1,6 @@
 import { AnalitycsMonthData } from '@/lib/analitycs-db';
 import { PALETTE } from '@/lib/constants';
-import { numberFormatter } from '@/lib/format/format-number';
+import { formatMoney, numberFormatter } from '@/lib/format/format-number';
 import {
   CartesianGrid,
   Legend,
@@ -12,7 +12,6 @@ import {
   YAxis,
 } from 'recharts';
 import EmptyChart from './empty-chart';
-import { formatMoney } from './utils';
 
 export default function RevenueTrendLine({
   monthData,

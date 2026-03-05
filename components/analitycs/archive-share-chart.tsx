@@ -1,6 +1,10 @@
 import { AnalitycsMonthData } from '@/lib/analitycs-db';
 import { PALETTE } from '@/lib/constants';
-import { numberFormatter } from '@/lib/format/format-number';
+import {
+  formatMoney,
+  formatPercent,
+  numberFormatter,
+} from '@/lib/format/format-number';
 import {
   Cell,
   Legend,
@@ -12,7 +16,6 @@ import {
 import CountTooltip from './count-tooltip';
 import EmptyChart from './empty-chart';
 import { ArchivePart } from './types';
-import { formatMoney, formatPercent } from './utils';
 
 export default function ArchiveShareChart({
   monthData,

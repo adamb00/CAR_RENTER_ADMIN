@@ -1,6 +1,6 @@
 import { AnalitycsMonthData } from '@/lib/analitycs-db';
 import { PALETTE } from '@/lib/constants';
-import { numberFormatter } from '@/lib/format/format-number';
+import { formatPercent, numberFormatter } from '@/lib/format/format-number';
 
 import {
   Cell,
@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 import EmptyChart from './empty-chart';
 import { QuotePart } from './types';
-import { formatPercent } from './utils';
+
 import CountTooltip from './count-tooltip';
 
 export default function OfferConversionChart({

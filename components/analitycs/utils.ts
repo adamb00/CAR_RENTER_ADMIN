@@ -1,6 +1,5 @@
-import { numberFormatter } from '@/lib/format/format-number';
-import { ParsedMonthKey } from './types';
 import { MONTH_KEY_PATTERN } from '@/lib/constants';
+import { ParsedMonthKey } from './types';
 
 export const buildMonthKey = (year: number, month: number) =>
   `${year}-${String(month).padStart(2, '0')}`;
