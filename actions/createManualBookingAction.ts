@@ -11,6 +11,11 @@ import {
   RENT_STATUS_REGISTERED,
 } from '@/lib/constants';
 import { db } from '@/lib/db';
+import {
+  DELIVERY_ISLAND_FUERTEVENTURA,
+  DELIVERY_ISLAND_LANZAROTE,
+  resolveDeliveryIsland,
+} from '@/lib/delivery-island';
 import { getNextHumanId } from '@/lib/human-id';
 
 type OptionalBooleanInput = boolean | 'true' | 'false' | '' | null | undefined;
@@ -81,6 +86,7 @@ type CreateManualBookingInput = {
   };
   delivery?: {
     placeType?: string;
+    island?: string;
     locationName?: string;
     arrivalFlight?: string;
     departureFlight?: string;
@@ -142,8 +148,23 @@ const toOptionalString = (value?: string | null) => {
 const toOptionalDate = (value?: string | null): Date | null => {
   const trimmed = toOptionalString(value);
   if (!trimmed) return null;
-  const parsed = new Date(`${trimmed}T00:00:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  const [yearText, monthText, dayText] = trimmed.split('-');
+  const year = Number.parseInt(yearText, 10);
+  const month = Number.parseInt(monthText, 10);
+  const day = Number.parseInt(dayText, 10);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return parsed;
 };
 
 const isUniqueConstraintError = (error: unknown) =>
@@ -192,6 +213,17 @@ const toOptionalBoolean = (value: OptionalBooleanInput): boolean | undefined => 
   if (typeof value === 'boolean') return value;
   if (value === 'true') return true;
   if (value === 'false') return false;
+  return undefined;
+};
+
+const normalizeDeliveryIsland = (value?: string) => {
+  const normalized = toOptionalString(value)?.toLowerCase();
+  if (normalized === DELIVERY_ISLAND_LANZAROTE.toLowerCase()) {
+    return DELIVERY_ISLAND_LANZAROTE;
+  }
+  if (normalized === DELIVERY_ISLAND_FUERTEVENTURA.toLowerCase()) {
+    return DELIVERY_ISLAND_FUERTEVENTURA;
+  }
   return undefined;
 };
 
@@ -421,14 +453,32 @@ export async function createManualBookingAction({
     location: normalizeAddress(invoice?.location),
   };
 
+  const normalizedDeliveryAddress = normalizeAddress(delivery?.address);
+  const deliveryAddressLineForIsland = [
+    normalizedDeliveryAddress?.street,
+    normalizedDeliveryAddress?.city,
+    normalizedDeliveryAddress?.country,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(' ');
+
   const normalizedDelivery = {
     placeType: toOptionalString(delivery?.placeType),
+    island:
+      normalizeDeliveryIsland(delivery?.island) ??
+      resolveDeliveryIsland({
+        locationName: toOptionalString(delivery?.locationName) ?? null,
+        addressLine: deliveryAddressLineForIsland || null,
+        arrivalFlight: toOptionalString(delivery?.arrivalFlight) ?? null,
+        departureFlight: toOptionalString(delivery?.departureFlight) ?? null,
+      }) ??
+      undefined,
     locationName: toOptionalString(delivery?.locationName),
     arrivalFlight: toOptionalString(delivery?.arrivalFlight),
     departureFlight: toOptionalString(delivery?.departureFlight),
     arrivalHour: toOptionalString(delivery?.arrivalHour),
     arrivalMinute: toOptionalString(delivery?.arrivalMinute),
-    address: normalizeAddress(delivery?.address),
+    address: normalizedDeliveryAddress,
   };
 
   const normalizedTax = {

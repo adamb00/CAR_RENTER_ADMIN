@@ -118,6 +118,7 @@ type FormState = {
   taxCompanyName: string;
 
   deliveryPlaceType: string;
+  deliveryIsland: string;
   deliveryLocationName: string;
   arrivalFlight: string;
   arrivalHour: string;
@@ -171,6 +172,12 @@ const placeTypeOptions = [
   { value: 'airport', label: 'Átvétel a reptéren' },
   { value: 'accommodation', label: 'Átvétel a szállásnál' },
   { value: 'office', label: 'Átvétel az irodánál' },
+];
+
+const islandOptions = [
+  { value: '', label: 'Nincs megadva' },
+  { value: 'Lanzarote', label: 'Lanzarote' },
+  { value: 'Fuerteventura', label: 'Fuerteventura' },
 ];
 
 const documentTypeOptions = [
@@ -290,6 +297,7 @@ export function ManualBookingForm({
     taxCompanyName: '',
 
     deliveryPlaceType: '',
+    deliveryIsland: '',
     deliveryLocationName: '',
     arrivalFlight: '',
     arrivalHour: '',
@@ -487,6 +495,7 @@ export function ManualBookingForm({
         },
         delivery: {
           placeType: form.deliveryPlaceType,
+          island: form.deliveryIsland,
           locationName: form.deliveryLocationName,
           arrivalFlight: form.arrivalFlight,
           departureFlight: form.departureFlight,
@@ -1133,6 +1142,20 @@ export function ManualBookingForm({
               updateField('deliveryLocationName', event.target.value)
             }
           />
+
+          <FloatingSelect
+            label='Sziget'
+            value={form.deliveryIsland}
+            onChange={(event) =>
+              updateField('deliveryIsland', event.target.value)
+            }
+          >
+            {islandOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </FloatingSelect>
 
           <Input
             label='Érkező járat'

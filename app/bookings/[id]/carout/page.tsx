@@ -1,7 +1,6 @@
 import CaroutForm from '@/components/carout-form';
 import { getBookingById } from '@/data-service/bookings';
 import { getVehicleById } from '@/data-service/cars';
-import { db } from '@/lib/db';
 import { formatDate } from '@/lib/format/format-date';
 import Link from 'next/link';
 
@@ -14,23 +13,6 @@ export default async function BookingIssuePage({
 
   const booking = await getBookingById(id);
   const vehicle = await getVehicleById(booking?.assignedFleetVehicleId ?? '');
-  const signedContract = booking?.id
-    ? await db.bookingContract.findUnique({
-        where: { bookingId: booking.id },
-        select: {
-          id: true,
-          signedAt: true,
-          signatureData: true,
-          lessorSignatureData: true,
-        },
-      })
-    : null;
-  const isContractSigned = Boolean(
-    signedContract?.id &&
-    signedContract.signedAt &&
-    signedContract.signatureData &&
-    signedContract.lessorSignatureData,
-  );
 
   return (
     <div className='flex h-full flex-col gap-6 p-6'>
@@ -66,11 +48,7 @@ export default async function BookingIssuePage({
           </span>
         </p>
       </div>
-      <CaroutForm
-        booking={booking}
-        vehicle={vehicle}
-        isContractSigned={isContractSigned}
-      />
+      <CaroutForm booking={booking} vehicle={vehicle} />
     </div>
   );
 }

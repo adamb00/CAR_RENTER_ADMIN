@@ -30,32 +30,6 @@ export async function createVehicleHandoverAction(
     return { error: 'A foglalás nem található.' };
   }
 
-  if (direction === 'out') {
-    const signedContract = await db.bookingContract.findUnique({
-      where: { bookingId: data.bookingId },
-      select: {
-        id: true,
-        signedAt: true,
-        signatureData: true,
-        lessorSignatureData: true,
-      },
-    });
-
-    const hasValidContract = Boolean(
-      signedContract?.id &&
-        signedContract.signedAt &&
-        signedContract.signatureData &&
-        signedContract.lessorSignatureData,
-    );
-
-    if (!hasValidContract) {
-      return {
-        error:
-          'A kiadás előtt kötelező a bérleti szerződés aláírása. Előbb nyisd meg a Digitális szerződés oldalt.',
-      };
-    }
-  }
-
   const fleetVehicle = await db.fleetVehicle.findUnique({
     where: { id: data.fleetVehicleId },
     select: { id: true },

@@ -95,6 +95,7 @@ export type BookingPayload = {
   };
   delivery?: {
     placeType?: string;
+    island?: string;
     locationName?: string;
     arrivalFlight?: string;
     departureFlight?: string;
@@ -303,6 +304,7 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
   const delivery = isRecord(payload.delivery)
     ? {
         placeType: toOptionalString(payload.delivery.placeType),
+        island: toOptionalString(payload.delivery.island),
         locationName: toOptionalString(payload.delivery.locationName),
         arrivalFlight: toOptionalString(payload.delivery.arrivalFlight),
         departureFlight: toOptionalString(payload.delivery.departureFlight),
@@ -683,6 +685,7 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
   for (const row of deliveryRows) {
     const delivery = {
       placeType: row.placeType ?? undefined,
+      island: row.island ?? undefined,
       locationName: row.locationName ?? undefined,
       arrivalFlight: row.arrivalFlight ?? undefined,
       departureFlight: row.departureFlight ?? undefined,

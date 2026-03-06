@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react';
 
 import { updateBookingAdminAction } from '@/actions/updateBookingAdminAction';
 import { Button } from '@/components/ui/button';
+import { FloatingSelect } from '@/components/ui/floating-select';
 import { Input } from '@/components/ui/input';
 import { formatLocale } from '@/lib/format/format-locale';
 import { getStatusMeta } from '@/lib/status';
@@ -25,6 +26,7 @@ type BookingDeliveryDetailsForm = {
   placeType: string;
   locationName: string;
   addressLine: string;
+  island: string;
   arrivalFlight: string;
   departureFlight: string;
   arrivalHour: string;
@@ -153,15 +155,7 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
     if (form.originalRentalEnd && !form.rentalEnd) {
       setMessage({
         type: 'error',
-        text: 'A bérlés vége csak hosszabbítható, törölni nem lehet.',
-      });
-      return;
-    }
-
-    if (form.originalRentalEnd && form.rentalEnd < form.originalRentalEnd) {
-      setMessage({
-        type: 'error',
-        text: 'A bérlés vége csak hosszabbítható, rövidíteni nem lehet.',
+        text: 'A bérlés vége nem törölhető.',
       });
       return;
     }
@@ -311,17 +305,17 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             onChange={(event) =>
               updateBaseField('rentalEnd', event.target.value)
             }
-            min={form.originalRentalEnd || undefined}
+            min={form.rentalStart || undefined}
             max={
               hasRentalEndUpperLimit ? form.maxExtendableRentalEnd : undefined
             }
           />
           {form.originalRentalEnd ? (
             <p className='text-xs text-muted-foreground md:col-span-3'>
-              Eredeti bérlés vége: {form.originalRentalEnd}. Csak hosszabbítás
-              engedett.
+              Eredeti bérlés vége: {form.originalRentalEnd}. A bérlés vége
+              rövidíthető és hosszabbítható.
               {hasRentalEndUpperLimit
-                ? ` Legkésőbbi hosszabbítható dátum: ${form.maxExtendableRentalEnd}${form.nextCarBookingCode ? ` (következő foglalás: ${form.nextCarBookingCode}).` : '.'}`
+                ? ` Legkésőbbi engedett dátum: ${form.maxExtendableRentalEnd}${form.nextCarBookingCode ? ` (következő foglalás: ${form.nextCarBookingCode}).` : '.'}`
                 : ''}
             </p>
           ) : null}
@@ -411,6 +405,18 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             }
             disabled={!form.hasDeliveryDetails}
           />
+          <FloatingSelect
+            label='Sziget'
+            value={form.deliveryDetails.island}
+            onChange={(event) =>
+              updateDeliveryField('island', event.target.value)
+            }
+            disabled={!form.hasDeliveryDetails}
+          >
+            <option value=''>Nincs megadva</option>
+            <option value='Lanzarote'>Lanzarote</option>
+            <option value='Fuerteventura'>Fuerteventura</option>
+          </FloatingSelect>
           <Input
             label='Érkező járat'
             value={form.deliveryDetails.arrivalFlight}

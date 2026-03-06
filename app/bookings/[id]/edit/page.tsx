@@ -7,6 +7,7 @@ import {
 } from '@/components/booking-admin-edit-form';
 import { getBookingById, getIsCarOut } from '@/data-service/bookings';
 import { getArchivedBookingIdSet } from '@/lib/booking-archive';
+import { isCancelledBookingStatus } from '@/lib/booking-conflicts';
 import { db } from '@/lib/db';
 
 const stringifyJson = (value: unknown) =>
@@ -51,6 +52,7 @@ type BookingDeliveryDetailsRow = {
   placeType: string | null;
   locationName: string | null;
   addressLine: string | null;
+  island: string | null;
   arrivalFlight: string | null;
   departureFlight: string | null;
   arrivalHour: string | null;
@@ -106,6 +108,7 @@ export default async function BookingEditPage({
             "placeType",
             "locationName",
             "addressLine",
+            "island",
             "arrivalFlight",
             "departureFlight",
             "arrivalHour",
@@ -152,6 +155,7 @@ export default async function BookingEditPage({
         id: true,
         humanId: true,
         rentalstart: true,
+        status: true,
       },
       orderBy: { rentalstart: 'asc' },
     });
@@ -160,7 +164,10 @@ export default async function BookingEditPage({
       nextCarBookings.map((row) => row.id),
     );
     const nextBooking = nextCarBookings.find(
-      (row) => !archivedIdSet.has(row.id) && row.rentalstart,
+      (row) =>
+        !archivedIdSet.has(row.id) &&
+        !isCancelledBookingStatus(row.status) &&
+        row.rentalstart,
     );
 
     if (nextBooking?.rentalstart) {
@@ -205,6 +212,7 @@ export default async function BookingEditPage({
       placeType: deliveryDetails?.placeType ?? '',
       locationName: deliveryDetails?.locationName ?? '',
       addressLine: deliveryDetails?.addressLine ?? '',
+      island: deliveryDetails?.island ?? '',
       arrivalFlight: deliveryDetails?.arrivalFlight ?? '',
       departureFlight: deliveryDetails?.departureFlight ?? '',
       arrivalHour: deliveryDetails?.arrivalHour ?? '',

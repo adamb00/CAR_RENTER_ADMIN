@@ -12,7 +12,11 @@ import {
 } from '@/lib/booking-conflicts';
 import { RENT_STATUS_REGISTERED } from '@/lib/constants';
 import { db } from '@/lib/db';
-import { resolveDeliveryIsland } from '@/lib/delivery-island';
+import {
+  DELIVERY_ISLAND_FUERTEVENTURA,
+  DELIVERY_ISLAND_LANZAROTE,
+  resolveDeliveryIsland,
+} from '@/lib/delivery-island';
 
 type UpdateBookingAdminInput = {
   bookingId: string;
@@ -57,6 +61,7 @@ type BookingDeliveryDetailsInput = {
   placeType?: unknown;
   locationName?: unknown;
   addressLine?: unknown;
+  island?: unknown;
   arrivalFlight?: unknown;
   departureFlight?: unknown;
   arrivalHour?: unknown;
@@ -87,8 +92,22 @@ const parseDateOrNull = (value?: string) => {
   const trimmed = toOptionalString(value);
   if (!trimmed) return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
-  const parsed = new Date(`${trimmed}T00:00:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  const [yearText, monthText, dayText] = trimmed.split('-');
+  const year = Number.parseInt(yearText, 10);
+  const month = Number.parseInt(monthText, 10);
+  const day = Number.parseInt(dayText, 10);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return parsed;
 };
 
 const parseIntegerOrNull = (value?: string) => {
@@ -96,6 +115,23 @@ const parseIntegerOrNull = (value?: string) => {
   if (!trimmed) return null;
   const parsed = Number.parseInt(trimmed, 10);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeDeliveryIsland = (value: unknown) => {
+  const normalized = toOptionalString(String(value ?? ''))?.toLowerCase();
+  if (normalized === DELIVERY_ISLAND_LANZAROTE.toLowerCase()) {
+    return DELIVERY_ISLAND_LANZAROTE;
+  }
+  if (normalized === DELIVERY_ISLAND_FUERTEVENTURA.toLowerCase()) {
+    return DELIVERY_ISLAND_FUERTEVENTURA;
+  }
+  return null;
+};
+
+const addDays = (value: Date, days: number) => {
+  const result = new Date(value);
+  result.setDate(result.getDate() + days);
+  return result;
 };
 
 const toRecordOrNull = <T extends Record<string, unknown>>(
@@ -200,15 +236,7 @@ export const updateBookingAdminAction = async (
   const effectiveRentalEnd = rentalEnd ?? booking.rentalend;
 
   if (booking.rentalend && !effectiveRentalEnd) {
-    return { error: 'A bérlés vége csak hosszabbítható, törölni nem lehet.' };
-  }
-
-  if (
-    booking.rentalend &&
-    effectiveRentalEnd &&
-    effectiveRentalEnd.getTime() < booking.rentalend.getTime()
-  ) {
-    return { error: 'A bérlés vége csak hosszabbítható, rövidíteni nem lehet.' };
+    return { error: 'A bérlés vége nem törölhető.' };
   }
 
   const isEndDateExtended = Boolean(
@@ -220,13 +248,20 @@ export const updateBookingAdminAction = async (
   if (
     isEndDateExtended &&
     effectiveCarId &&
-    effectiveRentalStart &&
     effectiveRentalEnd
   ) {
+    const extensionConflictStart = booking.rentalend
+      ? addDays(booking.rentalend, 1)
+      : effectiveRentalStart;
+
+    if (!extensionConflictStart) {
+      return { error: 'A bérlés kezdő dátuma hiányzik.' };
+    }
+
     const conflictingBooking = await findCarBookingConflict({
       bookingIdToExclude: bookingId,
       carId: effectiveCarId,
-      rentalStart: effectiveRentalStart,
+      rentalStart: extensionConflictStart,
       rentalEnd: effectiveRentalEnd,
     });
 
@@ -428,12 +463,14 @@ export const updateBookingAdminAction = async (
           toOptionalString(String(deliveryData.arrivalHour ?? '')) ?? null;
         const arrivalMinute =
           toOptionalString(String(deliveryData.arrivalMinute ?? '')) ?? null;
-        const island = resolveDeliveryIsland({
-          locationName,
-          addressLine,
-          arrivalFlight,
-          departureFlight,
-        });
+        const island =
+          normalizeDeliveryIsland(deliveryData.island) ??
+          resolveDeliveryIsland({
+            locationName,
+            addressLine,
+            arrivalFlight,
+            departureFlight,
+          });
 
         await tx.$executeRaw`
           INSERT INTO "BookingDeliveryDetails" (

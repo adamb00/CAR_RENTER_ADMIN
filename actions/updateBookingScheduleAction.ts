@@ -32,7 +32,13 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const isIsoDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
-const parseIsoDate = (value: string) => new Date(`${value}T00:00:00`);
+const parseIsoDate = (value: string) => {
+  const [yearText, monthText, dayText] = value.split('-');
+  const year = Number.parseInt(yearText, 10);
+  const month = Number.parseInt(monthText, 10);
+  const day = Number.parseInt(dayText, 10);
+  return new Date(Date.UTC(year, month - 1, day));
+};
 
 export async function updateBookingScheduleAction({
   bookingId,

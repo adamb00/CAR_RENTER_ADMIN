@@ -35,6 +35,7 @@ export default async function CalendarPage() {
       null;
     const deliveryIsland =
       booking.deliveryIsland ??
+      booking.payload?.delivery?.island?.trim() ??
       resolveDeliveryIsland({
         locationName: deliveryLocation,
         addressLine: booking.payload?.delivery?.address?.street ?? null,

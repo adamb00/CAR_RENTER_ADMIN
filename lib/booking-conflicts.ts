@@ -8,6 +8,7 @@ type BookingConflictCandidate = {
   humanId: string | null;
   rentalstart: Date | null;
   rentalend: Date | null;
+  status?: string | null;
   assignedFleetVehicleId?: string | null;
   payload: unknown;
 };
@@ -41,6 +42,12 @@ export const hasAssignedFleetInPayload = (payload: unknown): boolean =>
 
 const toTrimmedString = (value: unknown): string | null =>
   typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+
+export const isCancelledBookingStatus = (value: unknown): boolean => {
+  if (typeof value !== 'string') return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === 'cancelled' || normalized === 'canceled';
+};
 
 export const hasAssignedFleetAssignment = ({
   assignedFleetVehicleId,
@@ -93,6 +100,7 @@ export const findFleetVehicleBookingConflict = async ({
       humanId: true,
       rentalstart: true,
       rentalend: true,
+      status: true,
       assignedFleetVehicleId: true,
       payload: true,
     },
@@ -106,6 +114,7 @@ export const findFleetVehicleBookingConflict = async ({
     candidates.find(
       (candidate) =>
         !archivedIdSet.has(candidate.id) &&
+        !isCancelledBookingStatus(candidate.status) &&
         (toTrimmedString(candidate.assignedFleetVehicleId) ??
           getAssignedFleetVehicleIdFromPayload(candidate.payload)) ===
           fleetVehicleId,
@@ -145,6 +154,7 @@ export const findCarBookingConflict = async ({
       humanId: true,
       rentalstart: true,
       rentalend: true,
+      status: true,
       payload: true,
     },
     orderBy: { rentalstart: 'asc' },
@@ -154,6 +164,10 @@ export const findCarBookingConflict = async ({
   );
 
   return (
-    candidates.find((candidate) => !archivedIdSet.has(candidate.id)) ?? null
+    candidates.find(
+      (candidate) =>
+        !archivedIdSet.has(candidate.id) &&
+        !isCancelledBookingStatus(candidate.status),
+    ) ?? null
   );
 };
