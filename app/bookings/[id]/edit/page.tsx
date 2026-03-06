@@ -5,11 +5,12 @@ import {
   BookingAdminEditForm,
   type BookingAdminInitialData,
 } from '@/components/booking-admin-edit-form';
-import { getBookingById } from '@/data-service/bookings';
+import { getBookingById, getIsCarOut } from '@/data-service/bookings';
 import { getArchivedBookingIdSet } from '@/lib/booking-archive';
 import { db } from '@/lib/db';
 
-const stringifyJson = (value: unknown) => JSON.stringify(value ?? null, null, 2);
+const stringifyJson = (value: unknown) =>
+  JSON.stringify(value ?? null, null, 2);
 const toDateInputValue = (value?: Date | null) =>
   value ? value.toISOString().slice(0, 10) : '';
 const toDateTimeInputValue = (value?: Date | null) =>
@@ -71,15 +72,22 @@ export default async function BookingEditPage({
   const normalized = await getBookingById(identifier);
   if (!normalized) notFound();
 
-  const booking = await db.rentRequests.findUnique({ where: { id: normalized.id } });
+  const booking = await db.rentRequests.findUnique({
+    where: { id: normalized.id },
+  });
   if (!booking) {
     notFound();
   }
 
-  const [pricingRows, deliveryRows, handoverCostRows, vehicleHandovers, bookingContract] =
-    await Promise.all([
-      db.$queryRaw<BookingPricingSnapshotRow[]>(
-        Prisma.sql`
+  const [
+    pricingRows,
+    deliveryRows,
+    handoverCostRows,
+    vehicleHandovers,
+    bookingContract,
+  ] = await Promise.all([
+    db.$queryRaw<BookingPricingSnapshotRow[]>(
+      Prisma.sql`
           SELECT
             "rentalFee",
             "insurance",
@@ -91,9 +99,9 @@ export default async function BookingEditPage({
           WHERE "bookingId" = ${booking.id}::uuid
           LIMIT 1
         `,
-      ),
-      db.$queryRaw<BookingDeliveryDetailsRow[]>(
-        Prisma.sql`
+    ),
+    db.$queryRaw<BookingDeliveryDetailsRow[]>(
+      Prisma.sql`
           SELECT
             "placeType",
             "locationName",
@@ -106,9 +114,9 @@ export default async function BookingEditPage({
           WHERE "bookingId" = ${booking.id}::uuid
           LIMIT 1
         `,
-      ),
-      db.$queryRaw<BookingHandoverCostRow[]>(
-        Prisma.sql`
+    ),
+    db.$queryRaw<BookingHandoverCostRow[]>(
+      Prisma.sql`
           SELECT
             "direction",
             "costType",
@@ -117,13 +125,13 @@ export default async function BookingEditPage({
           WHERE "bookingId" = ${booking.id}::uuid
           ORDER BY "direction" ASC, "costType" ASC
         `,
-      ),
-      db.vehicleHandover.findMany({
-        where: { bookingId: booking.id },
-        orderBy: { handoverAt: 'asc' },
-      }),
-      db.bookingContract.findUnique({ where: { bookingId: booking.id } }),
-    ]);
+    ),
+    db.vehicleHandover.findMany({
+      where: { bookingId: booking.id },
+      orderBy: { handoverAt: 'asc' },
+    }),
+    db.bookingContract.findUnique({ where: { bookingId: booking.id } }),
+  ]);
 
   const pricingSnapshot = pricingRows[0] ?? null;
   const deliveryDetails = deliveryRows[0] ?? null;

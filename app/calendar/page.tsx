@@ -15,18 +15,17 @@ export default async function CalendarPage() {
   ]);
 
   const bookingIds = bookings.map((booking) => booking.id);
-  const handoverOutPairs = bookingIds.length
-    ? await db.vehicleHandover.findMany({
+  const carOutBookings = bookingIds.length
+    ? await db.bookingHandoverCost.findMany({
         where: {
           bookingId: { in: bookingIds },
           direction: 'out',
         },
-        select: { bookingId: true, fleetVehicleId: true },
+        select: { bookingId: true },
+        distinct: ['bookingId'],
       })
     : [];
-  const handoverOutKeys = handoverOutPairs.map(
-    (handover) => `${handover.bookingId}:${handover.fleetVehicleId}`,
-  );
+  const carOutBookingIds = carOutBookings.map((booking) => booking.bookingId);
 
   const calendarBookings = bookings.map((booking) => {
     const deliveryLocation =
@@ -84,7 +83,7 @@ export default async function CalendarPage() {
       <BookingCalendar
         bookings={calendarBookings}
         fleetVehicles={fleet}
-        handoverOutKeys={handoverOutKeys}
+        carOutBookingIds={carOutBookingIds}
       />
     </div>
   );

@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
 
 import { assignFleetVehicleToBookingAction } from '@/actions/assignFleetVehicleToBookingAction';
-import { setBookingRegisteredAction } from '@/actions/setBookingRegisteredAction';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -62,7 +61,7 @@ type BookingCalendarVehicle = {
 type BookingCalendarProps = {
   bookings: BookingCalendarBooking[];
   fleetVehicles: BookingCalendarVehicle[];
-  handoverOutKeys: string[];
+  carOutBookingIds: string[];
 };
 
 type FleetSortKey = 'car' | 'location';
@@ -338,7 +337,7 @@ const rangesOverlap = (
 export function BookingCalendar({
   bookings,
   fleetVehicles,
-  handoverOutKeys,
+  carOutBookingIds,
 }: BookingCalendarProps) {
   const router = useRouter();
   const [rangeStart, setRangeStart] = useState(() => {
@@ -415,9 +414,9 @@ export function BookingCalendar({
     return map;
   }, [bookings, parsedRangeStart, parsedRangeEnd]);
 
-  const handoverOutSet = useMemo(
-    () => new Set(handoverOutKeys),
-    [handoverOutKeys],
+  const carOutBookingIdSet = useMemo(
+    () => new Set(carOutBookingIds),
+    [carOutBookingIds],
   );
 
   const bookingsByVehicle = useMemo(() => {
@@ -577,11 +576,7 @@ export function BookingCalendar({
   const timelineWidth = days.length * dayColumnWidth;
   const rowHeightClass = 'h-[56px]';
 
-  const handleAssign = (
-    bookingId: string,
-    fleetVehicleId: string | null,
-    options?: { setRegisteredAfterAssign?: boolean },
-  ) => {
+  const handleAssign = (bookingId: string, fleetVehicleId: string | null) => {
     setMessage(null);
     startTransition(async () => {
       const result = await assignFleetVehicleToBookingAction({
@@ -591,17 +586,6 @@ export function BookingCalendar({
       if (result?.error) {
         setMessage(result.error);
         return;
-      }
-
-      if (options?.setRegisteredAfterAssign && fleetVehicleId) {
-        const registeredResult = await setBookingRegisteredAction({
-          bookingId,
-          registered: true,
-        });
-        if (registeredResult?.error) {
-          setMessage(registeredResult.error);
-          return;
-        }
       }
 
       setMessage(result?.success ?? 'Mentve.');
@@ -1122,11 +1106,7 @@ export function BookingCalendar({
                                         className='cursor-pointer transition-colors hover:!bg-sky-100 hover:!text-slate-900 data-[highlighted]:!bg-sky-100 data-[highlighted]:!text-slate-900 dark:hover:!bg-sky-900/40 dark:hover:!text-slate-50 dark:data-[highlighted]:!bg-sky-900/40 dark:data-[highlighted]:!text-slate-50'
                                         onSelect={() => {
                                           closeRowContextMenu();
-                                          handleAssign(
-                                            unassignedBooking.id,
-                                            vehicle.id,
-                                            { setRegisteredAfterAssign: true },
-                                          );
+                                          handleAssign(unassignedBooking.id, vehicle.id);
                                         }}
                                       >
                                         {unassignedBooking.humanId &&
@@ -1168,9 +1148,7 @@ export function BookingCalendar({
                           );
                         })}
                         {bookingsForVehicle.map((booking) => {
-                          const hasOut = handoverOutSet.has(
-                            `${booking.id}:${vehicle.id}`,
-                          );
+                          const hasOut = carOutBookingIdSet.has(booking.id);
                           const bookingColor = getBookingIslandColor(
                             booking.deliveryIsland,
                           );
@@ -1207,7 +1185,12 @@ export function BookingCalendar({
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div
-                                    className='m-1 flex flex-col items-center gap-1 rounded-md px-2 py-1 text-primary-foreground shadow-sm cursor-grab active:cursor-grabbing'
+                                    className={cn(
+                                      'm-1 flex flex-col items-center gap-1 rounded-md px-2 py-1 text-primary-foreground shadow-sm',
+                                      hasOut || isPending
+                                        ? 'cursor-default'
+                                        : 'cursor-grab active:cursor-grabbing',
+                                    )}
                                     data-booking-chip='true'
                                     style={{
                                       backgroundColor: bookingColor,
@@ -1223,7 +1206,7 @@ export function BookingCalendar({
                                       } / span ${booking.span}`,
                                       gridRow: '1',
                                     }}
-                                    draggable={!isPending}
+                                    draggable={!isPending && !hasOut}
                                     onContextMenu={(event) => {
                                       event.preventDefault();
                                       setContextMenuPoint({
@@ -1240,6 +1223,10 @@ export function BookingCalendar({
                                       setContextMenuBookingId(booking.id);
                                     }}
                                     onDragStart={(event) => {
+                                      if (hasOut) {
+                                        event.preventDefault();
+                                        return;
+                                      }
                                       const payload = buildDragPayload(
                                         booking,
                                         vehicle.id,

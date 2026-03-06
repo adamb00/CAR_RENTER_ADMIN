@@ -126,6 +126,8 @@ export async function assignFleetVehicleToBookingAction({
   payload = {
     ...payload,
     carId: fleetVehicle.carId,
+    assignedFleetVehicleId: fleetVehicle.id,
+    assignedFleetPlate: fleetVehicle.plate,
   };
 
   const data: Prisma.RentRequestsUpdateInput = {

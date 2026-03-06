@@ -879,7 +879,8 @@ export const getBookings = async (): Promise<Booking[]> => {
   );
   const normalized = normalizedBase.map((booking) => ({
     ...booking,
-    deliveryIsland: normalizedPayloadParts.islandByBookingId.get(booking.id) ?? null,
+    deliveryIsland:
+      normalizedPayloadParts.islandByBookingId.get(booking.id) ?? null,
     payload: applyNormalizedPayloadByBookingId({
       bookingId: booking.id,
       payload: booking.payload,
@@ -969,7 +970,9 @@ export const getBookingByQuoteId = async (
   const archivedIdSet = await getArchivedBookingIdSet(
     bookings.map((booking) => booking.id),
   );
-  const booking = bookings.find((candidate) => !archivedIdSet.has(candidate.id));
+  const booking = bookings.find(
+    (candidate) => !archivedIdSet.has(candidate.id),
+  );
 
   if (!booking) return null;
 
@@ -1029,4 +1032,14 @@ export const getDeliveryAddressByBookingId = async (
 
   const [deliveryDetails] = rows;
   return deliveryDetails ?? null;
+};
+
+export const getIsCarOut = async (id: string) => {
+  const isCarOut = await db.bookingHandoverCost.findFirst({
+    where: { bookingId: id, direction: 'out' },
+  });
+
+  if (isCarOut) return true;
+
+  return false;
 };

@@ -416,47 +416,10 @@ export function ManualBookingForm({
     }
   };
 
-  const validateBeforeSubmit = (values: FormState) => {
-    const fields: ValidationField[] = [];
-
-    if (!values.contactName.trim()) fields.push('contactName');
-
-    if (
-      values.rentalStart &&
-      values.rentalEnd &&
-      values.rentalEnd < values.rentalStart
-    ) {
-      if (!fields.includes('rentalEnd')) fields.push('rentalEnd');
-    }
-
-    let messageText = '';
-    if (fields.includes('contactName')) {
-      messageText = 'A név megadása kötelező.';
-    } else if (fields.includes('rentalEnd')) {
-      messageText = 'A záró dátum nem lehet a kezdő dátum előtt.';
-    }
-
-    return { fields, messageText };
-  };
-
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMessage(null);
     const formElement = event.currentTarget;
-
-    const validation = validateBeforeSubmit(form);
-    if (validation.fields.length > 0) {
-      setInvalidFields(validation.fields);
-      setMessage({
-        type: 'error',
-        text: validation.messageText || 'Ellenőrizd a hibás mezőket.',
-      });
-      const firstInvalid = validation.fields[0];
-      if (firstInvalid) {
-        requestAnimationFrame(() => focusField(formElement, firstInvalid));
-      }
-      return;
-    }
     setInvalidFields([]);
 
     startTransition(async () => {
@@ -621,7 +584,6 @@ export function ManualBookingForm({
             label='Név'
             value={form.contactName}
             onChange={(event) => updateField('contactName', event.target.value)}
-            required
             data-field='contactName'
             className={cn(isFieldInvalid('contactName') && INVALID_FIELD_CLASS)}
           />

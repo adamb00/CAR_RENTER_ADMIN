@@ -4,10 +4,6 @@ import type { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 import {
-  findFleetVehicleBookingConflict,
-  formatDateForConflictMessage,
-} from '@/lib/booking-conflicts';
-import {
   RENT_STATUS_ACCEPTED,
   RENT_STATUS_CANCELLED,
   RENT_STATUS_FORM_SUBMITTED,
@@ -15,10 +11,6 @@ import {
   RENT_STATUS_REGISTERED,
 } from '@/lib/constants';
 import { db } from '@/lib/db';
-import {
-  getFleetServiceWindowRangeFromNotes,
-  isFleetBlockedByServiceWindow,
-} from '@/lib/fleet-service-window';
 import { getNextHumanId } from '@/lib/human-id';
 
 type OptionalBooleanInput = boolean | 'true' | 'false' | '' | null | undefined;
@@ -142,13 +134,16 @@ const PAYMENT_METHOD_VALUES = new Set([
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const isIsoDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
-
-const parseIsoDate = (value: string) => new Date(`${value}T00:00:00`);
-
 const toOptionalString = (value?: string | null) => {
   const trimmed = value?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : undefined;
+};
+
+const toOptionalDate = (value?: string | null): Date | null => {
+  const trimmed = toOptionalString(value);
+  if (!trimmed) return null;
+  const parsed = new Date(`${trimmed}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
 const isUniqueConstraintError = (error: unknown) =>
@@ -269,6 +264,7 @@ export async function createManualBookingAction({
   selfServiceEventsJson,
 }: CreateManualBookingInput): Promise<CreateManualBookingResult> {
   const trimmedName = toOptionalString(contactName);
+  const effectiveContactName = trimmedName ?? 'Ismeretlen';
   const trimmedEmail = toOptionalString(contactEmail);
   const trimmedPhone = toOptionalString(contactPhone);
   const trimmedLocale = toOptionalString(locale) ?? 'hu';
@@ -280,36 +276,8 @@ export async function createManualBookingAction({
   const trimmedQuoteIdentifier = toOptionalString(quoteIdentifier);
   const trimmedSelfServiceEventsJson = toOptionalString(selfServiceEventsJson);
 
-  if (!trimmedName) {
-    return { error: 'A név megadása kötelező.' };
-  }
-
-  let parsedStart: Date | null = null;
-  let parsedEnd: Date | null = null;
-
-  if (trimmedRentalStart) {
-    if (!isIsoDate(trimmedRentalStart)) {
-      return { error: 'Érvénytelen kezdő dátumformátum.' };
-    }
-    parsedStart = parseIsoDate(trimmedRentalStart);
-    if (Number.isNaN(parsedStart.getTime())) {
-      return { error: 'Érvénytelen kezdő dátum.' };
-    }
-  }
-
-  if (trimmedRentalEnd) {
-    if (!isIsoDate(trimmedRentalEnd)) {
-      return { error: 'Érvénytelen záró dátumformátum.' };
-    }
-    parsedEnd = parseIsoDate(trimmedRentalEnd);
-    if (Number.isNaN(parsedEnd.getTime())) {
-      return { error: 'Érvénytelen záró dátum.' };
-    }
-  }
-
-  if (parsedStart && parsedEnd && parsedEnd < parsedStart) {
-    return { error: 'A záró dátum nem lehet a kezdő dátum előtt.' };
-  }
+  const parsedStart = toOptionalDate(trimmedRentalStart);
+  const parsedEnd = toOptionalDate(trimmedRentalEnd);
 
   let linkedQuoteId: string | null = null;
   if (trimmedQuoteIdentifier) {
@@ -322,15 +290,7 @@ export async function createManualBookingAction({
           where: { humanId: trimmedQuoteIdentifier },
           select: { id: true },
         });
-
-    if (!linkedQuote) {
-      return {
-        error:
-          'A megadott ajánlatazonosítóhoz nem található ajánlatkérés (id vagy humanId).',
-      };
-    }
-
-    linkedQuoteId = linkedQuote.id;
+    linkedQuoteId = linkedQuote?.id ?? null;
   }
 
   let selectedFleet:
@@ -342,91 +302,30 @@ export async function createManualBookingAction({
       where: { id: trimmedFleetVehicleId },
       select: { id: true, carId: true, plate: true, notes: true },
     });
-
-    if (!selectedFleet) {
-      return { error: 'A választott flotta autó nem található.' };
-    }
-
-    if (parsedStart && parsedEnd) {
-      if (
-        isFleetBlockedByServiceWindow({
-          notes: selectedFleet.notes,
-          rentalStart: parsedStart,
-          rentalEnd: parsedEnd,
-        })
-      ) {
-        const window = getFleetServiceWindowRangeFromNotes(selectedFleet.notes);
-        return {
-          error: `A kiválasztott autó szerviz alatt áll ebben az időszakban (${window?.fromLabel ?? '-'} - ${window?.toLabel ?? '-'}).`,
-        };
-      }
-
-      const conflictingBooking = await findFleetVehicleBookingConflict({
-        bookingIdToExclude: undefined,
-        fleetVehicleId: selectedFleet.id,
-        rentalStart: parsedStart,
-        rentalEnd: parsedEnd,
-      });
-
-      if (conflictingBooking) {
-        const conflictLabel = conflictingBooking.humanId ?? conflictingBooking.id;
-        const conflictStart = formatDateForConflictMessage(
-          conflictingBooking.rentalstart,
-        );
-        const conflictEnd = formatDateForConflictMessage(
-          conflictingBooking.rentalend,
-        );
-        return {
-          error: `A kiválasztott autó már foglalt ebben az időszakban (${conflictLabel}: ${conflictStart} - ${conflictEnd}).`,
-        };
-      }
-    }
   }
 
-  if (!selectedFleet && trimmedCarId) {
-    const selectedCar = await db.car.findUnique({
-      where: { id: trimmedCarId },
-      select: { id: true },
-    });
-    if (!selectedCar) {
-      return { error: 'A választott autó nem található.' };
-    }
-  }
-
-  const normalizedStatus = toOptionalString(status);
-  if (normalizedStatus && !STATUS_VALUES.has(normalizedStatus)) {
-    return { error: 'Érvénytelen foglalási állapot.' };
-  }
+  const requestedStatus = toOptionalString(status);
+  const normalizedStatus =
+    requestedStatus && STATUS_VALUES.has(requestedStatus)
+      ? requestedStatus
+      : undefined;
 
   const effectiveStatus =
     selectedFleet
       ? RENT_STATUS_REGISTERED
       : (normalizedStatus ?? RENT_STATUS_ACCEPTED);
 
-  if (trimmedSelfServiceEventsJson) {
-    try {
-      JSON.parse(trimmedSelfServiceEventsJson);
-    } catch {
-      return {
-        error:
-          'Az önkiszolgáló módosítások mezőben csak érvényes JSON adható meg.',
-      };
-    }
-  }
-
   const normalizedRentalDays = toOptionalInteger(rentalDays);
   const effectiveRentalDays =
-    normalizedRentalDays ??
-    (parsedStart && parsedEnd ? getInclusiveDays(parsedStart, parsedEnd) : undefined);
-
-  if (effectiveRentalDays != null && effectiveRentalDays <= 0) {
-    return { error: 'A bérelt napok száma csak pozitív szám lehet.' };
-  }
+    normalizedRentalDays != null && normalizedRentalDays > 0
+      ? normalizedRentalDays
+      : normalizedRentalDays == null && parsedStart && parsedEnd
+        ? getInclusiveDays(parsedStart, parsedEnd)
+        : undefined;
 
   const normalizedAdults = toOptionalInteger(adults);
-  if (normalizedAdults != null && normalizedAdults < 0) {
-    return { error: 'A felnőttek száma nem lehet negatív.' };
-  }
+  const effectiveAdults =
+    normalizedAdults != null && normalizedAdults >= 0 ? normalizedAdults : undefined;
 
   const normalizedExtras =
     extras
@@ -492,18 +391,16 @@ export async function createManualBookingAction({
     [];
 
   const normalizedPaymentMethod = toOptionalString(consents?.paymentMethod);
-  if (
-    normalizedPaymentMethod &&
-    !PAYMENT_METHOD_VALUES.has(normalizedPaymentMethod)
-  ) {
-    return { error: 'Érvénytelen fizetési mód.' };
-  }
+  const effectivePaymentMethod =
+    normalizedPaymentMethod && PAYMENT_METHOD_VALUES.has(normalizedPaymentMethod)
+      ? normalizedPaymentMethod
+      : undefined;
 
   const normalizedConsents = {
     privacy: toOptionalBoolean(consents?.privacy),
     terms: toOptionalBoolean(consents?.terms),
     insurance: toOptionalBoolean(consents?.insurance),
-    paymentMethod: normalizedPaymentMethod,
+    paymentMethod: effectivePaymentMethod,
   };
 
   const normalizedPricing = {
@@ -547,7 +444,7 @@ export async function createManualBookingAction({
     },
     contact: {
       same: toOptionalBoolean(contact?.same),
-      name: trimmedName,
+      name: effectiveContactName,
       email: trimmedEmail,
     },
   };
@@ -568,8 +465,8 @@ export async function createManualBookingAction({
     payload.extras = normalizedExtras;
   }
 
-  if (normalizedAdults != null) {
-    payload.adults = normalizedAdults;
+  if (effectiveAdults != null) {
+    payload.adults = effectiveAdults;
   }
 
   if (normalizedChildren.length > 0) {
@@ -624,7 +521,7 @@ export async function createManualBookingAction({
             assignedFleetVehicleId: selectedFleet?.id ?? null,
             assignedFleetPlate: selectedFleet?.plate ?? null,
             quoteid: linkedQuoteId,
-            contactname: trimmedName,
+            contactname: effectiveContactName,
             contactemail: trimmedEmail ?? '',
             contactphone: trimmedPhone ?? null,
             rentalstart: parsedStart,
