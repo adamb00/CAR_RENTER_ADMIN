@@ -42,9 +42,16 @@ type BookingDriverForm = {
   email: string;
   dateOfBirth: string;
   placeOfBirth: string;
+  locationCountry: string;
+  locationPostalCode: string;
+  locationCity: string;
+  locationStreet: string;
+  locationStreetType: string;
+  locationDoorNumber: string;
   documentType: string;
   documentNumber: string;
   drivingLicenceNumber: string;
+  drivingLicenceCategory: string;
 };
 
 type BookingHandoverCostForm = {
@@ -388,6 +395,28 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
                     readOnly
                   />
                   <Input
+                    label='Lakcím ország'
+                    value={driver.locationCountry}
+                    readOnly
+                  />
+                  <Input
+                    label='Lakcím irányítószám'
+                    value={driver.locationPostalCode}
+                    readOnly
+                  />
+                  <Input label='Lakcím város' value={driver.locationCity} readOnly />
+                  <Input label='Lakcím utca' value={driver.locationStreet} readOnly />
+                  <Input
+                    label='Lakcím közterület típusa'
+                    value={driver.locationStreetType}
+                    readOnly
+                  />
+                  <Input
+                    label='Lakcím házszám / ajtó'
+                    value={driver.locationDoorNumber}
+                    readOnly
+                  />
+                  <Input
                     label='Dokumentum típus'
                     value={driver.documentType}
                     readOnly
@@ -400,6 +429,11 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
                   <Input
                     label='Jogosítvány szám'
                     value={driver.drivingLicenceNumber}
+                    readOnly
+                  />
+                  <Input
+                    label='Jogosítvány kategória'
+                    value={driver.drivingLicenceCategory}
                     readOnly
                   />
                 </div>

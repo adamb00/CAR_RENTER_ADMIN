@@ -229,30 +229,43 @@ export default async function BookingEditPage({
   const payloadPricing = payload && isRecord(payload.pricing) ? payload.pricing : null;
   const payloadDelivery =
     payload && isRecord(payload.delivery) ? payload.delivery : null;
-  const payloadDriversRaw = Array.isArray(payload?.driver) ? payload.driver : [];
+  const payloadDriversSource = payload?.driver;
+  const payloadDriversRaw = Array.isArray(payloadDriversSource)
+    ? payloadDriversSource
+    : isRecord(payloadDriversSource)
+      ? [payloadDriversSource]
+      : [];
   const payloadDrivers = payloadDriversRaw.reduce<
     BookingAdminInitialData['drivers']
   >((acc, driver) => {
     if (!isRecord(driver)) return acc;
-      const document = isRecord(driver.document) ? driver.document : null;
-      const mapped = {
-        firstName_1: toDriverFormString(driver.firstName_1),
-        firstName_2: toDriverFormString(driver.firstName_2),
-        lastName_1: toDriverFormString(driver.lastName_1),
-        lastName_2: toDriverFormString(driver.lastName_2),
-        phoneNumber: toDriverFormString(driver.phoneNumber),
-        email: toDriverFormString(driver.email),
-        dateOfBirth: toDriverFormString(driver.dateOfBirth),
-        placeOfBirth: toDriverFormString(driver.placeOfBirth),
-        documentType: toDriverFormString(document?.type),
-        documentNumber: toDriverFormString(document?.number),
-        drivingLicenceNumber: toDriverFormString(document?.drivingLicenceNumber),
-      };
-      if (Object.values(mapped).some((value) => value.trim().length > 0)) {
-        acc.push(mapped);
-      }
-      return acc;
-    }, []);
+    const document = isRecord(driver.document) ? driver.document : null;
+    const location = isRecord(driver.location) ? driver.location : null;
+    const mapped = {
+      firstName_1: toDriverFormString(driver.firstName_1),
+      firstName_2: toDriverFormString(driver.firstName_2),
+      lastName_1: toDriverFormString(driver.lastName_1),
+      lastName_2: toDriverFormString(driver.lastName_2),
+      phoneNumber: toDriverFormString(driver.phoneNumber),
+      email: toDriverFormString(driver.email),
+      dateOfBirth: toDriverFormString(driver.dateOfBirth),
+      placeOfBirth: toDriverFormString(driver.placeOfBirth),
+      locationCountry: toDriverFormString(location?.country),
+      locationPostalCode: toDriverFormString(location?.postalCode),
+      locationCity: toDriverFormString(location?.city),
+      locationStreet: toDriverFormString(location?.street),
+      locationStreetType: toDriverFormString(location?.streetType),
+      locationDoorNumber: toDriverFormString(location?.doorNumber),
+      documentType: toDriverFormString(document?.type),
+      documentNumber: toDriverFormString(document?.number),
+      drivingLicenceNumber: toDriverFormString(document?.drivingLicenceNumber),
+      drivingLicenceCategory: toDriverFormString(document?.drivingLicenceCategory),
+    };
+    if (Object.values(mapped).some((value) => value.trim().length > 0)) {
+      acc.push(mapped);
+    }
+    return acc;
+  }, []);
   const payloadRentalStart = toPayloadDateInput(payloadRentalPeriod?.startDate);
   const payloadRentalEnd = toPayloadDateInput(payloadRentalPeriod?.endDate);
 
