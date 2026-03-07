@@ -33,6 +33,20 @@ type BookingDeliveryDetailsForm = {
   arrivalMinute: string;
 };
 
+type BookingDriverForm = {
+  firstName_1: string;
+  firstName_2: string;
+  lastName_1: string;
+  lastName_2: string;
+  phoneNumber: string;
+  email: string;
+  dateOfBirth: string;
+  placeOfBirth: string;
+  documentType: string;
+  documentNumber: string;
+  drivingLicenceNumber: string;
+};
+
 type BookingHandoverCostForm = {
   direction: HandoverDirectionValue;
   costType: HandoverCostTypeValue;
@@ -81,6 +95,7 @@ export type BookingAdminInitialData = {
   status: string;
   updatedNote: string;
   payloadJson: string;
+  drivers: BookingDriverForm[];
   hasPricingSnapshot: boolean;
   pricingSnapshot: BookingPricingSnapshotForm;
   hasDeliveryDetails: boolean;
@@ -108,6 +123,7 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
     K extends Exclude<
       keyof BookingAdminInitialData,
       | 'pricingSnapshot'
+      | 'drivers'
       | 'deliveryDetails'
       | 'handoverCosts'
       | 'vehicleHandovers'
@@ -221,12 +237,14 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
         status: form.status,
         updatedNote: form.updatedNote,
         payloadJson: form.payloadJson,
-        pricingSnapshotJson: form.hasPricingSnapshot || hasPricingValues
-          ? JSON.stringify(form.pricingSnapshot)
-          : '',
-        deliveryDetailsJson: form.hasDeliveryDetails || hasDeliveryValues
-          ? JSON.stringify(form.deliveryDetails)
-          : '',
+        pricingSnapshotJson:
+          form.hasPricingSnapshot || hasPricingValues
+            ? JSON.stringify(form.pricingSnapshot)
+            : '',
+        deliveryDetailsJson:
+          form.hasDeliveryDetails || hasDeliveryValues
+            ? JSON.stringify(form.deliveryDetails)
+            : '',
         handoverCostsJson: JSON.stringify(handoverCostsPayload),
         vehicleHandoversJson: JSON.stringify(vehicleHandoversPayload),
         bookingContractJson: form.hasBookingContract
@@ -327,6 +345,68 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             </p>
           ) : null}
         </div>
+      </div>
+
+      <div className='rounded-lg border p-4 space-y-4'>
+        <div className='flex items-center justify-between'>
+          <h2 className='text-base font-semibold'>Sofőr adatok </h2>
+        </div>
+        {form.drivers.length === 0 ? (
+          <p className='text-sm text-muted-foreground'>
+            A payload nem tartalmaz sofőr adatot.
+          </p>
+        ) : (
+          <div className='space-y-4'>
+            {form.drivers.map((driver, index) => (
+              <div
+                key={`${driver.email}-${driver.documentNumber}-${index}`}
+                className='rounded-md border p-3 space-y-3'
+              >
+                <p className='text-sm font-medium'>Sofőr #{index + 1}</p>
+                <div className='grid gap-3 md:grid-cols-3'>
+                  <Input
+                    label='Keresztnév '
+                    value={driver.firstName_1}
+                    readOnly
+                  />
+
+                  <Input
+                    label='Vezetéknév'
+                    value={driver.lastName_1}
+                    readOnly
+                  />
+                  <Input label='Telefon' value={driver.phoneNumber} readOnly />
+                  <Input label='E-mail' value={driver.email} readOnly />
+                  <Input
+                    label='Születési dátum'
+                    value={driver.dateOfBirth}
+                    readOnly
+                  />
+                  <Input
+                    label='Születési hely'
+                    value={driver.placeOfBirth}
+                    readOnly
+                  />
+                  <Input
+                    label='Dokumentum típus'
+                    value={driver.documentType}
+                    readOnly
+                  />
+                  <Input
+                    label='Dokumentum szám'
+                    value={driver.documentNumber}
+                    readOnly
+                  />
+                  <Input
+                    label='Jogosítvány szám'
+                    value={driver.drivingLicenceNumber}
+                    readOnly
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className='rounded-lg border p-4 space-y-4'>

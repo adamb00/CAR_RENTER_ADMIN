@@ -25,6 +25,90 @@ const addUtcDays = (value: Date, days: number) =>
     ),
   );
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const toOptionalTrimmedString = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const firstString = (...values: unknown[]): string | undefined => {
+  for (const value of values) {
+    const normalized = toOptionalTrimmedString(value);
+    if (normalized) return normalized;
+  }
+  return undefined;
+};
+
+const toPayloadDateInput = (value: unknown): string | undefined => {
+  const raw = toOptionalTrimmedString(value);
+  if (!raw) return undefined;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return parsed.toISOString().slice(0, 10);
+};
+
+const toUtcDateFromDateInput = (value?: string): Date | null => {
+  if (!value) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [yearText, monthText, dayText] = value.split('-');
+  const year = Number.parseInt(yearText, 10);
+  const month = Number.parseInt(monthText, 10);
+  const day = Number.parseInt(dayText, 10);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return parsed;
+};
+
+const toOptionalIntegerString = (value: unknown): string | undefined => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? String(Math.trunc(value)) : undefined;
+  }
+
+  const raw = toOptionalTrimmedString(value);
+  if (!raw) return undefined;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? String(Math.trunc(parsed)) : undefined;
+};
+
+const toAddressLineFromPayload = (value: unknown): string | undefined => {
+  const direct = toOptionalTrimmedString(value);
+  if (direct) return direct;
+  if (!isRecord(value)) return undefined;
+
+  const locality = [value.postalCode, value.city]
+    .map((item) => toOptionalTrimmedString(item))
+    .filter((item): item is string => Boolean(item))
+    .join(' ');
+  const street = [value.street, value.streetType, value.doorNumber]
+    .map((item) => toOptionalTrimmedString(item))
+    .filter((item): item is string => Boolean(item))
+    .join(' ');
+  const line = [locality, street, toOptionalTrimmedString(value.country)]
+    .filter((item): item is string => Boolean(item))
+    .join(', ');
+
+  return line.length > 0 ? line : undefined;
+};
+
+const toDriverFormString = (value: unknown): string => {
+  const normalized = toOptionalTrimmedString(value);
+  return normalized ?? '';
+};
+
 const toAmountString = (value: unknown) => {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value.toString() : '';
@@ -138,17 +222,53 @@ export default async function BookingEditPage({
 
   const pricingSnapshot = pricingRows[0] ?? null;
   const deliveryDetails = deliveryRows[0] ?? null;
+  const payload = isRecord(booking.payload) ? booking.payload : null;
+  const payloadContact = payload && isRecord(payload.contact) ? payload.contact : null;
+  const payloadRentalPeriod =
+    payload && isRecord(payload.rentalPeriod) ? payload.rentalPeriod : null;
+  const payloadPricing = payload && isRecord(payload.pricing) ? payload.pricing : null;
+  const payloadDelivery =
+    payload && isRecord(payload.delivery) ? payload.delivery : null;
+  const payloadDriversRaw = Array.isArray(payload?.driver) ? payload.driver : [];
+  const payloadDrivers = payloadDriversRaw.reduce<
+    BookingAdminInitialData['drivers']
+  >((acc, driver) => {
+    if (!isRecord(driver)) return acc;
+      const document = isRecord(driver.document) ? driver.document : null;
+      const mapped = {
+        firstName_1: toDriverFormString(driver.firstName_1),
+        firstName_2: toDriverFormString(driver.firstName_2),
+        lastName_1: toDriverFormString(driver.lastName_1),
+        lastName_2: toDriverFormString(driver.lastName_2),
+        phoneNumber: toDriverFormString(driver.phoneNumber),
+        email: toDriverFormString(driver.email),
+        dateOfBirth: toDriverFormString(driver.dateOfBirth),
+        placeOfBirth: toDriverFormString(driver.placeOfBirth),
+        documentType: toDriverFormString(document?.type),
+        documentNumber: toDriverFormString(document?.number),
+        drivingLicenceNumber: toDriverFormString(document?.drivingLicenceNumber),
+      };
+      if (Object.values(mapped).some((value) => value.trim().length > 0)) {
+        acc.push(mapped);
+      }
+      return acc;
+    }, []);
+  const payloadRentalStart = toPayloadDateInput(payloadRentalPeriod?.startDate);
+  const payloadRentalEnd = toPayloadDateInput(payloadRentalPeriod?.endDate);
+
+  const effectiveCarId = firstString(booking.carid, payload?.carId) ?? '';
+  const effectiveRentalEnd = booking.rentalend ?? toUtcDateFromDateInput(payloadRentalEnd);
   let maxExtendableRentalEnd = '';
   let nextCarBookingCode = '';
 
-  if (booking.carid && booking.rentalend) {
+  if (effectiveCarId && effectiveRentalEnd) {
     const nextCarBookings = await db.rentRequests.findMany({
       where: {
         id: { not: booking.id },
-        carid: booking.carid,
+        carid: effectiveCarId,
         rentalstart: {
           not: null,
-          gt: booking.rentalend,
+          gt: effectiveRentalEnd,
         },
       },
       select: {
@@ -183,40 +303,72 @@ export default async function BookingEditPage({
     createdAt: booking.createdAt.toISOString(),
     updatedAt: booking.updatedAt.toISOString(),
     humanId: booking.humanId ?? '',
-    locale: booking.locale ?? '',
-    carId: booking.carid ?? '',
-    quoteId: booking.quoteid ?? '',
-    contactName: booking.contactname ?? '',
-    contactEmail: booking.contactemail ?? '',
-    contactPhone: booking.contactphone ?? '',
-    rentalStart: toDateInputValue(booking.rentalstart),
-    rentalEnd: toDateInputValue(booking.rentalend),
-    originalRentalEnd: toDateInputValue(booking.rentalend),
+    locale: firstString(booking.locale, payload?.locale) ?? '',
+    carId: effectiveCarId,
+    quoteId: firstString(booking.quoteid, payload?.quoteId) ?? '',
+    contactName: firstString(booking.contactname, payloadContact?.name) ?? '',
+    contactEmail: firstString(booking.contactemail, payloadContact?.email) ?? '',
+    contactPhone:
+      firstString(
+        booking.contactphone,
+        payloadContact?.phoneNumber,
+        payload?.contactPhone,
+      ) ?? '',
+    rentalStart: toDateInputValue(booking.rentalstart) || payloadRentalStart || '',
+    rentalEnd: toDateInputValue(booking.rentalend) || payloadRentalEnd || '',
+    originalRentalEnd:
+      toDateInputValue(booking.rentalend) || payloadRentalEnd || '',
     maxExtendableRentalEnd,
     nextCarBookingCode,
-    rentalDays: booking.rentaldays != null ? String(booking.rentaldays) : '',
-    status: booking.status ?? '',
-    updatedNote: booking.updated ?? '',
+    rentalDays:
+      booking.rentaldays != null
+        ? String(booking.rentaldays)
+        : (toOptionalIntegerString(payload?.rentalDays) ?? ''),
+    status: firstString(booking.status, payload?.status) ?? '',
+    updatedNote: firstString(booking.updated, payload?.updatedNote) ?? '',
     payloadJson: stringifyJson(booking.payload),
+    drivers: payloadDrivers,
     hasPricingSnapshot: Boolean(pricingSnapshot),
     pricingSnapshot: {
-      rentalFee: pricingSnapshot?.rentalFee ?? '',
-      insurance: pricingSnapshot?.insurance ?? '',
-      deposit: pricingSnapshot?.deposit ?? '',
-      deliveryFee: pricingSnapshot?.deliveryFee ?? '',
-      extrasFee: pricingSnapshot?.extrasFee ?? '',
-      tip: pricingSnapshot?.tip ?? '',
+      rentalFee: firstString(pricingSnapshot?.rentalFee, payloadPricing?.rentalFee) ?? '',
+      insurance: firstString(pricingSnapshot?.insurance, payloadPricing?.insurance) ?? '',
+      deposit: firstString(pricingSnapshot?.deposit, payloadPricing?.deposit) ?? '',
+      deliveryFee:
+        firstString(pricingSnapshot?.deliveryFee, payloadPricing?.deliveryFee) ?? '',
+      extrasFee:
+        firstString(pricingSnapshot?.extrasFee, payloadPricing?.extrasFee) ?? '',
+      tip: firstString(pricingSnapshot?.tip, payloadPricing?.tip) ?? '',
     },
     hasDeliveryDetails: Boolean(deliveryDetails),
     deliveryDetails: {
-      placeType: deliveryDetails?.placeType ?? '',
-      locationName: deliveryDetails?.locationName ?? '',
-      addressLine: deliveryDetails?.addressLine ?? '',
-      island: deliveryDetails?.island ?? '',
-      arrivalFlight: deliveryDetails?.arrivalFlight ?? '',
-      departureFlight: deliveryDetails?.departureFlight ?? '',
-      arrivalHour: deliveryDetails?.arrivalHour ?? '',
-      arrivalMinute: deliveryDetails?.arrivalMinute ?? '',
+      placeType: firstString(deliveryDetails?.placeType, payloadDelivery?.placeType) ?? '',
+      locationName:
+        firstString(
+          deliveryDetails?.locationName,
+          payloadDelivery?.locationName,
+          payloadPricing?.deliveryLocation,
+        ) ?? '',
+      addressLine:
+        firstString(
+          deliveryDetails?.addressLine,
+          toAddressLineFromPayload(payloadDelivery?.address),
+        ) ?? '',
+      island: firstString(deliveryDetails?.island, payloadDelivery?.island) ?? '',
+      arrivalFlight:
+        firstString(deliveryDetails?.arrivalFlight, payloadDelivery?.arrivalFlight) ??
+        '',
+      departureFlight:
+        firstString(
+          deliveryDetails?.departureFlight,
+          payloadDelivery?.departureFlight,
+        ) ?? '',
+      arrivalHour:
+        firstString(deliveryDetails?.arrivalHour, payloadDelivery?.arrivalHour) ?? '',
+      arrivalMinute:
+        firstString(
+          deliveryDetails?.arrivalMinute,
+          payloadDelivery?.arrivalMinute,
+        ) ?? '',
     },
     handoverCosts: handoverCostRows.map((row) => ({
       direction: row.direction,

@@ -796,6 +796,17 @@ const applyNormalizedPayloadByBookingId = ({
     }
   }
 
+  if (nextPayload.pricing && !nextPayload.pricing.deliveryLocation) {
+    const deliveryLocationFallback =
+      nextPayload.delivery?.locationName ?? nextPayload.delivery?.address?.street;
+    if (deliveryLocationFallback) {
+      nextPayload.pricing = {
+        ...nextPayload.pricing,
+        deliveryLocation: deliveryLocationFallback,
+      };
+    }
+  }
+
   return Object.keys(nextPayload).length > 0 ? nextPayload : null;
 };
 

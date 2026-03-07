@@ -1,6 +1,6 @@
 'use server';
 
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 import {
@@ -250,6 +250,25 @@ const normalizeAddress = (input?: AddressInput) => {
     : undefined;
 };
 
+const toAddressLine = (
+  address?: ReturnType<typeof normalizeAddress>,
+): string | undefined => {
+  if (!address) return undefined;
+
+  const locality = [address.postalCode, address.city]
+    .filter((value): value is string => Boolean(value))
+    .join(' ');
+  const street = [address.street, address.streetType, address.doorNumber]
+    .filter((value): value is string => Boolean(value))
+    .join(' ');
+
+  const line = [locality, street, address.country]
+    .filter((value): value is string => Boolean(value))
+    .join(', ');
+
+  return line.length > 0 ? line : undefined;
+};
+
 const pruneUndefined = (value: unknown): unknown => {
   if (Array.isArray(value)) {
     const normalized = value
@@ -282,7 +301,6 @@ export async function createManualBookingAction({
   rentalDays,
   fleetVehicleId,
   carId,
-  carLabel,
   adults,
   extras,
   children,
@@ -304,7 +322,6 @@ export async function createManualBookingAction({
   const trimmedRentalEnd = toOptionalString(rentalEnd);
   const trimmedFleetVehicleId = toOptionalString(fleetVehicleId ?? undefined);
   const trimmedCarId = toOptionalString(carId);
-  const trimmedCarLabel = toOptionalString(carLabel);
   const trimmedQuoteIdentifier = toOptionalString(quoteIdentifier);
   const trimmedSelfServiceEventsJson = toOptionalString(selfServiceEventsJson);
 
@@ -454,7 +471,12 @@ export async function createManualBookingAction({
   };
 
   const normalizedDeliveryAddress = normalizeAddress(delivery?.address);
+  const normalizedDeliveryLocationName =
+    toOptionalString(delivery?.locationName) ??
+    normalizedPricing.deliveryLocation;
+  const normalizedDeliveryAddressLine = toAddressLine(normalizedDeliveryAddress);
   const deliveryAddressLineForIsland = [
+    normalizedDeliveryAddressLine,
     normalizedDeliveryAddress?.street,
     normalizedDeliveryAddress?.city,
     normalizedDeliveryAddress?.country,
@@ -467,18 +489,18 @@ export async function createManualBookingAction({
     island:
       normalizeDeliveryIsland(delivery?.island) ??
       resolveDeliveryIsland({
-        locationName: toOptionalString(delivery?.locationName) ?? null,
+        locationName: normalizedDeliveryLocationName ?? null,
         addressLine: deliveryAddressLineForIsland || null,
         arrivalFlight: toOptionalString(delivery?.arrivalFlight) ?? null,
         departureFlight: toOptionalString(delivery?.departureFlight) ?? null,
       }) ??
       undefined,
-    locationName: toOptionalString(delivery?.locationName),
+    locationName: normalizedDeliveryLocationName,
     arrivalFlight: toOptionalString(delivery?.arrivalFlight),
     departureFlight: toOptionalString(delivery?.departureFlight),
     arrivalHour: toOptionalString(delivery?.arrivalHour),
     arrivalMinute: toOptionalString(delivery?.arrivalMinute),
-    address: normalizedDeliveryAddress,
+    addressLine: normalizedDeliveryAddressLine,
   };
 
   const normalizedTax = {
@@ -486,29 +508,11 @@ export async function createManualBookingAction({
     companyName: toOptionalString(tax?.companyName),
   };
 
-  const payload: Record<string, unknown> = {
-    locale: trimmedLocale,
-    rentalPeriod: {
-      startDate: trimmedRentalStart,
-      endDate: trimmedRentalEnd,
-    },
-    contact: {
-      same: toOptionalBoolean(contact?.same),
-      name: effectiveContactName,
-      email: trimmedEmail,
-    },
-  };
+  const payload: Record<string, unknown> = {};
+  const normalizedContactSame = toOptionalBoolean(contact?.same);
 
-  if (linkedQuoteId) {
-    payload.quoteId = linkedQuoteId;
-  }
-
-  if (selectedFleet) {
-    payload.carId = selectedFleet.carId;
-  } else if (trimmedCarId) {
-    payload.carId = trimmedCarId;
-  } else if (trimmedCarLabel) {
-    payload.carId = trimmedCarLabel;
+  if (normalizedContactSame != null) {
+    payload.contact = { same: normalizedContactSame };
   }
 
   if (normalizedExtras.length > 0) {
@@ -533,12 +537,6 @@ export async function createManualBookingAction({
     payload.invoice = normalizedInvoice;
   }
 
-  if (
-    Object.values(normalizedDelivery).some((value) => value != null)
-  ) {
-    payload.delivery = normalizedDelivery;
-  }
-
   if (Object.values(normalizedTax).some((value) => value != null)) {
     payload.tax = normalizedTax;
   }
@@ -547,14 +545,37 @@ export async function createManualBookingAction({
     payload.consents = normalizedConsents;
   }
 
-  if (Object.values(normalizedPricing).some((value) => value != null)) {
-    payload.pricing = normalizedPricing;
-  }
-
   const sanitizedPayload = pruneUndefined(payload);
-  if (!sanitizedPayload || typeof sanitizedPayload !== 'object') {
-    return { error: 'A foglalás payload összeállítása sikertelen.' };
-  }
+  const payloadForStorage =
+    sanitizedPayload && typeof sanitizedPayload === 'object'
+      ? (sanitizedPayload as Prisma.InputJsonValue)
+      : Prisma.DbNull;
+
+  const pricingSnapshotData = {
+    rentalFee: normalizedPricing.rentalFee ?? null,
+    insurance: normalizedPricing.insurance ?? null,
+    deposit: normalizedPricing.deposit ?? null,
+    deliveryFee: normalizedPricing.deliveryFee ?? null,
+    extrasFee: normalizedPricing.extrasFee ?? null,
+    tip: normalizedPricing.tip ?? null,
+  };
+  const hasPricingSnapshot = Object.values(pricingSnapshotData).some(
+    (value) => value != null,
+  );
+
+  const deliveryDetailsData = {
+    placeType: normalizedDelivery.placeType ?? null,
+    locationName: normalizedDelivery.locationName ?? null,
+    addressLine: normalizedDelivery.addressLine ?? null,
+    island: normalizedDelivery.island ?? null,
+    arrivalFlight: normalizedDelivery.arrivalFlight ?? null,
+    departureFlight: normalizedDelivery.departureFlight ?? null,
+    arrivalHour: normalizedDelivery.arrivalHour ?? null,
+    arrivalMinute: normalizedDelivery.arrivalMinute ?? null,
+  };
+  const hasDeliveryDetails = Object.values(deliveryDetailsData).some(
+    (value) => value != null,
+  );
 
   try {
     let created: { id: string } | null = null;
@@ -579,8 +600,22 @@ export async function createManualBookingAction({
             rentaldays: effectiveRentalDays,
             status: effectiveStatus,
             updated: trimmedSelfServiceEventsJson ?? null,
-            payload: sanitizedPayload as Prisma.InputJsonValue,
+            payload: payloadForStorage,
             humanId: nextHumanId ?? undefined,
+            ...(hasPricingSnapshot
+              ? {
+                  bookingPricingSnapshot: {
+                    create: pricingSnapshotData,
+                  },
+                }
+              : {}),
+            ...(hasDeliveryDetails
+              ? {
+                  bookingDeliveryDetails: {
+                    create: deliveryDetailsData,
+                  },
+                }
+              : {}),
           },
           select: { id: true },
         });
