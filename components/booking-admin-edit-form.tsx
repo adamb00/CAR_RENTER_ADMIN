@@ -199,6 +199,13 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
       .filter((row) => row.fleetVehicleId.trim().length > 0);
 
     startTransition(async () => {
+      const hasPricingValues = Object.values(form.pricingSnapshot).some(
+        (value) => value.trim().length > 0,
+      );
+      const hasDeliveryValues = Object.values(form.deliveryDetails).some(
+        (value) => value.trim().length > 0,
+      );
+
       const result = await updateBookingAdminAction({
         bookingId: form.id,
         humanId: form.humanId,
@@ -214,10 +221,10 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
         status: form.status,
         updatedNote: form.updatedNote,
         payloadJson: form.payloadJson,
-        pricingSnapshotJson: form.hasPricingSnapshot
+        pricingSnapshotJson: form.hasPricingSnapshot || hasPricingValues
           ? JSON.stringify(form.pricingSnapshot)
           : '',
-        deliveryDetailsJson: form.hasDeliveryDetails
+        deliveryDetailsJson: form.hasDeliveryDetails || hasDeliveryValues
           ? JSON.stringify(form.deliveryDetails)
           : '',
         handoverCostsJson: JSON.stringify(handoverCostsPayload),
@@ -333,7 +340,6 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             onChange={(event) =>
               updatePricingField('rentalFee', event.target.value)
             }
-            disabled={!form.hasPricingSnapshot}
           />
           <Input
             label='Biztosítás'
@@ -341,7 +347,6 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             onChange={(event) =>
               updatePricingField('insurance', event.target.value)
             }
-            disabled={!form.hasPricingSnapshot}
           />
           <Input
             label='Kaució'
@@ -349,7 +354,6 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             onChange={(event) =>
               updatePricingField('deposit', event.target.value)
             }
-            disabled={!form.hasPricingSnapshot}
           />
           <Input
             label='Kiszállítási díj'
@@ -357,7 +361,6 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             onChange={(event) =>
               updatePricingField('deliveryFee', event.target.value)
             }
-            disabled={!form.hasPricingSnapshot}
           />
           <Input
             label='Extra díjak'
@@ -365,13 +368,11 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             onChange={(event) =>
               updatePricingField('extrasFee', event.target.value)
             }
-            disabled={!form.hasPricingSnapshot}
           />
           <Input
             label='Borravaló'
             value={form.pricingSnapshot.tip}
             onChange={(event) => updatePricingField('tip', event.target.value)}
-            disabled={!form.hasPricingSnapshot}
           />
         </div>
       </div>
@@ -387,7 +388,6 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             onChange={(event) =>
               updateDeliveryField('placeType', event.target.value)
             }
-            disabled={!form.hasDeliveryDetails}
           />
           <Input
             label='Helyszín neve'
@@ -395,7 +395,6 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             onChange={(event) =>
               updateDeliveryField('locationName', event.target.value)
             }
-            disabled={!form.hasDeliveryDetails}
           />
           <Input
             label='Cím'
@@ -403,7 +402,6 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             onChange={(event) =>
               updateDeliveryField('addressLine', event.target.value)
             }
-            disabled={!form.hasDeliveryDetails}
           />
           <FloatingSelect
             label='Sziget'
@@ -411,7 +409,6 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             onChange={(event) =>
               updateDeliveryField('island', event.target.value)
             }
-            disabled={!form.hasDeliveryDetails}
           >
             <option value=''>Nincs megadva</option>
             <option value='Lanzarote'>Lanzarote</option>
@@ -423,7 +420,6 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             onChange={(event) =>
               updateDeliveryField('arrivalFlight', event.target.value)
             }
-            disabled={!form.hasDeliveryDetails}
           />
           <Input
             label='Induló járat'
@@ -431,7 +427,6 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             onChange={(event) =>
               updateDeliveryField('departureFlight', event.target.value)
             }
-            disabled={!form.hasDeliveryDetails}
           />
           <Input
             label='Érkezés órája'
@@ -439,7 +434,6 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             onChange={(event) =>
               updateDeliveryField('arrivalHour', event.target.value)
             }
-            disabled={!form.hasDeliveryDetails}
           />
           <Input
             label='Érkezés perce'
@@ -447,7 +441,6 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             onChange={(event) =>
               updateDeliveryField('arrivalMinute', event.target.value)
             }
-            disabled={!form.hasDeliveryDetails}
           />
         </div>
       </div>
