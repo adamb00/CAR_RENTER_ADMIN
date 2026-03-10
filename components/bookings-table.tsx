@@ -23,7 +23,7 @@ export function BookingsTable({ data }: { data: Booking[] }) {
 
     return data.filter((booking) => {
       const driver = booking.payload?.driver?.[0];
-      const delivery = booking.payload?.delivery;
+      const delivery = booking.delivery;
       const haystack = [
         booking.contactName,
         booking.contactEmail,

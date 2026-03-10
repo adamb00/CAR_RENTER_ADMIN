@@ -56,6 +56,7 @@ export type BookingHandoverCosts = {
   fuelCost?: string;
   ferryCost?: string;
   cleaningCost?: string;
+  commissionCost?: string;
 };
 
 export const PAYMENT_METHOD_VALUES = [
@@ -155,6 +156,7 @@ export type Booking = {
   updatedAt: string | null;
   payload: BookingPayload | null;
   selfServiceEvents?: BookingSelfServiceEvent[];
+  delivery?: BookingPayload['delivery'] | null;
   pricing?: BookingPricing | null;
 };
 
@@ -350,6 +352,8 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
       fuelCost: toOptionalString(value.fuelCost),
       ferryCost: toOptionalString(value.ferryCost),
       cleaningCost: toOptionalString(value.cleaningCost),
+      commissionCost:
+        toOptionalString(value.commissionCost) ?? toOptionalString(value.commission),
     };
   };
 
@@ -553,7 +557,7 @@ type BookingDeliveryDetailsRow = {
 type BookingHandoverCostRow = {
   bookingId: string;
   direction: 'out' | 'in';
-  costType: 'tip' | 'fuel' | 'ferry' | 'cleaning';
+  costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
   amount: unknown;
 };
 
@@ -583,6 +587,25 @@ const toAmountString = (value: unknown): string | undefined => {
 
 const hasAnyObjectValue = (value: Record<string, unknown>) =>
   Object.values(value).some((item) => item !== undefined);
+
+const withDeliveryLocationFallback = (
+  pricing?: BookingPayload['pricing'] | null,
+  delivery?: BookingPayload['delivery'] | null,
+): BookingPayload['pricing'] | null => {
+  if (!pricing) return pricing ?? null;
+
+  const current = pricing.deliveryLocation?.trim();
+  if (current && current.length > 0) return pricing;
+
+  const fallback =
+    delivery?.locationName?.trim() ?? delivery?.address?.street?.trim();
+
+  if (!fallback || fallback.length === 0) return pricing;
+  return {
+    ...pricing,
+    deliveryLocation: fallback,
+  };
+};
 
 const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
   const pricingByBookingId = new Map<string, BookingPayload['pricing']>();
@@ -711,11 +734,15 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
   for (const row of handoverCostRows) {
     const previous = handoverByBookingId.get(row.bookingId) ?? {};
 
-    if (row.costType === 'tip' && row.direction === 'out') {
-      handoverByBookingId.set(row.bookingId, {
-        ...previous,
-        handoverTip: toAmountString(row.amount),
-      });
+    if (row.costType === 'tip') {
+      if (row.direction === 'out') {
+        handoverByBookingId.set(row.bookingId, {
+          ...previous,
+          handoverTip: toAmountString(row.amount),
+        });
+      } else {
+        handoverByBookingId.set(row.bookingId, previous);
+      }
       continue;
     }
 
@@ -730,7 +757,9 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
         ? 'fuelCost'
         : row.costType === 'ferry'
           ? 'ferryCost'
-          : 'cleaningCost';
+          : row.costType === 'cleaning'
+            ? 'cleaningCost'
+            : 'commissionCost';
 
     const existingCosts = previous.handoverCosts ?? {};
     const directionCosts = existingCosts[row.direction] ?? {};
@@ -758,28 +787,16 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
 const applyNormalizedPayloadByBookingId = ({
   bookingId,
   payload,
-  pricingByBookingId,
-  deliveryByBookingId,
   handoverByBookingId,
 }: {
   bookingId: string;
   payload: BookingPayload | null;
-  pricingByBookingId: Map<string, BookingPayload['pricing']>;
-  deliveryByBookingId: Map<string, BookingPayload['delivery']>;
   handoverByBookingId: Map<
     string,
     Pick<BookingPayload, 'handoverTip' | 'handoverCosts'>
   >;
 }): BookingPayload | null => {
   const nextPayload = payload ? { ...payload } : {};
-
-  if (pricingByBookingId.has(bookingId)) {
-    nextPayload.pricing = pricingByBookingId.get(bookingId);
-  }
-
-  if (deliveryByBookingId.has(bookingId)) {
-    nextPayload.delivery = deliveryByBookingId.get(bookingId);
-  }
 
   if (handoverByBookingId.has(bookingId)) {
     const handover = handoverByBookingId.get(bookingId) ?? {};
@@ -796,54 +813,78 @@ const applyNormalizedPayloadByBookingId = ({
     }
   }
 
-  if (nextPayload.pricing && !nextPayload.pricing.deliveryLocation) {
-    const deliveryLocationFallback =
-      nextPayload.delivery?.locationName ?? nextPayload.delivery?.address?.street;
-    if (deliveryLocationFallback) {
-      nextPayload.pricing = {
-        ...nextPayload.pricing,
-        deliveryLocation: deliveryLocationFallback,
-      };
-    }
-  }
-
   return Object.keys(nextPayload).length > 0 ? nextPayload : null;
 };
 
-const normalizeBooking = (booking: BookingWithQuote): Booking => ({
-  id: booking.id,
-  humanId: booking.humanId ?? booking.ContactQuotes?.humanId ?? null,
-  locale: booking.locale ?? '',
-  carId: booking.carid ?? undefined,
-  assignedFleetVehicleId:
-    booking.assignedFleetVehicleId ??
-    (isRecord(booking.payload)
-      ? toOptionalString(
-          (booking.payload as Record<string, unknown>).assignedFleetVehicleId,
-        )
-      : undefined),
-  assignedFleetPlate:
-    booking.assignedFleetPlate ??
-    (isRecord(booking.payload)
-      ? toOptionalString(
-          (booking.payload as Record<string, unknown>).assignedFleetPlate,
-        )
-      : undefined),
-  quoteId: booking.quoteid ?? undefined,
-  contactName: booking.contactname ?? '',
-  contactEmail: booking.contactemail ?? null,
-  contactPhone: booking.contactphone ?? null,
-  rentalStart: toDateString(booking.rentalstart),
-  rentalEnd: toDateString(booking.rentalend),
-  rentalDays: booking.rentaldays ?? undefined,
-  status: booking.status ?? undefined,
-  updatedNote: booking.updated ?? undefined,
-  deliveryIsland: null,
-  createdAt: toDateTimeString(booking.createdAt),
-  updatedAt: toDateTimeString(booking.updatedAt),
-  payload: normalizeBookingPayload(booking.payload),
-  selfServiceEvents: parseSelfServiceEvents(booking.updated),
-});
+const normalizeBooking = (booking: BookingWithQuote): Booking => {
+  const normalizedPayload = normalizeBookingPayload(booking.payload);
+  return {
+    id: booking.id,
+    humanId: booking.humanId ?? booking.ContactQuotes?.humanId ?? null,
+    locale: booking.locale ?? '',
+    carId: booking.carid ?? undefined,
+    assignedFleetVehicleId:
+      booking.assignedFleetVehicleId ??
+      (isRecord(booking.payload)
+        ? toOptionalString(
+            (booking.payload as Record<string, unknown>).assignedFleetVehicleId,
+          )
+        : undefined),
+    assignedFleetPlate:
+      booking.assignedFleetPlate ??
+      (isRecord(booking.payload)
+        ? toOptionalString(
+            (booking.payload as Record<string, unknown>).assignedFleetPlate,
+          )
+        : undefined),
+    quoteId: booking.quoteid ?? undefined,
+    contactName: booking.contactname ?? '',
+    contactEmail: booking.contactemail ?? null,
+    contactPhone: booking.contactphone ?? null,
+    rentalStart: toDateString(booking.rentalstart),
+    rentalEnd: toDateString(booking.rentalend),
+    rentalDays: booking.rentaldays ?? undefined,
+    status: booking.status ?? undefined,
+    updatedNote: booking.updated ?? undefined,
+    deliveryIsland: null,
+    createdAt: toDateTimeString(booking.createdAt),
+    updatedAt: toDateTimeString(booking.updatedAt),
+    payload: normalizedPayload,
+    selfServiceEvents: parseSelfServiceEvents(booking.updated),
+    delivery: normalizedPayload?.delivery ?? null,
+    pricing: normalizedPayload?.pricing ?? null,
+  };
+};
+
+const applyNormalizedStructuredFieldsByBookingId = ({
+  bookingId,
+  payload,
+  pricingByBookingId,
+  deliveryByBookingId,
+  islandByBookingId,
+}: {
+  bookingId: string;
+  payload: BookingPayload | null;
+  pricingByBookingId: Map<string, BookingPayload['pricing']>;
+  deliveryByBookingId: Map<string, BookingPayload['delivery']>;
+  islandByBookingId: Map<string, string>;
+}): Pick<Booking, 'pricing' | 'delivery' | 'deliveryIsland'> => {
+  const payloadPricing = payload?.pricing ?? null;
+  const payloadDelivery = payload?.delivery ?? null;
+
+  const pricing = pricingByBookingId.has(bookingId)
+    ? (pricingByBookingId.get(bookingId) ?? null)
+    : payloadPricing;
+  const delivery = deliveryByBookingId.has(bookingId)
+    ? (deliveryByBookingId.get(bookingId) ?? null)
+    : payloadDelivery;
+
+  return {
+    pricing: withDeliveryLocationFallback(pricing, delivery),
+    delivery,
+    deliveryIsland: islandByBookingId.get(bookingId) ?? delivery?.island ?? null,
+  };
+};
 
 const CONTACT_QUOTE_INCLUDE = {
   ContactQuotes: {
@@ -891,16 +932,25 @@ export const getBookings = async (): Promise<Booking[]> => {
   const normalizedPayloadParts = await getNormalizedPayloadPartsByBookingId(
     normalizedBase.map((booking) => booking.id),
   );
-  const normalized = normalizedBase.map((booking) => ({
-    ...booking,
-    deliveryIsland:
-      normalizedPayloadParts.islandByBookingId.get(booking.id) ?? null,
-    payload: applyNormalizedPayloadByBookingId({
+  const normalized = normalizedBase.map((booking) => {
+    const normalizedFields = applyNormalizedStructuredFieldsByBookingId({
       bookingId: booking.id,
       payload: booking.payload,
-      ...normalizedPayloadParts,
-    }),
-  }));
+      pricingByBookingId: normalizedPayloadParts.pricingByBookingId,
+      deliveryByBookingId: normalizedPayloadParts.deliveryByBookingId,
+      islandByBookingId: normalizedPayloadParts.islandByBookingId,
+    });
+
+    return {
+      ...booking,
+      ...normalizedFields,
+      payload: applyNormalizedPayloadByBookingId({
+        bookingId: booking.id,
+        payload: booking.payload,
+        handoverByBookingId: normalizedPayloadParts.handoverByBookingId,
+      }),
+    };
+  });
 
   const carIds = Array.from(
     new Set(
@@ -947,14 +997,20 @@ export const getBookingById = async (id: string): Promise<Booking | null> => {
   const normalizedPayloadParts = await getNormalizedPayloadPartsByBookingId([
     normalizedBase.id,
   ]);
+  const normalizedFields = applyNormalizedStructuredFieldsByBookingId({
+    bookingId: normalizedBase.id,
+    payload: normalizedBase.payload,
+    pricingByBookingId: normalizedPayloadParts.pricingByBookingId,
+    deliveryByBookingId: normalizedPayloadParts.deliveryByBookingId,
+    islandByBookingId: normalizedPayloadParts.islandByBookingId,
+  });
   const normalized = {
     ...normalizedBase,
-    deliveryIsland:
-      normalizedPayloadParts.islandByBookingId.get(normalizedBase.id) ?? null,
+    ...normalizedFields,
     payload: applyNormalizedPayloadByBookingId({
       bookingId: normalizedBase.id,
       payload: normalizedBase.payload,
-      ...normalizedPayloadParts,
+      handoverByBookingId: normalizedPayloadParts.handoverByBookingId,
     }),
   };
   const carId = normalized.carId ?? normalized.payload?.carId;
@@ -996,14 +1052,20 @@ export const getBookingByQuoteId = async (
   const normalizedPayloadParts = await getNormalizedPayloadPartsByBookingId([
     normalizedBase.id,
   ]);
+  const normalizedFields = applyNormalizedStructuredFieldsByBookingId({
+    bookingId: normalizedBase.id,
+    payload: normalizedBase.payload,
+    pricingByBookingId: normalizedPayloadParts.pricingByBookingId,
+    deliveryByBookingId: normalizedPayloadParts.deliveryByBookingId,
+    islandByBookingId: normalizedPayloadParts.islandByBookingId,
+  });
   const normalized = {
     ...normalizedBase,
-    deliveryIsland:
-      normalizedPayloadParts.islandByBookingId.get(normalizedBase.id) ?? null,
+    ...normalizedFields,
     payload: applyNormalizedPayloadByBookingId({
       bookingId: normalizedBase.id,
       payload: normalizedBase.payload,
-      ...normalizedPayloadParts,
+      handoverByBookingId: normalizedPayloadParts.handoverByBookingId,
     }),
   };
   const carId = normalized.carId ?? normalized.payload?.carId;

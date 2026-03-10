@@ -43,6 +43,20 @@ export async function assignFleetVehicleToBookingAction({
       rentalstart: true,
       rentalend: true,
       status: true,
+      bookingDeliveryDetails: {
+        select: {
+          arrivalHour: true,
+          arrivalMinute: true,
+        },
+      },
+      vehicleHandovers: {
+        where: { direction: { in: ['out', 'in'] } },
+        select: {
+          direction: true,
+          handoverAt: true,
+        },
+        orderBy: { handoverAt: 'asc' },
+      },
     },
   });
 
@@ -89,6 +103,14 @@ export async function assignFleetVehicleToBookingAction({
   }
 
   if (booking.rentalstart && booking.rentalend) {
+    const handoverOutAt =
+      booking.vehicleHandovers.find((handover) => handover.direction === 'out')
+        ?.handoverAt ?? null;
+    const handoverInAt =
+      [...booking.vehicleHandovers]
+        .reverse()
+        .find((handover) => handover.direction === 'in')?.handoverAt ?? null;
+
     if (
       isFleetBlockedByServiceWindow({
         notes: fleetVehicle.notes,
@@ -107,6 +129,10 @@ export async function assignFleetVehicleToBookingAction({
       fleetVehicleId: fleetVehicle.id,
       rentalStart: booking.rentalstart,
       rentalEnd: booking.rentalend,
+      arrivalHour: booking.bookingDeliveryDetails?.arrivalHour ?? null,
+      arrivalMinute: booking.bookingDeliveryDetails?.arrivalMinute ?? null,
+      handoverOutAt,
+      handoverInAt,
     });
 
     if (conflictingBooking) {

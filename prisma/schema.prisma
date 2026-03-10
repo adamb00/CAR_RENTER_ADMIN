@@ -254,6 +254,7 @@ model VehicleHandover {
   handoverAt     DateTime           @default(now())
   handoverBy     String?
   mileage        Int?
+  rangeKm        Int?
   notes          String?
   damages        String?
   damagesImages  String[]           @default([])
@@ -306,4 +307,5 @@ enum HandoverCostType {
   fuel
   ferry
   cleaning
+  commission
 }

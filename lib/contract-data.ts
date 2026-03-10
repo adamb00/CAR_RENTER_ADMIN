@@ -46,6 +46,8 @@ export const buildContractDataFromBooking = (
   booking: Booking,
   vehicle?: VehicleSummary | null,
 ): ContractData => {
+  const pricing = booking.pricing;
+  const delivery = booking.delivery;
   const recipient =
     booking.contactEmail ??
     booking.payload?.contact?.email ??
@@ -61,7 +63,7 @@ export const buildContractDataFromBooking = (
   const renterAddress = pickFirstValue(
     formatAddress(driver?.location),
     formatAddress(booking.payload?.invoice?.location),
-    formatAddress(booking.payload?.delivery?.address),
+    formatAddress(delivery?.address),
   );
   const renterPhone = pickFirstValue(
     driver?.phoneNumber,
@@ -101,10 +103,10 @@ export const buildContractDataFromBooking = (
     rentalStart,
     rentalEnd,
     rentalDays: booking.rentalDays ?? undefined,
-    rentalFee: booking.payload?.pricing?.rentalFee ?? undefined,
-    deposit: booking.payload?.pricing?.deposit ?? undefined,
-    insurance: booking.payload?.pricing?.insurance ?? undefined,
-    pickupLocation: booking.payload?.delivery?.locationName ?? undefined,
-    pickupAddress: formatAddress(booking.payload?.delivery?.address),
+    rentalFee: pricing?.rentalFee ?? undefined,
+    deposit: pricing?.deposit ?? undefined,
+    insurance: pricing?.insurance ?? undefined,
+    pickupLocation: delivery?.locationName ?? undefined,
+    pickupAddress: formatAddress(delivery?.address),
   };
 };

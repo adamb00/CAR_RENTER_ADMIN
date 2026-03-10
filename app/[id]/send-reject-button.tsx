@@ -51,7 +51,11 @@ export const SendRejectButton = ({
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button type='button' variant='destructive' className='gap-2'>
+        <Button
+          type='button'
+          variant='outline'
+          className='gap-2 bg-red-500 text-white'
+        >
           <CircleX className='h-4 w-4' />
           Foglalás elutasítása
         </Button>

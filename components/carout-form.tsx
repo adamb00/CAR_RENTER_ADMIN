@@ -16,16 +16,19 @@ import {
   getFleetPlaceLabel,
   getFleetPlaceValue,
 } from '@/lib/fleet-places';
+import { formatAddress } from '@/lib/format/format-address';
 
 const emptyForm = {
   take: '',
   date: '',
   time: '',
   milage: '',
+  rangeKm: '',
   tip: '',
   fuelCost: '',
   ferryCost: '',
   cleaningCost: '',
+  commission: '',
   location: DEFAULT_FLEET_PLACE,
   notes: '',
   damages: '',
@@ -77,7 +80,7 @@ export default function CaroutForm({
   const [isPending, startTransition] = useTransition();
 
   React.useEffect(() => {
-    if (!vehicle?.odometer) return;
+    if (vehicle?.odometer == null) return;
     setForm((prev) => {
       if (prev.milage.trim().length > 0) return prev;
       return { ...prev, milage: vehicle.odometer.toString() };
@@ -114,14 +117,13 @@ export default function CaroutForm({
   }, [booking?.rentalStart]);
 
   React.useEffect(() => {
-    const tipValue =
-      booking?.payload?.handoverTip ?? booking?.payload?.pricing?.tip;
+    const tipValue = booking?.payload?.handoverTip ?? booking?.pricing?.tip;
     if (!tipValue) return;
     setForm((prev) => {
       if (prev.tip.trim().length > 0) return prev;
       return { ...prev, tip: tipValue };
     });
-  }, [booking?.payload?.handoverTip, booking?.payload?.pricing?.tip]);
+  }, [booking?.payload?.handoverTip, booking?.pricing?.tip]);
 
   React.useEffect(() => {
     const outCosts = booking?.payload?.handoverCosts?.out;
@@ -130,7 +132,8 @@ export default function CaroutForm({
       if (
         prev.fuelCost.trim().length > 0 ||
         prev.ferryCost.trim().length > 0 ||
-        prev.cleaningCost.trim().length > 0
+        prev.cleaningCost.trim().length > 0 ||
+        prev.commission.trim().length > 0
       ) {
         return prev;
       }
@@ -139,6 +142,7 @@ export default function CaroutForm({
         fuelCost: outCosts.fuelCost ?? '',
         ferryCost: outCosts.ferryCost ?? '',
         cleaningCost: outCosts.cleaningCost ?? '',
+        commission: outCosts.commissionCost ?? '',
       };
     });
   }, [booking?.payload?.handoverCosts?.out]);
@@ -190,6 +194,48 @@ export default function CaroutForm({
       setStatus({
         type: 'error',
         message: 'A km óra állás nem érvényes.',
+      });
+      return;
+    }
+    if (mileageValue != null && !Number.isInteger(mileageValue)) {
+      setStatus({
+        type: 'error',
+        message: 'A km óra állás csak egész szám lehet.',
+      });
+      return;
+    }
+    if (
+      mileageValue != null &&
+      vehicle?.odometer != null &&
+      mileageValue < vehicle.odometer
+    ) {
+      setStatus({
+        type: 'error',
+        message: `A km óra állás nem lehet kisebb, mint az utolsó rögzített érték (${vehicle.odometer} km).`,
+      });
+      return;
+    }
+
+    const rangeKmRaw = form.rangeKm.trim();
+    const rangeKmValue = rangeKmRaw.length > 0 ? Number(rangeKmRaw) : undefined;
+    if (rangeKmValue != null && Number.isNaN(rangeKmValue)) {
+      setStatus({
+        type: 'error',
+        message: 'A hatótáv nem érvényes.',
+      });
+      return;
+    }
+    if (rangeKmValue != null && !Number.isInteger(rangeKmValue)) {
+      setStatus({
+        type: 'error',
+        message: 'A hatótáv csak egész km lehet.',
+      });
+      return;
+    }
+    if (rangeKmValue != null && rangeKmValue < 0) {
+      setStatus({
+        type: 'error',
+        message: 'A hatótáv nem lehet negatív.',
       });
       return;
     }
@@ -245,6 +291,20 @@ export default function CaroutForm({
       return;
     }
 
+    const commissionRaw = form.commission.trim().replace(',', '.');
+    const commissionValue =
+      commissionRaw.length > 0 ? Number(commissionRaw) : undefined;
+    if (
+      commissionValue != null &&
+      (Number.isNaN(commissionValue) || commissionValue < 0)
+    ) {
+      setStatus({
+        type: 'error',
+        message: 'A jutalék mezőbe csak nem negatív szám írható.',
+      });
+      return;
+    }
+
     const dateValue = form.date.trim();
     const timeValue = form.time.trim();
     const handoverAt = new Date(`${dateValue}T${timeValue}`).toISOString();
@@ -255,10 +315,12 @@ export default function CaroutForm({
         fleetVehicleId,
         handoverBy: form.take || undefined,
         mileage: mileageValue,
+        rangeKm: rangeKmValue,
         tip: tipValue,
         fuelCost: fuelCostValue,
         ferryCost: ferryCostValue,
         cleaningCost: cleaningCostValue,
+        commission: commissionValue,
         handoverAt,
         notes: form.notes.trim() || undefined,
         damages: form.damages.trim() || undefined,
@@ -290,32 +352,32 @@ export default function CaroutForm({
         <Detail
           label='Bérlési díj'
           value={
-            booking?.payload?.pricing?.rentalFee
-              ? `${booking.payload.pricing.rentalFee} €`
+            booking?.pricing?.rentalFee
+              ? `${booking.pricing.rentalFee} €`
               : null
           }
         />
         <Detail
           label='Biztosítás'
           value={
-            booking?.payload?.pricing?.insurance
-              ? `${booking.payload.pricing.insurance} €`
+            booking?.pricing?.insurance
+              ? `${booking.pricing.insurance} €`
               : 'Nem kértek'
           }
         />
         <Detail
           label='Kaució'
           value={
-            booking?.payload?.pricing?.deposit
-              ? `${booking.payload.pricing.deposit} €`
+            booking?.pricing?.deposit
+              ? `${booking.pricing.deposit} €`
               : '0 €'
           }
         />
         <Detail
           label='Kiszállási díj'
           value={
-            booking?.payload?.pricing?.deliveryFee
-              ? `${booking.payload.pricing.deliveryFee} €`
+            booking?.pricing?.deliveryFee
+              ? `${booking.pricing.deliveryFee} €`
               : '0 €'
           }
         />
@@ -323,23 +385,21 @@ export default function CaroutForm({
       <div className='grid gap-4 mb-6 md:grid-cols-3'>
         <Detail
           label='Kiszállítás helye'
-          value={
-            booking?.payload?.delivery?.locationName ?? 'Nincs kiszállítva'
-          }
+          value={booking?.delivery?.locationName ?? 'Nincs kiszállítva'}
         />
         <Detail
           label='Kiszállítás címe'
           value={
-            booking?.payload?.delivery?.address
-              ? `${booking.payload.delivery.address.postalCode} ${booking.payload.delivery.address.city}, ${booking.payload.delivery.address.street} ${booking.payload.delivery.address.doorNumber}`
+            booking?.delivery?.address
+              ? formatAddress(booking.delivery.address)
               : 'Nincs megadva'
           }
         />
         <Detail
           label='Érkezés ideje'
           value={formatArrivalTime(
-            booking?.payload?.delivery?.arrivalHour,
-            booking?.payload?.delivery?.arrivalMinute,
+            booking?.delivery?.arrivalHour,
+            booking?.delivery?.arrivalMinute,
           )}
         />
       </div>
@@ -378,7 +438,7 @@ export default function CaroutForm({
             setForm((prev) => ({ ...prev, date: e.target.value }))
           }
         />
-        <div className='md:col-span-2 grid gap-4 md:grid-cols-3'>
+        <div className='md:col-span-2 grid gap-4 md:grid-cols-4'>
           <Input
             label='Időpont'
             type='time'
@@ -404,13 +464,30 @@ export default function CaroutForm({
           </FloatingSelect>
           <Input
             label='Km óra állás'
-            value={vehicle?.odometer ?? form.milage}
+            type='number'
+            min={vehicle?.odometer ?? 0}
+            value={form.milage}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, milage: e.target.value }))
             }
           />
+          <Input
+            label='Hatótáv (km, opcionális)'
+            type='number'
+            min={0}
+            step={1}
+            value={form.rangeKm}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, rangeKm: e.target.value }))
+            }
+          />
         </div>
-        <div className='md:col-span-2 grid gap-4 md:grid-cols-4'>
+        {vehicle?.odometer != null && (
+          <p className='md:col-span-2 text-xs text-muted-foreground'>
+            Utolsó rögzített km óra állás: {vehicle.odometer} km
+          </p>
+        )}
+        <div className='md:col-span-2 grid gap-4 md:grid-cols-5'>
           <Input
             label='Jatt (opcionális)'
             type='number'
@@ -453,6 +530,17 @@ export default function CaroutForm({
             value={form.cleaningCost}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, cleaningCost: e.target.value }))
+            }
+          />
+          <Input
+            label='Jutalék (opcionális)'
+            type='number'
+            inputMode='decimal'
+            min={0}
+            step='0.01'
+            value={form.commission}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, commission: e.target.value }))
             }
           />
         </div>

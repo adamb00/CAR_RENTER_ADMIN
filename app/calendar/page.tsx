@@ -2,6 +2,7 @@ import { BookingCalendar } from '@/components/booking-calendar';
 import { getBookings } from '@/data-service/bookings';
 import { db } from '@/lib/db';
 import { resolveDeliveryIsland } from '@/lib/delivery-island';
+import { formatPlaceType } from '@/lib/format/format-place';
 
 export default async function CalendarPage() {
   const [bookings, fleetVehicles] = await Promise.all([
@@ -15,33 +16,80 @@ export default async function CalendarPage() {
   ]);
 
   const bookingIds = bookings.map((booking) => booking.id);
-  const carOutBookings = bookingIds.length
-    ? await db.bookingHandoverCost.findMany({
-        where: {
-          bookingId: { in: bookingIds },
-          direction: 'out',
-        },
-        select: { bookingId: true },
-        distinct: ['bookingId'],
-      })
-    : [];
+  const [carOutBookings, vehicleHandovers] = bookingIds.length
+    ? await Promise.all([
+        db.bookingHandoverCost.findMany({
+          where: {
+            bookingId: { in: bookingIds },
+            direction: 'out',
+          },
+          select: { bookingId: true },
+          distinct: ['bookingId'],
+        }),
+        db.vehicleHandover.findMany({
+          where: {
+            bookingId: { in: bookingIds },
+            direction: { in: ['out', 'in'] },
+          },
+          select: {
+            bookingId: true,
+            direction: true,
+            handoverAt: true,
+          },
+          orderBy: { handoverAt: 'asc' },
+        }),
+      ])
+    : [[], []];
   const carOutBookingIds = carOutBookings.map((booking) => booking.bookingId);
+  const handoverByBookingId = new Map<
+    string,
+    { outAt?: string; inAt?: string }
+  >();
+
+  for (const handover of vehicleHandovers) {
+    const previous = handoverByBookingId.get(handover.bookingId) ?? {};
+    if (handover.direction === 'out') {
+      if (!previous.outAt) {
+        handoverByBookingId.set(handover.bookingId, {
+          ...previous,
+          outAt: handover.handoverAt.toISOString(),
+        });
+      }
+      continue;
+    }
+
+    handoverByBookingId.set(handover.bookingId, {
+      ...previous,
+      inAt: handover.handoverAt.toISOString(),
+    });
+  }
 
   const calendarBookings = bookings.map((booking) => {
+    const deliveryAddress = booking.delivery?.address?.street?.trim() ?? '';
+    const deliveryLocationName = booking.delivery?.locationName?.trim() ?? '';
+    const deliveryLabel =
+      booking.delivery?.placeType === 'airport'
+        ? formatPlaceType(booking.delivery?.placeType?.trimEnd())
+        : [deliveryLocationName, deliveryAddress]
+            .filter((value) => value.length > 0)
+            .join(' ');
     const deliveryLocation =
-      booking.payload?.delivery?.locationName?.trim() ||
-      booking.payload?.delivery?.address?.street?.trim() ||
-      booking.payload?.pricing?.deliveryLocation?.trim() ||
+      deliveryLabel ||
+      formatPlaceType(booking.delivery?.placeType?.trimEnd()) ||
+      booking.pricing?.deliveryLocation?.trim() ||
       null;
     const deliveryIsland =
       booking.deliveryIsland ??
-      booking.payload?.delivery?.island?.trim() ??
+      booking.delivery?.island?.trim() ??
       resolveDeliveryIsland({
         locationName: deliveryLocation,
-        addressLine: booking.payload?.delivery?.address?.street ?? null,
-        arrivalFlight: booking.payload?.delivery?.arrivalFlight ?? null,
-        departureFlight: booking.payload?.delivery?.departureFlight ?? null,
+        addressLine: booking.delivery?.address?.street ?? null,
+        arrivalFlight: booking.delivery?.arrivalFlight ?? null,
+        departureFlight: booking.delivery?.departureFlight ?? null,
       });
+
+    const arrival = `${booking.delivery?.arrivalHour ?? '-'}:${booking.delivery?.arrivalMinute ?? '-'}`;
+    const handoverTimes = handoverByBookingId.get(booking.id);
 
     return {
       id: booking.id,
@@ -49,12 +97,17 @@ export default async function CalendarPage() {
       contactName: booking.contactName,
       rentalStart: booking.rentalStart,
       rentalEnd: booking.rentalEnd,
+      arrivalHour: booking.delivery?.arrivalHour ?? null,
+      arrivalMinute: booking.delivery?.arrivalMinute ?? null,
+      handoverOutAt: handoverTimes?.outAt ?? null,
+      handoverInAt: handoverTimes?.inAt ?? null,
       status: booking.status ?? null,
       assignedFleetVehicleId: booking.assignedFleetVehicleId,
       carLabel: booking.carLabel ?? null,
       deliveryLocation,
       deliveryIsland,
-      pricing: booking.payload?.pricing ?? booking.pricing ?? null,
+      pricing: booking.pricing ?? null,
+      arrival,
     };
   });
 

@@ -11,7 +11,12 @@ import { formatLocale } from '@/lib/format/format-locale';
 import { getStatusMeta } from '@/lib/status';
 
 type HandoverDirectionValue = 'out' | 'in';
-type HandoverCostTypeValue = 'tip' | 'fuel' | 'ferry' | 'cleaning';
+type HandoverCostTypeValue =
+  | 'tip'
+  | 'fuel'
+  | 'ferry'
+  | 'cleaning'
+  | 'commission';
 
 type BookingPricingSnapshotForm = {
   rentalFee: string;
@@ -66,6 +71,7 @@ type VehicleHandoverForm = {
   handoverAt: string;
   handoverBy: string;
   mileage: string;
+  rangeKm: string;
   notes: string;
   damages: string;
   damagesImages: string;
@@ -163,6 +169,36 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
     }));
   };
 
+  const getOutHandoverCostValue = (costType: HandoverCostTypeValue) =>
+    form.handoverCosts.find(
+      (row) => row.direction === 'out' && row.costType === costType,
+    )?.amount ?? '';
+
+  const updateOutHandoverCost = (
+    costType: HandoverCostTypeValue,
+    amount: string,
+  ) => {
+    setForm((prev) => {
+      const filtered = prev.handoverCosts.filter(
+        (row) => !(row.direction === 'out' && row.costType === costType),
+      );
+      if (amount.trim().length === 0) {
+        return { ...prev, handoverCosts: filtered };
+      }
+      return {
+        ...prev,
+        handoverCosts: [
+          ...filtered,
+          {
+            direction: 'out',
+            costType,
+            amount,
+          },
+        ],
+      };
+    });
+  };
+
   const meta = getStatusMeta(form.status);
 
   const hasRentalEndUpperLimit = Boolean(
@@ -212,6 +248,7 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
         handoverAt: row.handoverAt,
         handoverBy: row.handoverBy,
         mileage: row.mileage,
+        rangeKm: row.rangeKm,
         notes: row.notes,
         damages: row.damages,
         damagesImages: row.damagesImages
@@ -276,22 +313,10 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
       <div className='rounded-lg border p-4 space-y-4'>
         <h2 className='text-base font-semibold'>Foglalás adatok</h2>
         <div className='grid gap-4 md:grid-cols-3'>
-          <Input label='Létrehozva' value={form.createdAt} readOnly />
-
-          <Input
-            label='Azonosító'
-            value={form.humanId}
-            onChange={(event) => updateBaseField('humanId', event.target.value)}
-          />
           <Input
             label='Nyelv'
             value={formatLocale(form.locale)}
             onChange={(event) => updateBaseField('locale', event.target.value)}
-          />
-          <Input
-            label='Állapot'
-            value={meta?.label ?? form.status}
-            onChange={(event) => updateBaseField('status', event.target.value)}
           />
 
           <Input
@@ -404,8 +429,16 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
                     value={driver.locationPostalCode}
                     readOnly
                   />
-                  <Input label='Lakcím város' value={driver.locationCity} readOnly />
-                  <Input label='Lakcím utca' value={driver.locationStreet} readOnly />
+                  <Input
+                    label='Lakcím város'
+                    value={driver.locationCity}
+                    readOnly
+                  />
+                  <Input
+                    label='Lakcím utca'
+                    value={driver.locationStreet}
+                    readOnly
+                  />
                   <Input
                     label='Lakcím közterület típusa'
                     value={driver.locationStreetType}
@@ -483,10 +516,68 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
               updatePricingField('extrasFee', event.target.value)
             }
           />
+        </div>
+      </div>
+
+      <div className='rounded-lg border p-4 space-y-4'>
+        <div className='flex items-center justify-between'>
+          <h2 className='text-base font-semibold'>Kiadáskori költségek</h2>
+        </div>
+        <div className='grid gap-4 md:grid-cols-5'>
           <Input
-            label='Borravaló'
-            value={form.pricingSnapshot.tip}
-            onChange={(event) => updatePricingField('tip', event.target.value)}
+            label='Jatt'
+            type='number'
+            inputMode='decimal'
+            min={0}
+            step='0.01'
+            value={getOutHandoverCostValue('tip')}
+            onChange={(event) =>
+              updateOutHandoverCost('tip', event.target.value)
+            }
+          />
+          <Input
+            label='Tankolás'
+            type='number'
+            inputMode='decimal'
+            min={0}
+            step='0.01'
+            value={getOutHandoverCostValue('fuel')}
+            onChange={(event) =>
+              updateOutHandoverCost('fuel', event.target.value)
+            }
+          />
+          <Input
+            label='Komp'
+            type='number'
+            inputMode='decimal'
+            min={0}
+            step='0.01'
+            value={getOutHandoverCostValue('ferry')}
+            onChange={(event) =>
+              updateOutHandoverCost('ferry', event.target.value)
+            }
+          />
+          <Input
+            label='Takarítás'
+            type='number'
+            inputMode='decimal'
+            min={0}
+            step='0.01'
+            value={getOutHandoverCostValue('cleaning')}
+            onChange={(event) =>
+              updateOutHandoverCost('cleaning', event.target.value)
+            }
+          />
+          <Input
+            label='Jutalék'
+            type='number'
+            inputMode='decimal'
+            min={0}
+            step='0.01'
+            value={getOutHandoverCostValue('commission')}
+            onChange={(event) =>
+              updateOutHandoverCost('commission', event.target.value)
+            }
           />
         </div>
       </div>

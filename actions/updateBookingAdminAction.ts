@@ -46,7 +46,12 @@ type UpdateBookingAdminResult = {
 };
 
 type HandoverDirectionValue = 'out' | 'in';
-type HandoverCostTypeValue = 'tip' | 'fuel' | 'ferry' | 'cleaning';
+type HandoverCostTypeValue =
+  | 'tip'
+  | 'fuel'
+  | 'ferry'
+  | 'cleaning'
+  | 'commission';
 
 type BookingPricingSnapshotInput = {
   rentalFee?: unknown;
@@ -79,7 +84,13 @@ type BookingContractInput = {
   pdfSentAt?: unknown;
 };
 
-const COST_TYPES: HandoverCostTypeValue[] = ['tip', 'fuel', 'ferry', 'cleaning'];
+const COST_TYPES: HandoverCostTypeValue[] = [
+  'tip',
+  'fuel',
+  'ferry',
+  'cleaning',
+  'commission',
+];
 const DIRECTIONS: HandoverDirectionValue[] = ['out', 'in'];
 
 const toOptionalString = (value?: string | null) => {
@@ -96,7 +107,11 @@ const parseDateOrNull = (value?: string) => {
   const year = Number.parseInt(yearText, 10);
   const month = Number.parseInt(monthText, 10);
   const day = Number.parseInt(dayText, 10);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day)
+  ) {
     return null;
   }
   const parsed = new Date(Date.UTC(year, month - 1, day));
@@ -141,7 +156,10 @@ const toRecordOrNull = <T extends Record<string, unknown>>(
   return value as T;
 };
 
-const parseJson = <T,>(label: string, raw?: string): { data?: T; error?: string } => {
+const parseJson = <T>(
+  label: string,
+  raw?: string,
+): { data?: T; error?: string } => {
   const trimmed = (raw ?? '').trim();
   if (!trimmed) return { data: null as T };
   try {
@@ -154,17 +172,15 @@ const parseJson = <T,>(label: string, raw?: string): { data?: T; error?: string 
 const stripAssignedFleetFromPayload = (
   payload: Prisma.InputJsonValue | null | undefined,
 ): Prisma.InputJsonValue | null => {
-  if (
-    !payload ||
-    typeof payload !== 'object' ||
-    Array.isArray(payload)
-  ) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return payload ?? null;
   }
 
   const record = { ...(payload as Record<string, unknown>) };
   delete record.assignedFleetVehicleId;
   delete record.assignedFleetPlate;
+  delete record.pricing;
+  delete record.delivery;
   return record as Prisma.InputJsonValue;
 };
 
@@ -211,22 +227,25 @@ export const updateBookingAdminAction = async (
   );
   if (handoverCostsParsed.error) return { error: handoverCostsParsed.error };
 
-  const vehicleHandoversParsed = parseJson<Array<Record<string, unknown>> | null>(
-    'Vehicle handovers',
-    input.vehicleHandoversJson,
-  );
-  if (vehicleHandoversParsed.error) return { error: vehicleHandoversParsed.error };
+  const vehicleHandoversParsed = parseJson<Array<
+    Record<string, unknown>
+  > | null>('Vehicle handovers', input.vehicleHandoversJson);
+  if (vehicleHandoversParsed.error)
+    return { error: vehicleHandoversParsed.error };
 
   const bookingContractParsed = parseJson<Record<string, unknown> | null>(
     'Booking contract',
     input.bookingContractJson,
   );
-  if (bookingContractParsed.error) return { error: bookingContractParsed.error };
+  if (bookingContractParsed.error)
+    return { error: bookingContractParsed.error };
 
   const rentalStart = parseDateOrNull(input.rentalStart);
   const rentalEnd = parseDateOrNull(input.rentalEnd);
-  if (input.rentalStart && !rentalStart) return { error: 'A kezdő dátum érvénytelen.' };
-  if (input.rentalEnd && !rentalEnd) return { error: 'A záró dátum érvénytelen.' };
+  if (input.rentalStart && !rentalStart)
+    return { error: 'A kezdő dátum érvénytelen.' };
+  if (input.rentalEnd && !rentalEnd)
+    return { error: 'A záró dátum érvénytelen.' };
   if (rentalStart && rentalEnd && rentalEnd < rentalStart) {
     return { error: 'A záró dátum nem lehet a kezdő dátum előtt.' };
   }
@@ -241,15 +260,11 @@ export const updateBookingAdminAction = async (
 
   const isEndDateExtended = Boolean(
     booking.rentalend &&
-      effectiveRentalEnd &&
-      effectiveRentalEnd.getTime() > booking.rentalend.getTime(),
+    effectiveRentalEnd &&
+    effectiveRentalEnd.getTime() > booking.rentalend.getTime(),
   );
 
-  if (
-    isEndDateExtended &&
-    effectiveCarId &&
-    effectiveRentalEnd
-  ) {
+  if (isEndDateExtended && effectiveCarId && effectiveRentalEnd) {
     const extensionConflictStart = booking.rentalend
       ? addDays(booking.rentalend, 1)
       : effectiveRentalStart;
@@ -291,8 +306,12 @@ export const updateBookingAdminAction = async (
       amount: Prisma.Decimal;
     }>
   >((acc, row) => {
-    const direction = toOptionalString(String(row.direction ?? '')) as HandoverDirectionValue;
-    const costType = toOptionalString(String(row.costType ?? '')) as HandoverCostTypeValue;
+    const direction = toOptionalString(
+      String(row.direction ?? ''),
+    ) as HandoverDirectionValue;
+    const costType = toOptionalString(
+      String(row.costType ?? ''),
+    ) as HandoverCostTypeValue;
     const amountRaw = toOptionalString(String(row.amount ?? ''));
     if (!direction || !DIRECTIONS.includes(direction)) return acc;
     if (!costType || !COST_TYPES.includes(costType)) return acc;
@@ -314,25 +333,34 @@ export const updateBookingAdminAction = async (
       handoverAt: Date;
       handoverBy: string | null;
       mileage: number | null;
+      rangeKm: number | null;
       notes: string | null;
       damages: string | null;
       damagesImages: string[];
     }>
   >((acc, row) => {
     const fleetVehicleId = toOptionalString(String(row.fleetVehicleId ?? ''));
-    const direction = toOptionalString(String(row.direction ?? '')) as HandoverDirectionValue;
+    const direction = toOptionalString(
+      String(row.direction ?? ''),
+    ) as HandoverDirectionValue;
     const handoverAtRaw = toOptionalString(String(row.handoverAt ?? ''));
-    if (!fleetVehicleId || !direction || !DIRECTIONS.includes(direction)) return acc;
-    const parsedHandoverAt = handoverAtRaw ? new Date(handoverAtRaw) : new Date();
+    if (!fleetVehicleId || !direction || !DIRECTIONS.includes(direction))
+      return acc;
+    const parsedHandoverAt = handoverAtRaw
+      ? new Date(handoverAtRaw)
+      : new Date();
     if (Number.isNaN(parsedHandoverAt.getTime())) return acc;
     const mileageRaw = toOptionalString(String(row.mileage ?? ''));
     const mileage = mileageRaw ? Number.parseInt(mileageRaw, 10) : null;
+    const rangeKmRaw = toOptionalString(String(row.rangeKm ?? ''));
+    const rangeKm = rangeKmRaw ? Number.parseInt(rangeKmRaw, 10) : null;
     acc.push({
       fleetVehicleId,
       direction,
       handoverAt: parsedHandoverAt,
       handoverBy: toOptionalString(String(row.handoverBy ?? '')) ?? null,
       mileage: Number.isFinite(mileage ?? Number.NaN) ? mileage : null,
+      rangeKm: Number.isFinite(rangeKm ?? Number.NaN) ? rangeKm : null,
       notes: toOptionalString(String(row.notes ?? '')) ?? null,
       damages: toOptionalString(String(row.damages ?? '')) ?? null,
       damagesImages: Array.isArray(row.damagesImages)
@@ -344,9 +372,15 @@ export const updateBookingAdminAction = async (
     return acc;
   }, []);
 
-  const pricingData = toRecordOrNull<BookingPricingSnapshotInput>(pricingParsed.data);
-  const deliveryData = toRecordOrNull<BookingDeliveryDetailsInput>(deliveryParsed.data);
-  const contractData = toRecordOrNull<BookingContractInput>(bookingContractParsed.data);
+  const pricingData = toRecordOrNull<BookingPricingSnapshotInput>(
+    pricingParsed.data,
+  );
+  const deliveryData = toRecordOrNull<BookingDeliveryDetailsInput>(
+    deliveryParsed.data,
+  );
+  const contractData = toRecordOrNull<BookingContractInput>(
+    bookingContractParsed.data,
+  );
   const payloadForStatus = payloadParsed.data;
   const payloadForStorage = stripAssignedFleetFromPayload(payloadParsed.data);
   const payloadAssignedFleetVehicleId = getAssignedFleetVehicleIdFromPayload(
@@ -356,15 +390,14 @@ export const updateBookingAdminAction = async (
     payloadParsed.data,
   );
   const payloadHasAssignedFleet =
-    Boolean(payloadAssignedFleetVehicleId) && Boolean(payloadAssignedFleetPlate);
-  const effectiveAssignedFleetVehicleId =
-    payloadHasAssignedFleet
-      ? payloadAssignedFleetVehicleId
-      : (booking.assignedFleetVehicleId ?? null);
-  const effectiveAssignedFleetPlate =
-    payloadHasAssignedFleet
-      ? payloadAssignedFleetPlate
-      : (booking.assignedFleetPlate ?? null);
+    Boolean(payloadAssignedFleetVehicleId) &&
+    Boolean(payloadAssignedFleetPlate);
+  const effectiveAssignedFleetVehicleId = payloadHasAssignedFleet
+    ? payloadAssignedFleetVehicleId
+    : (booking.assignedFleetVehicleId ?? null);
+  const effectiveAssignedFleetPlate = payloadHasAssignedFleet
+    ? payloadAssignedFleetPlate
+    : (booking.assignedFleetPlate ?? null);
   const statusFromInput = toOptionalString(input.status) ?? 'new';
   const effectiveStatus = hasAssignedFleetAssignment({
     assignedFleetVehicleId: effectiveAssignedFleetVehicleId,
@@ -403,12 +436,16 @@ export const updateBookingAdminAction = async (
           WHERE "bookingId" = ${bookingId}::uuid
         `;
       } else {
-        const rentalFee = toOptionalString(String(pricingData.rentalFee ?? '')) ?? null;
-        const insurance = toOptionalString(String(pricingData.insurance ?? '')) ?? null;
-        const deposit = toOptionalString(String(pricingData.deposit ?? '')) ?? null;
+        const rentalFee =
+          toOptionalString(String(pricingData.rentalFee ?? '')) ?? null;
+        const insurance =
+          toOptionalString(String(pricingData.insurance ?? '')) ?? null;
+        const deposit =
+          toOptionalString(String(pricingData.deposit ?? '')) ?? null;
         const deliveryFee =
           toOptionalString(String(pricingData.deliveryFee ?? '')) ?? null;
-        const extrasFee = toOptionalString(String(pricingData.extrasFee ?? '')) ?? null;
+        const extrasFee =
+          toOptionalString(String(pricingData.extrasFee ?? '')) ?? null;
         const tip = toOptionalString(String(pricingData.tip ?? '')) ?? null;
 
         await tx.$executeRaw`
@@ -450,7 +487,8 @@ export const updateBookingAdminAction = async (
           WHERE "bookingId" = ${bookingId}::uuid
         `;
       } else {
-        const placeType = toOptionalString(String(deliveryData.placeType ?? '')) ?? null;
+        const placeType =
+          toOptionalString(String(deliveryData.placeType ?? '')) ?? null;
         const locationName =
           toOptionalString(String(deliveryData.locationName ?? '')) ?? null;
         const addressLine =
@@ -539,26 +577,39 @@ export const updateBookingAdminAction = async (
       await tx.vehicleHandover.deleteMany({ where: { bookingId } });
       if (vehicleHandovers.length > 0) {
         await tx.vehicleHandover.createMany({
-          data: vehicleHandovers.map((row) => ({
-            bookingId,
-            fleetVehicleId: row.fleetVehicleId,
-            direction: row.direction,
-            handoverAt: row.handoverAt,
-            handoverBy: row.handoverBy,
-            mileage: row.mileage,
-            notes: row.notes,
-            damages: row.damages,
-            damagesImages: row.damagesImages,
-          })),
+          data: vehicleHandovers.map((row) => {
+            const rangeField =
+              row.rangeKm != null
+                ? ({ rangeKm: row.rangeKm } as Record<string, unknown>)
+                : {};
+            return {
+              bookingId,
+              fleetVehicleId: row.fleetVehicleId,
+              direction: row.direction,
+              handoverAt: row.handoverAt,
+              handoverBy: row.handoverBy,
+              mileage: row.mileage,
+              notes: row.notes,
+              damages: row.damages,
+              damagesImages: row.damagesImages,
+              ...rangeField,
+            };
+          }),
         });
       }
 
       if (!contractData) {
         await tx.bookingContract.deleteMany({ where: { bookingId } });
       } else {
-        const signerName = toOptionalString(String(contractData.signerName ?? ''));
-        const contractText = toOptionalString(String(contractData.contractText ?? ''));
-        const signatureData = toOptionalString(String(contractData.signatureData ?? ''));
+        const signerName = toOptionalString(
+          String(contractData.signerName ?? ''),
+        );
+        const contractText = toOptionalString(
+          String(contractData.contractText ?? ''),
+        );
+        const signatureData = toOptionalString(
+          String(contractData.signatureData ?? ''),
+        );
 
         if (!signerName || !contractText || !signatureData) {
           throw new Error(
@@ -566,8 +617,12 @@ export const updateBookingAdminAction = async (
           );
         }
 
-        const signedAtRaw = toOptionalString(String(contractData.signedAt ?? ''));
-        const pdfSentAtRaw = toOptionalString(String(contractData.pdfSentAt ?? ''));
+        const signedAtRaw = toOptionalString(
+          String(contractData.signedAt ?? ''),
+        );
+        const pdfSentAtRaw = toOptionalString(
+          String(contractData.pdfSentAt ?? ''),
+        );
         const signedAt = signedAtRaw ? new Date(signedAtRaw) : new Date();
         const pdfSentAt = pdfSentAtRaw ? new Date(pdfSentAtRaw) : null;
         if (Number.isNaN(signedAt.getTime())) {
@@ -582,25 +637,33 @@ export const updateBookingAdminAction = async (
           create: {
             bookingId,
             signerName,
-            signerEmail: toOptionalString(String(contractData.signerEmail ?? '')) ?? null,
+            signerEmail:
+              toOptionalString(String(contractData.signerEmail ?? '')) ?? null,
             contractVersion:
-              toOptionalString(String(contractData.contractVersion ?? '')) ?? 'v1',
+              toOptionalString(String(contractData.contractVersion ?? '')) ??
+              'v1',
             contractText,
             signatureData,
             lessorSignatureData:
-              toOptionalString(String(contractData.lessorSignatureData ?? '')) ?? null,
+              toOptionalString(
+                String(contractData.lessorSignatureData ?? ''),
+              ) ?? null,
             signedAt,
             pdfSentAt,
           },
           update: {
             signerName,
-            signerEmail: toOptionalString(String(contractData.signerEmail ?? '')) ?? null,
+            signerEmail:
+              toOptionalString(String(contractData.signerEmail ?? '')) ?? null,
             contractVersion:
-              toOptionalString(String(contractData.contractVersion ?? '')) ?? 'v1',
+              toOptionalString(String(contractData.contractVersion ?? '')) ??
+              'v1',
             contractText,
             signatureData,
             lessorSignatureData:
-              toOptionalString(String(contractData.lessorSignatureData ?? '')) ?? null,
+              toOptionalString(
+                String(contractData.lessorSignatureData ?? ''),
+              ) ?? null,
             signedAt,
             pdfSentAt,
           },
@@ -625,5 +688,5 @@ export const updateBookingAdminAction = async (
   revalidatePath(`/bookings/${bookingId}/carin`);
   revalidatePath('/analitycs');
 
-  return { success: 'A foglalás teljes admin adatai mentve.' };
+  return { success: 'A foglalás minden adata mentve.' };
 };

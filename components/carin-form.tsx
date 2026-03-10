@@ -10,12 +10,14 @@ import CarDamages from './car-damages';
 import { Detail } from './ui/detail';
 import { Button } from './ui/button';
 import { createVehicleHandoverAction } from '@/actions/createVehicleHandoverAction';
+import { formatAddress } from '@/lib/format/format-address';
 
 const emptyForm = {
   take: '',
   date: '',
   time: '',
   milage: '',
+  rangeKm: '',
   fuelCost: '',
   ferryCost: '',
   cleaningCost: '',
@@ -55,11 +57,17 @@ export default function CarinForm({
     message: string;
   } | null>(null);
   const [isPending, startTransition] = useTransition();
+  const minimumMileage =
+    handoverOutMileage != null && vehicle?.odometer != null
+      ? Math.max(handoverOutMileage, vehicle.odometer)
+      : (handoverOutMileage ?? vehicle?.odometer ?? 0);
 
-  const deliveryLocation = booking?.payload?.delivery?.locationName ?? '';
-  const deliveryAddress = booking?.payload?.delivery?.address
-    ? `${booking.payload.delivery.address.postalCode} ${booking.payload.delivery.address.city}, ${booking.payload.delivery.address.street} ${booking.payload.delivery.address.doorNumber}`
+  const deliveryLocation = booking?.delivery?.locationName ?? '';
+  const deliveryAddressRaw = booking?.delivery?.address
+    ? formatAddress(booking.delivery.address)
     : '';
+  const deliveryAddress =
+    deliveryAddressRaw === '—' ? '' : deliveryAddressRaw;
   const hasDeliveryDetails = Boolean(deliveryLocation || deliveryAddress);
 
   React.useEffect(() => {
@@ -96,6 +104,14 @@ export default function CarinForm({
       return { ...prev, date: rentalEnd };
     });
   }, [booking?.rentalEnd]);
+
+  React.useEffect(() => {
+    if (minimumMileage == null) return;
+    setForm((prev) => {
+      if (prev.milage.trim().length > 0) return prev;
+      return { ...prev, milage: String(minimumMileage) };
+    });
+  }, [minimumMileage]);
 
   React.useEffect(() => {
     const inCosts = booking?.payload?.handoverCosts?.in;
@@ -175,14 +191,41 @@ export default function CarinForm({
       });
       return;
     }
-    if (
-      handoverOutMileage != null &&
-      !Number.isNaN(handoverOutMileage) &&
-      mileageValue < handoverOutMileage
-    ) {
+    if (!Number.isInteger(mileageValue)) {
       setStatus({
         type: 'error',
-        message: `A km óra állás nem lehet kisebb, mint a kiadáskori érték (${handoverOutMileage} km).`,
+        message: 'A km óra állás csak egész szám lehet.',
+      });
+      return;
+    }
+    if (mileageValue < minimumMileage) {
+      setStatus({
+        type: 'error',
+        message: `A km óra állás nem lehet kisebb, mint az utolsó rögzített érték (${minimumMileage} km).`,
+      });
+      return;
+    }
+
+    const rangeKmRaw = form.rangeKm.trim();
+    const rangeKmValue = rangeKmRaw.length > 0 ? Number(rangeKmRaw) : undefined;
+    if (rangeKmValue != null && Number.isNaN(rangeKmValue)) {
+      setStatus({
+        type: 'error',
+        message: 'A hatótáv nem érvényes.',
+      });
+      return;
+    }
+    if (rangeKmValue != null && !Number.isInteger(rangeKmValue)) {
+      setStatus({
+        type: 'error',
+        message: 'A hatótáv csak egész km lehet.',
+      });
+      return;
+    }
+    if (rangeKmValue != null && rangeKmValue < 0) {
+      setStatus({
+        type: 'error',
+        message: 'A hatótáv nem lehet negatív.',
       });
       return;
     }
@@ -253,6 +296,7 @@ export default function CarinForm({
         fleetVehicleId,
         handoverBy: form.take || undefined,
         mileage: mileageValue,
+        rangeKm: rangeKmValue,
         fuelCost: fuelCostValue,
         ferryCost: ferryCostValue,
         cleaningCost: cleaningCostValue,
@@ -286,32 +330,32 @@ export default function CarinForm({
         <Detail
           label='Bérlési díj'
           value={
-            booking?.payload?.pricing?.rentalFee
-              ? `${booking.payload.pricing.rentalFee} €`
+            booking?.pricing?.rentalFee
+              ? `${booking.pricing.rentalFee} €`
               : null
           }
         />
         <Detail
           label='Biztosítás'
           value={
-            booking?.payload?.pricing?.insurance
-              ? `${booking.payload.pricing.insurance} €`
+            booking?.pricing?.insurance
+              ? `${booking.pricing.insurance} €`
               : 'Nem kértek'
           }
         />
         <Detail
           label='Kaució'
           value={
-            booking?.payload?.pricing?.deposit
-              ? `${booking.payload.pricing.deposit} €`
+            booking?.pricing?.deposit
+              ? `${booking.pricing.deposit} €`
               : '0 €'
           }
         />
         <Detail
           label='Kiszállási díj'
           value={
-            booking?.payload?.pricing?.deliveryFee
-              ? `${booking.payload.pricing.deliveryFee} €`
+            booking?.pricing?.deliveryFee
+              ? `${booking.pricing.deliveryFee} €`
               : '0 €'
           }
         />
@@ -401,19 +445,29 @@ export default function CarinForm({
           <Input
             label='Km óra állás'
             type='number'
-            min={handoverOutMileage ?? 0}
+            min={minimumMileage}
             required
             value={form.milage}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, milage: e.target.value }))
             }
           />
-          {handoverOutMileage != null && (
+          {minimumMileage > 0 && (
             <p className='text-xs text-muted-foreground'>
-              Kiadáskori km óra állás: {handoverOutMileage} km
+              Utolsó rögzített km óra állás: {minimumMileage} km
             </p>
           )}
         </div>
+        <Input
+          label='Hatótáv (km, opcionális)'
+          type='number'
+          min={0}
+          step={1}
+          value={form.rangeKm}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, rangeKm: e.target.value }))
+          }
+        />
         <Input
           label='Tankolás (opcionális)'
           type='number'

@@ -51,7 +51,11 @@ export const SendConfirmButton = ({
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button type='button' variant='outline' className='gap-2'>
+        <Button
+          type='button'
+          variant='outline'
+          className='gap-2 bg-green-500 text-white'
+        >
           <FileText className='h-4 w-4' />
           Foglalás véglegesítő
         </Button>

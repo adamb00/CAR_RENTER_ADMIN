@@ -113,6 +113,13 @@ type CreateManualBookingInput = {
     extrasFee?: string;
     tip?: string;
   };
+  handoverCosts?: {
+    tip?: string;
+    fuelCost?: string;
+    ferryCost?: string;
+    cleaningCost?: string;
+    commission?: string;
+  };
   selfServiceEventsJson?: string;
 };
 
@@ -216,6 +223,14 @@ const toOptionalBoolean = (value: OptionalBooleanInput): boolean | undefined => 
   return undefined;
 };
 
+const toOptionalNonNegativeAmount = (value?: string | null) => {
+  const normalized = toOptionalString(value)?.replace(',', '.');
+  if (!normalized) return undefined;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed < 0) return undefined;
+  return Number(parsed.toFixed(2));
+};
+
 const normalizeDeliveryIsland = (value?: string) => {
   const normalized = toOptionalString(value)?.toLowerCase();
   if (normalized === DELIVERY_ISLAND_LANZAROTE.toLowerCase()) {
@@ -311,6 +326,7 @@ export async function createManualBookingAction({
   tax,
   consents,
   pricing,
+  handoverCosts,
   selfServiceEventsJson,
 }: CreateManualBookingInput): Promise<CreateManualBookingResult> {
   const trimmedName = toOptionalString(contactName);
@@ -462,6 +478,66 @@ export async function createManualBookingAction({
     tip: toOptionalString(pricing?.tip),
   };
 
+  const handoverCostsData = {
+    tip: toOptionalNonNegativeAmount(handoverCosts?.tip),
+    fuel: toOptionalNonNegativeAmount(handoverCosts?.fuelCost),
+    ferry: toOptionalNonNegativeAmount(handoverCosts?.ferryCost),
+    cleaning: toOptionalNonNegativeAmount(handoverCosts?.cleaningCost),
+    commission: toOptionalNonNegativeAmount(handoverCosts?.commission),
+  };
+
+  const handoverCostRows: Array<{
+    direction: 'out';
+    costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
+    amount: number;
+  }> = [
+    ...(handoverCostsData.tip != null
+      ? [
+          {
+            direction: 'out' as const,
+            costType: 'tip' as const,
+            amount: handoverCostsData.tip,
+          },
+        ]
+      : []),
+    ...(handoverCostsData.fuel != null
+      ? [
+          {
+            direction: 'out' as const,
+            costType: 'fuel' as const,
+            amount: handoverCostsData.fuel,
+          },
+        ]
+      : []),
+    ...(handoverCostsData.ferry != null
+      ? [
+          {
+            direction: 'out' as const,
+            costType: 'ferry' as const,
+            amount: handoverCostsData.ferry,
+          },
+        ]
+      : []),
+    ...(handoverCostsData.cleaning != null
+      ? [
+          {
+            direction: 'out' as const,
+            costType: 'cleaning' as const,
+            amount: handoverCostsData.cleaning,
+          },
+        ]
+      : []),
+    ...(handoverCostsData.commission != null
+      ? [
+          {
+            direction: 'out' as const,
+            costType: 'commission' as const,
+            amount: handoverCostsData.commission,
+          },
+        ]
+      : []),
+  ];
+
   const normalizedInvoice = {
     same: toOptionalBoolean(invoice?.same),
     name: toOptionalString(invoice?.name),
@@ -585,39 +661,62 @@ export async function createManualBookingAction({
       const nextHumanId = await getNextHumanId('RentRequests');
 
       try {
-        created = await db.rentRequests.create({
-          data: {
-            locale: trimmedLocale,
-            carid: selectedFleet?.carId ?? trimmedCarId ?? null,
-            assignedFleetVehicleId: selectedFleet?.id ?? null,
-            assignedFleetPlate: selectedFleet?.plate ?? null,
-            quoteid: linkedQuoteId,
-            contactname: effectiveContactName,
-            contactemail: trimmedEmail ?? '',
-            contactphone: trimmedPhone ?? null,
-            rentalstart: parsedStart,
-            rentalend: parsedEnd,
-            rentaldays: effectiveRentalDays,
-            status: effectiveStatus,
-            updated: trimmedSelfServiceEventsJson ?? null,
-            payload: payloadForStorage,
-            humanId: nextHumanId ?? undefined,
-            ...(hasPricingSnapshot
-              ? {
-                  bookingPricingSnapshot: {
-                    create: pricingSnapshotData,
-                  },
-                }
-              : {}),
-            ...(hasDeliveryDetails
-              ? {
-                  bookingDeliveryDetails: {
-                    create: deliveryDetailsData,
-                  },
-                }
-              : {}),
-          },
-          select: { id: true },
+        created = await db.$transaction(async (tx) => {
+          const createdBooking = await tx.rentRequests.create({
+            data: {
+              locale: trimmedLocale,
+              carid: selectedFleet?.carId ?? trimmedCarId ?? null,
+              assignedFleetVehicleId: selectedFleet?.id ?? null,
+              assignedFleetPlate: selectedFleet?.plate ?? null,
+              quoteid: linkedQuoteId,
+              contactname: effectiveContactName,
+              contactemail: trimmedEmail ?? '',
+              contactphone: trimmedPhone ?? null,
+              rentalstart: parsedStart,
+              rentalend: parsedEnd,
+              rentaldays: effectiveRentalDays,
+              status: effectiveStatus,
+              updated: trimmedSelfServiceEventsJson ?? null,
+              payload: payloadForStorage,
+              humanId: nextHumanId ?? undefined,
+              ...(hasPricingSnapshot
+                ? {
+                    bookingPricingSnapshot: {
+                      create: pricingSnapshotData,
+                    },
+                  }
+                : {}),
+              ...(hasDeliveryDetails
+                ? {
+                    bookingDeliveryDetails: {
+                      create: deliveryDetailsData,
+                    },
+                  }
+                : {}),
+            },
+            select: { id: true },
+          });
+
+          for (const row of handoverCostRows) {
+            await tx.$executeRaw`
+              INSERT INTO "BookingHandoverCosts" (
+                "bookingId",
+                "direction",
+                "costType",
+                "amount",
+                "updatedAt"
+              )
+              VALUES (
+                ${createdBooking.id}::uuid,
+                CAST(${row.direction} AS "HandoverDirection"),
+                CAST(${row.costType} AS "HandoverCostType"),
+                ${row.amount},
+                timezone('utc'::text, now())
+              )
+            `;
+          }
+
+          return createdBooking;
         });
       } catch (error) {
         if (isHumanIdUniqueConflict(error) && attempts < 5) {

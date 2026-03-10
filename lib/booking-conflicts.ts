@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 
 import { getArchivedBookingIdSet } from '@/lib/booking-archive';
+import { buildBookingInterval, intervalsOverlap } from '@/lib/booking-interval';
 import { db } from '@/lib/db';
 
 type BookingConflictCandidate = {
@@ -69,17 +70,54 @@ export const hasAssignedFleetAssignment = ({
 export const formatDateForConflictMessage = (value?: Date | null) =>
   value ? value.toISOString().slice(0, 10) : 'ismeretlen dátum';
 
+const pickHandoverBounds = (
+  handovers: { direction: 'out' | 'in'; handoverAt: Date }[],
+) => {
+  let handoverOutAt: Date | null = null;
+  let handoverInAt: Date | null = null;
+
+  for (const handover of handovers) {
+    if (handover.direction === 'out' && !handoverOutAt) {
+      handoverOutAt = handover.handoverAt;
+      continue;
+    }
+    if (handover.direction === 'in') {
+      handoverInAt = handover.handoverAt;
+    }
+  }
+
+  return { handoverOutAt, handoverInAt };
+};
+
 export const findFleetVehicleBookingConflict = async ({
   bookingIdToExclude,
   fleetVehicleId,
   rentalStart,
   rentalEnd,
+  arrivalHour,
+  arrivalMinute,
+  handoverOutAt,
+  handoverInAt,
 }: {
   bookingIdToExclude?: string | null;
   fleetVehicleId: string;
   rentalStart: Date;
   rentalEnd: Date;
+  arrivalHour?: string | null;
+  arrivalMinute?: string | null;
+  handoverOutAt?: Date | null;
+  handoverInAt?: Date | null;
 }): Promise<BookingConflictCandidate | null> => {
+  const requestedInterval = buildBookingInterval({
+    rentalStart,
+    rentalEnd,
+    arrivalHour,
+    arrivalMinute,
+    handoverOutAt,
+    handoverInAt,
+  });
+  if (!requestedInterval) return null;
+
   const trimmedExcludedId = bookingIdToExclude?.trim();
   const where = {
     rentalstart: {
@@ -103,6 +141,20 @@ export const findFleetVehicleBookingConflict = async ({
       status: true,
       assignedFleetVehicleId: true,
       payload: true,
+      bookingDeliveryDetails: {
+        select: {
+          arrivalHour: true,
+          arrivalMinute: true,
+        },
+      },
+      vehicleHandovers: {
+        where: { direction: { in: ['out', 'in'] } },
+        select: {
+          direction: true,
+          handoverAt: true,
+        },
+        orderBy: { handoverAt: 'asc' },
+      },
     },
     orderBy: { rentalstart: 'asc' },
   });
@@ -115,9 +167,29 @@ export const findFleetVehicleBookingConflict = async ({
       (candidate) =>
         !archivedIdSet.has(candidate.id) &&
         !isCancelledBookingStatus(candidate.status) &&
-        (toTrimmedString(candidate.assignedFleetVehicleId) ??
-          getAssignedFleetVehicleIdFromPayload(candidate.payload)) ===
-          fleetVehicleId,
+        (() => {
+          const assignedFleetVehicleId =
+            toTrimmedString(candidate.assignedFleetVehicleId) ??
+            getAssignedFleetVehicleIdFromPayload(candidate.payload);
+          if (assignedFleetVehicleId !== fleetVehicleId) {
+            return false;
+          }
+
+          const { handoverOutAt: candidateHandoverOutAt, handoverInAt } =
+            pickHandoverBounds(candidate.vehicleHandovers);
+          const candidateInterval = buildBookingInterval({
+            rentalStart: candidate.rentalstart,
+            rentalEnd: candidate.rentalend,
+            arrivalHour: candidate.bookingDeliveryDetails?.arrivalHour ?? null,
+            arrivalMinute:
+              candidate.bookingDeliveryDetails?.arrivalMinute ?? null,
+            handoverOutAt: candidateHandoverOutAt,
+            handoverInAt,
+          });
+          if (!candidateInterval) return false;
+
+          return intervalsOverlap(requestedInterval, candidateInterval);
+        })(),
     ) ?? null
   );
 };

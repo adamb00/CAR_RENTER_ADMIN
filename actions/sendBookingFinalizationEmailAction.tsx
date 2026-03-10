@@ -224,7 +224,8 @@ export const sendBookingFinalizationEmailAction = async ({
     carId,
     quote?.offerAccepted ?? null,
   );
-  const manualPricing = booking.payload?.pricing;
+  const manualPricing = booking.pricing;
+  const delivery = booking.delivery;
   const rentalStart =
     booking.rentalStart ?? booking.payload?.rentalPeriod?.startDate;
   const rentalEnd = booking.rentalEnd ?? booking.payload?.rentalPeriod?.endDate;
@@ -298,11 +299,11 @@ export const sendBookingFinalizationEmailAction = async ({
       address: formatAddress(booking.payload?.invoice?.location ?? undefined),
     },
     delivery: {
-      placeType: booking.payload?.delivery?.placeType ?? null,
-      locationName: booking.payload?.delivery?.locationName ?? null,
-      address: formatAddress(booking.payload?.delivery?.address ?? undefined),
-      arrivalFlight: booking.payload?.delivery?.arrivalFlight ?? null,
-      departureFlight: booking.payload?.delivery?.departureFlight ?? null,
+      placeType: delivery?.placeType ?? null,
+      locationName: delivery?.locationName ?? null,
+      address: formatAddress(delivery?.address ?? undefined),
+      arrivalFlight: delivery?.arrivalFlight ?? null,
+      departureFlight: delivery?.departureFlight ?? null,
     },
     signerName: trimmedName,
     thankYouUrl,

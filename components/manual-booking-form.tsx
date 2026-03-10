@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 
 import { createManualBookingAction } from '@/actions/createManualBookingAction';
 import { Button } from '@/components/ui/button';
@@ -95,7 +95,11 @@ type FormState = {
   pricingDeliveryFee: string;
   pricingDeliveryLocation: string;
   pricingExtrasFee: string;
-  pricingTip: string;
+  handoverTip: string;
+  handoverFuelCost: string;
+  handoverFerryCost: string;
+  handoverCleaningCost: string;
+  handoverCommission: string;
   selfServiceEventsJson: string;
 
   insuranceConsent: TriState;
@@ -223,6 +227,28 @@ const splitExtras = (value: string) =>
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
 
+const splitNameForDriver = (name: string) => {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return { firstName: '', lastName: '' };
+  }
+
+  const parts = trimmed.split(/\s+/).filter((part) => part.length > 0);
+  if (parts.length <= 1) {
+    return { firstName: parts[0] ?? '', lastName: '' };
+  }
+
+  return {
+    firstName: parts[0] ?? '',
+    lastName: parts.slice(1).join(' '),
+  };
+};
+
+const buildNameFromDriver = (driver?: DriverDraft) =>
+  [driver?.firstName_1?.trim(), driver?.lastName_1?.trim()]
+    .filter((part): part is string => Boolean(part && part.length > 0))
+    .join(' ');
+
 type ValidationField =
   | 'contactName'
   | 'contactEmail'
@@ -231,7 +257,8 @@ type ValidationField =
   | 'rentalStart'
   | 'rentalEnd';
 
-const INVALID_FIELD_CLASS = 'border-rose-500 focus:border-rose-600 focus:ring-rose-500';
+const INVALID_FIELD_CLASS =
+  'border-rose-500 focus:border-rose-600 focus:ring-rose-500';
 
 export function ManualBookingForm({
   fleetOptions,
@@ -246,6 +273,10 @@ export function ManualBookingForm({
     text: string;
   } | null>(null);
   const [invalidFields, setInvalidFields] = useState<ValidationField[]>([]);
+  const [primaryDriverMatchesContact, setPrimaryDriverMatchesContact] =
+    useState(false);
+  const [contactMatchesPrimaryDriver, setContactMatchesPrimaryDriver] =
+    useState(false);
 
   const [form, setForm] = useState<FormState>({
     locale: 'hu',
@@ -274,7 +305,11 @@ export function ManualBookingForm({
     pricingDeliveryFee: '',
     pricingDeliveryLocation: '',
     pricingExtrasFee: '',
-    pricingTip: '',
+    handoverTip: '',
+    handoverFuelCost: '',
+    handoverFerryCost: '',
+    handoverCleaningCost: '',
+    handoverCommission: '',
     selfServiceEventsJson: '',
 
     insuranceConsent: '',
@@ -310,6 +345,104 @@ export function ManualBookingForm({
     deliveryStreetType: '',
     deliveryDoorNumber: '',
   });
+
+  useEffect(() => {
+    if (!primaryDriverMatchesContact) return;
+
+    setForm((prev) => {
+      if (prev.drivers.length === 0) return prev;
+
+      const { firstName, lastName } = splitNameForDriver(prev.contactName);
+      const firstDriver = prev.drivers[0];
+      const nextFirstDriver: DriverDraft = {
+        ...firstDriver,
+        firstName_1: firstName,
+        lastName_1: lastName,
+        email: prev.contactEmail,
+        phoneNumber: prev.contactPhone,
+      };
+
+      if (
+        firstDriver.firstName_1 === nextFirstDriver.firstName_1 &&
+        firstDriver.lastName_1 === nextFirstDriver.lastName_1 &&
+        firstDriver.email === nextFirstDriver.email &&
+        firstDriver.phoneNumber === nextFirstDriver.phoneNumber
+      ) {
+        return prev;
+      }
+
+      const nextDrivers = [...prev.drivers];
+      nextDrivers[0] = nextFirstDriver;
+
+      return {
+        ...prev,
+        drivers: nextDrivers,
+      };
+    });
+  }, [
+    primaryDriverMatchesContact,
+    form.contactName,
+    form.contactEmail,
+    form.contactPhone,
+    form.drivers.length,
+  ]);
+
+  useEffect(() => {
+    if (!contactMatchesPrimaryDriver) return;
+
+    setForm((prev) => {
+      const primaryDriver = prev.drivers[0];
+      if (!primaryDriver) return prev;
+
+      const primaryDriverName = buildNameFromDriver(primaryDriver);
+      const next = {
+        ...prev,
+        contactName: primaryDriverName,
+        contactEmail: primaryDriver.email,
+        contactPhone: primaryDriver.phoneNumber,
+        invoiceName: primaryDriverName,
+        invoiceEmail: primaryDriver.email,
+        invoicePhoneNumber: primaryDriver.phoneNumber,
+        invoiceCountry: primaryDriver.locationCountry,
+        invoicePostalCode: primaryDriver.locationPostalCode,
+        invoiceCity: primaryDriver.locationCity,
+        invoiceStreet: primaryDriver.locationStreet,
+        invoiceStreetType: primaryDriver.locationStreetType,
+        invoiceDoorNumber: primaryDriver.locationDoorNumber,
+      };
+
+      if (
+        prev.contactName === next.contactName &&
+        prev.contactEmail === next.contactEmail &&
+        prev.contactPhone === next.contactPhone &&
+        prev.invoiceName === next.invoiceName &&
+        prev.invoiceEmail === next.invoiceEmail &&
+        prev.invoicePhoneNumber === next.invoicePhoneNumber &&
+        prev.invoiceCountry === next.invoiceCountry &&
+        prev.invoicePostalCode === next.invoicePostalCode &&
+        prev.invoiceCity === next.invoiceCity &&
+        prev.invoiceStreet === next.invoiceStreet &&
+        prev.invoiceStreetType === next.invoiceStreetType &&
+        prev.invoiceDoorNumber === next.invoiceDoorNumber
+      ) {
+        return prev;
+      }
+
+      return next;
+    });
+  }, [
+    contactMatchesPrimaryDriver,
+    form.drivers[0]?.firstName_1,
+    form.drivers[0]?.lastName_1,
+    form.drivers[0]?.email,
+    form.drivers[0]?.phoneNumber,
+    form.drivers[0]?.locationCountry,
+    form.drivers[0]?.locationPostalCode,
+    form.drivers[0]?.locationCity,
+    form.drivers[0]?.locationStreet,
+    form.drivers[0]?.locationStreetType,
+    form.drivers[0]?.locationDoorNumber,
+  ]);
 
   const updateField = <K extends keyof FormState>(
     key: K,
@@ -406,10 +539,7 @@ export function ManualBookingForm({
   const isFieldInvalid = (field: ValidationField) =>
     invalidFields.includes(field);
 
-  const focusField = (
-    formElement: HTMLFormElement,
-    field: ValidationField,
-  ) => {
+  const focusField = (formElement: HTMLFormElement, field: ValidationField) => {
     const target = formElement.querySelector<HTMLElement>(
       `[data-field="${field}"]`,
     );
@@ -527,7 +657,13 @@ export function ManualBookingForm({
           deliveryFee: form.pricingDeliveryFee,
           deliveryLocation: form.pricingDeliveryLocation,
           extrasFee: form.pricingExtrasFee,
-          tip: form.pricingTip,
+        },
+        handoverCosts: {
+          tip: form.handoverTip,
+          fuelCost: form.handoverFuelCost,
+          ferryCost: form.handoverFerryCost,
+          cleaningCost: form.handoverCleaningCost,
+          commission: form.handoverCommission,
         },
         selfServiceEventsJson: form.selfServiceEventsJson,
       });
@@ -595,21 +731,32 @@ export function ManualBookingForm({
             onChange={(event) => updateField('contactName', event.target.value)}
             data-field='contactName'
             className={cn(isFieldInvalid('contactName') && INVALID_FIELD_CLASS)}
+            disabled={contactMatchesPrimaryDriver}
           />
           <Input
             label='E-mail'
             type='email'
             value={form.contactEmail}
-            onChange={(event) => updateField('contactEmail', event.target.value)}
+            onChange={(event) =>
+              updateField('contactEmail', event.target.value)
+            }
             data-field='contactEmail'
-            className={cn(isFieldInvalid('contactEmail') && INVALID_FIELD_CLASS)}
+            className={cn(
+              isFieldInvalid('contactEmail') && INVALID_FIELD_CLASS,
+            )}
+            disabled={contactMatchesPrimaryDriver}
           />
           <Input
             label='Telefon'
             value={form.contactPhone}
-            onChange={(event) => updateField('contactPhone', event.target.value)}
+            onChange={(event) =>
+              updateField('contactPhone', event.target.value)
+            }
             data-field='contactPhone'
-            className={cn(isFieldInvalid('contactPhone') && INVALID_FIELD_CLASS)}
+            className={cn(
+              isFieldInvalid('contactPhone') && INVALID_FIELD_CLASS,
+            )}
+            disabled={contactMatchesPrimaryDriver}
           />
 
           <FloatingSelect
@@ -733,6 +880,59 @@ export function ManualBookingForm({
               updateField('pricingExtrasFee', event.target.value)
             }
           />
+          <Input
+            label='Jatt (kiadáskor)'
+            type='number'
+            inputMode='decimal'
+            min='0'
+            step='0.01'
+            value={form.handoverTip}
+            onChange={(event) => updateField('handoverTip', event.target.value)}
+          />
+          <Input
+            label='Tankolás (kiadáskor)'
+            type='number'
+            inputMode='decimal'
+            min='0'
+            step='0.01'
+            value={form.handoverFuelCost}
+            onChange={(event) =>
+              updateField('handoverFuelCost', event.target.value)
+            }
+          />
+          <Input
+            label='Komp (kiadáskor)'
+            type='number'
+            inputMode='decimal'
+            min='0'
+            step='0.01'
+            value={form.handoverFerryCost}
+            onChange={(event) =>
+              updateField('handoverFerryCost', event.target.value)
+            }
+          />
+          <Input
+            label='Takarítás (kiadáskor)'
+            type='number'
+            inputMode='decimal'
+            min='0'
+            step='0.01'
+            value={form.handoverCleaningCost}
+            onChange={(event) =>
+              updateField('handoverCleaningCost', event.target.value)
+            }
+          />
+          <Input
+            label='Jutalék (kiadáskor)'
+            type='number'
+            inputMode='decimal'
+            min='0'
+            step='0.01'
+            value={form.handoverCommission}
+            onChange={(event) =>
+              updateField('handoverCommission', event.target.value)
+            }
+          />
 
           <FloatingSelect
             label='Fizetési mód'
@@ -843,6 +1043,20 @@ export function ManualBookingForm({
               </Button>
             </div>
 
+            {index === 0 ? (
+              <label className='flex items-center gap-2 text-sm text-muted-foreground'>
+                <input
+                  type='checkbox'
+                  checked={primaryDriverMatchesContact}
+                  onChange={(event) =>
+                    setPrimaryDriverMatchesContact(event.target.checked)
+                  }
+                />
+                Elsődleges sofőr adatai megegyeznek a fenti név, e-mail és
+                telefon adatokkal
+              </label>
+            ) : null}
+
             <div className='grid gap-4 md:grid-cols-2'>
               <Input
                 label='Keresztnév'
@@ -850,6 +1064,7 @@ export function ManualBookingForm({
                 onChange={(event) =>
                   updateDriver(index, 'firstName_1', event.target.value)
                 }
+                disabled={index === 0 && primaryDriverMatchesContact}
               />
               <Input
                 label='Vezetéknév'
@@ -857,6 +1072,7 @@ export function ManualBookingForm({
                 onChange={(event) =>
                   updateDriver(index, 'lastName_1', event.target.value)
                 }
+                disabled={index === 0 && primaryDriverMatchesContact}
               />
               <Input
                 label='Telefon'
@@ -864,6 +1080,7 @@ export function ManualBookingForm({
                 onChange={(event) =>
                   updateDriver(index, 'phoneNumber', event.target.value)
                 }
+                disabled={index === 0 && primaryDriverMatchesContact}
               />
               <Input
                 label='E-mail'
@@ -872,6 +1089,7 @@ export function ManualBookingForm({
                 onChange={(event) =>
                   updateDriver(index, 'email', event.target.value)
                 }
+                disabled={index === 0 && primaryDriverMatchesContact}
               />
               <Input
                 label='Születési dátum'
@@ -1056,10 +1274,22 @@ export function ManualBookingForm({
       <div className='rounded-lg border p-4 space-y-4'>
         <h2 className='text-base font-semibold'>Kapcsolat / számlázás</h2>
         <div className='grid gap-4 md:grid-cols-2'>
+          <label className='md:col-span-3 flex items-center gap-2 text-sm text-muted-foreground'>
+            <input
+              type='checkbox'
+              checked={contactMatchesPrimaryDriver}
+              onChange={(event) =>
+                setContactMatchesPrimaryDriver(event.target.checked)
+              }
+            />
+            Kapcsolati és számlázási adatok megegyeznek az elsődleges sofőr
+            adataival
+          </label>
           <Input
             label='Számlázási név'
             value={form.invoiceName}
             onChange={(event) => updateField('invoiceName', event.target.value)}
+            disabled={contactMatchesPrimaryDriver}
           />
 
           <Input
@@ -1068,6 +1298,7 @@ export function ManualBookingForm({
             onChange={(event) =>
               updateField('invoiceCountry', event.target.value)
             }
+            disabled={contactMatchesPrimaryDriver}
           />
           <Input
             label='Számlázási irányítószám'
@@ -1075,11 +1306,13 @@ export function ManualBookingForm({
             onChange={(event) =>
               updateField('invoicePostalCode', event.target.value)
             }
+            disabled={contactMatchesPrimaryDriver}
           />
           <Input
             label='Számlázási város'
             value={form.invoiceCity}
             onChange={(event) => updateField('invoiceCity', event.target.value)}
+            disabled={contactMatchesPrimaryDriver}
           />
           <Input
             label='Számlázási utca'
@@ -1087,6 +1320,7 @@ export function ManualBookingForm({
             onChange={(event) =>
               updateField('invoiceStreet', event.target.value)
             }
+            disabled={contactMatchesPrimaryDriver}
           />
           <Input
             label='Számlázási közterület jellege'
@@ -1094,6 +1328,7 @@ export function ManualBookingForm({
             onChange={(event) =>
               updateField('invoiceStreetType', event.target.value)
             }
+            disabled={contactMatchesPrimaryDriver}
           />
           <Input
             label='Számlázási házszám / ajtó'
@@ -1101,6 +1336,7 @@ export function ManualBookingForm({
             onChange={(event) =>
               updateField('invoiceDoorNumber', event.target.value)
             }
+            disabled={contactMatchesPrimaryDriver}
           />
 
           <Input

@@ -18,7 +18,7 @@ type BookingPricingSnapshotRow = {
 type BookingHandoverCostRow = {
   bookingId: string;
   direction: 'out' | 'in';
-  costType: 'tip' | 'fuel' | 'ferry' | 'cleaning';
+  costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
   amount: unknown;
 };
 

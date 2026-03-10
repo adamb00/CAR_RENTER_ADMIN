@@ -30,7 +30,7 @@ export function useRentalPricing({
   quote: ContactQuote | null;
 }) {
   const savedPricing: PricingBreakdown | undefined =
-    booking.payload?.pricing ?? undefined;
+    booking.pricing ?? undefined;
   const offerAcceptedIndex =
     quote?.offerAccepted != null ? +quote.offerAccepted : 0;
   const quotePricingRaw = Array.isArray(quote?.bookingRequestData)

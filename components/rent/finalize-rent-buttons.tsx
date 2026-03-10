@@ -1,4 +1,5 @@
 import { ArchiveBookingButton } from '@/app/[id]/archive-booking-button';
+import { DeleteBookingButton } from '@/app/[id]/delete-booking-button';
 import { SendConfirmButton } from '@/app/[id]/send-confirm-button';
 import { SendRejectButton } from '@/app/[id]/send-reject-button';
 import type { Booking } from '@/data-service/bookings';
@@ -15,10 +16,16 @@ export default function FinalizeRentButtons({
 }: FinalizeRentButtonsProps) {
   return (
     <div className='flex w-full flex-col gap-3 sm:max-w-sm sm:items-end'>
-      <ArchiveBookingButton
-        bookingCode={booking.humanId ?? booking.id}
-        bookingId={booking.id}
-      />
+      <div className='flex gap-4'>
+        <ArchiveBookingButton
+          bookingCode={booking.humanId ?? booking.id}
+          bookingId={booking.id}
+        />
+        <DeleteBookingButton
+          bookingCode={booking.humanId ?? booking.id}
+          bookingId={booking.id}
+        />
+      </div>
       <SendRejectButton
         bookingCode={booking.humanId ?? booking.id}
         bookingId={booking.id}

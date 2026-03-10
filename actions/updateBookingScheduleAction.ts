@@ -61,6 +61,20 @@ export async function updateBookingScheduleAction({
       status: true,
       assignedFleetVehicleId: true,
       assignedFleetPlate: true,
+      bookingDeliveryDetails: {
+        select: {
+          arrivalHour: true,
+          arrivalMinute: true,
+        },
+      },
+      vehicleHandovers: {
+        where: { direction: { in: ['out', 'in'] } },
+        select: {
+          direction: true,
+          handoverAt: true,
+        },
+        orderBy: { handoverAt: 'asc' },
+      },
     },
   });
 
@@ -173,6 +187,14 @@ export async function updateBookingScheduleAction({
   }
 
   if (effectiveFleetVehicleId && effectiveRentalStart && effectiveRentalEnd) {
+    const handoverOutAt =
+      booking.vehicleHandovers.find((handover) => handover.direction === 'out')
+        ?.handoverAt ?? null;
+    const handoverInAt =
+      [...booking.vehicleHandovers]
+        .reverse()
+        .find((handover) => handover.direction === 'in')?.handoverAt ?? null;
+
     if (effectiveFleetVehicleNotes == null) {
       const fleetVehicle = await db.fleetVehicle.findUnique({
         where: { id: effectiveFleetVehicleId },
@@ -201,6 +223,10 @@ export async function updateBookingScheduleAction({
       fleetVehicleId: effectiveFleetVehicleId,
       rentalStart: effectiveRentalStart,
       rentalEnd: effectiveRentalEnd,
+      arrivalHour: booking.bookingDeliveryDetails?.arrivalHour ?? null,
+      arrivalMinute: booking.bookingDeliveryDetails?.arrivalMinute ?? null,
+      handoverOutAt,
+      handoverInAt,
     });
 
     if (conflictingBooking) {

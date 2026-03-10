@@ -20,7 +20,7 @@ export const getRentDetails = (booking: Booking) => {
   const consents = booking.payload?.consents;
   const same = booking.payload?.contact?.same;
 
-  const delivery = booking.payload?.delivery;
+  const delivery = booking.delivery;
   const extras = booking.payload?.extras ?? [];
 
   const carLabel = booking.carLabel ?? booking.carId ?? booking.payload?.carId;

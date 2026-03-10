@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type { CSSProperties, DragEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
@@ -21,6 +21,11 @@ import {
   getFleetServiceWindowRangeFromNotes,
   isFleetBlockedByServiceWindow,
 } from '@/lib/fleet-service-window';
+import {
+  buildBookingInterval,
+  intervalsOverlap,
+  type BookingInterval,
+} from '@/lib/booking-interval';
 import { getStatusMeta } from '@/lib/status';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -30,6 +35,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { BookingPricing } from '@/data-service/bookings';
+import { formatDate } from '@/lib/format/format-date';
 
 type BookingCalendarBooking = {
   id: string;
@@ -37,12 +43,17 @@ type BookingCalendarBooking = {
   contactName: string;
   rentalStart?: string;
   rentalEnd?: string;
+  arrivalHour?: string | null;
+  arrivalMinute?: string | null;
+  handoverOutAt?: string | null;
+  handoverInAt?: string | null;
   status?: string | null;
   assignedFleetVehicleId?: string;
   carLabel?: string | null;
   deliveryLocation?: string | null;
   deliveryIsland?: string | null;
   pricing?: BookingPricing | null;
+  arrival?: string;
 };
 
 type BookingCalendarVehicle = {
@@ -209,32 +220,73 @@ const UnassignedBookingCard = ({
 };
 
 type VisibleBooking = BookingCalendarBooking & {
-  startIndex: number;
-  span: number;
+  clampedStartMs: number;
+  clampedEndMs: number;
+  offsetDays: number;
+  spanDays: number;
 };
 
 type DragPayload = {
   bookingId: string;
   sourceVehicleId?: string;
-  rentalStart: string;
-  rentalEnd: string;
 };
 
-const formatDate = (value: Date) =>
-  value.toLocaleDateString('hu-HU', {
-    month: '2-digit',
-    day: '2-digit',
-  });
+const DAY_MS = 1000 * 60 * 60 * 24;
 
 const toIsoDate = (value: Date) => {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
+  const year = value.getUTCFullYear();
+  const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(value.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
-const toDate = (value?: string) =>
-  value ? new Date(`${value}T00:00:00`) : null;
+const toDate = (value?: string) => {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (match) {
+    const [, yearText, monthText, dayText] = match;
+    const year = Number.parseInt(yearText, 10);
+    const month = Number.parseInt(monthText, 10);
+    const day = Number.parseInt(dayText, 10);
+    if (
+      !Number.isFinite(year) ||
+      !Number.isFinite(month) ||
+      !Number.isFinite(day)
+    ) {
+      return null;
+    }
+    return new Date(Date.UTC(year, month - 1, day));
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Date(
+    Date.UTC(
+      parsed.getUTCFullYear(),
+      parsed.getUTCMonth(),
+      parsed.getUTCDate(),
+    ),
+  );
+};
+
+const startOfUtcDay = (date: Date) =>
+  new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+
+const getBookingInterval = (
+  booking: BookingCalendarBooking,
+): BookingInterval | null => {
+  return buildBookingInterval({
+    rentalStart: booking.rentalStart,
+    rentalEnd: booking.rentalEnd,
+    arrivalHour: booking.arrivalHour,
+    arrivalMinute: booking.arrivalMinute,
+    handoverOutAt: booking.handoverOutAt,
+    handoverInAt: booking.handoverInAt,
+  });
+};
 
 const compareStrings = (a?: string | null, b?: string | null) =>
   (a ?? '').localeCompare(b ?? '', 'hu', { sensitivity: 'base' });
@@ -292,46 +344,55 @@ const formatFeeWithEuro = (value?: string | null) => {
   return `${trimmed} €`;
 };
 
-const daysBetween = (start: Date, end: Date) =>
-  Math.max(
-    0,
-    Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)),
-  );
-
 const clampBookingToRange = (
   booking: BookingCalendarBooking,
-  rangeStart: Date,
-  rangeEnd: Date,
+  interval: BookingInterval,
+  rangeStartMs: number,
+  rangeEndExclusiveMs: number,
 ): VisibleBooking | null => {
-  const start = toDate(booking.rentalStart);
-  const end = toDate(booking.rentalEnd);
-  if (!start || !end) return null;
-  if (end < rangeStart || start > rangeEnd) return null;
+  const bookingStartMs = interval.start.getTime();
+  const bookingEndMs = interval.end.getTime();
+  if (bookingEndMs <= rangeStartMs || bookingStartMs >= rangeEndExclusiveMs) {
+    return null;
+  }
 
-  const visibleStart = start < rangeStart ? rangeStart : start;
-  const visibleEnd = end > rangeEnd ? rangeEnd : end;
-  const startIndex = daysBetween(rangeStart, visibleStart);
-  const span = daysBetween(visibleStart, visibleEnd) + 1;
+  const clampedStartMs = Math.max(bookingStartMs, rangeStartMs);
+  const clampedEndMs = Math.min(bookingEndMs, rangeEndExclusiveMs);
+  if (clampedEndMs <= clampedStartMs) return null;
+
+  const offsetDays = (clampedStartMs - rangeStartMs) / DAY_MS;
+  const spanDays = (clampedEndMs - clampedStartMs) / DAY_MS;
 
   return {
     ...booking,
-    startIndex,
-    span,
+    clampedStartMs,
+    clampedEndMs,
+    offsetDays,
+    spanDays,
   };
 };
 
-const rangesOverlap = (
-  startA: string,
-  endA: string,
-  startB: string,
-  endB: string,
+const adjustRangeStartForBookingEnds = (
+  requestedStartIso: string,
+  bookings: BookingCalendarBooking[],
 ) => {
-  const fromA = toDate(startA);
-  const toA = toDate(endA);
-  const fromB = toDate(startB);
-  const toB = toDate(endB);
-  if (!fromA || !toA || !fromB || !toB) return false;
-  return fromA <= toB && toA >= fromB;
+  const requestedStartDate = toDate(requestedStartIso);
+  if (!requestedStartDate) return requestedStartIso;
+
+  const bookingEndDates = new Set(
+    bookings
+      .map((booking) => booking.rentalEnd?.trim())
+      .filter((value): value is string => Boolean(value)),
+  );
+
+  const adjusted = new Date(requestedStartDate);
+  let guard = 0;
+  while (guard < 366 && bookingEndDates.has(toIsoDate(adjusted))) {
+    adjusted.setUTCDate(adjusted.getUTCDate() - 1);
+    guard += 1;
+  }
+
+  return toIsoDate(adjusted);
 };
 
 export function BookingCalendar({
@@ -346,6 +407,8 @@ export function BookingCalendar({
     return iso;
   });
   const [rangeDays, setRangeDays] = useState(14);
+  const timelineViewportRef = useRef<HTMLDivElement | null>(null);
+  const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [activeDrag, setActiveDrag] = useState<DragPayload | null>(null);
@@ -369,37 +432,89 @@ export function BookingCalendar({
     string | null
   >(null);
 
+  useEffect(() => {
+    const adjustedStart = adjustRangeStartForBookingEnds(rangeStart, bookings);
+    if (adjustedStart !== rangeStart) {
+      setRangeStart(adjustedStart);
+    }
+  }, [bookings, rangeStart]);
+
+  useEffect(() => {
+    const viewport = timelineViewportRef.current;
+    if (!viewport) return;
+
+    const updateWidth = () => {
+      const nextWidth = Math.max(0, Math.floor(viewport.clientWidth));
+      setTimelineViewportWidth((previous) =>
+        previous === nextWidth ? previous : nextWidth,
+      );
+    };
+
+    updateWidth();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateWidth);
+      return () => {
+        window.removeEventListener('resize', updateWidth);
+      };
+    }
+
+    const observer = new ResizeObserver(() => {
+      updateWidth();
+    });
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, []);
+
   const parsedRangeStart = useMemo(
     () => toDate(rangeStart) ?? new Date(),
     [rangeStart],
   );
   const parsedRangeEnd = useMemo(() => {
     const end = new Date(parsedRangeStart);
-    end.setDate(end.getDate() + (rangeDays - 1));
+    end.setUTCDate(end.getUTCDate() + (rangeDays - 1));
     return end;
   }, [parsedRangeStart, rangeDays]);
 
   const days = useMemo(() => {
     return Array.from({ length: rangeDays }, (_, idx) => {
       const date = new Date(parsedRangeStart);
-      date.setDate(parsedRangeStart.getDate() + idx);
+      date.setUTCDate(parsedRangeStart.getUTCDate() + idx);
       return {
         date,
-        label: formatDate(date),
+        label: formatDate(toIsoDate(date), 'short'),
         iso: toIsoDate(date),
       };
     });
   }, [parsedRangeStart, rangeDays]);
 
+  const rangeStartMs = parsedRangeStart.getTime();
+  const rangeEndExclusiveMs = startOfUtcDay(parsedRangeEnd).getTime() + DAY_MS;
+
+  const bookingIntervalsById = useMemo(() => {
+    const map = new Map<string, BookingInterval>();
+    for (const booking of bookings) {
+      const interval = getBookingInterval(booking);
+      if (interval) {
+        map.set(booking.id, interval);
+      }
+    }
+    return map;
+  }, [bookings]);
+
   const groupedBookings = useMemo(() => {
     const map = new Map<string, VisibleBooking[]>();
+
     bookings.forEach((booking) => {
       const vehicleId = booking.assignedFleetVehicleId;
       if (!vehicleId) return;
+      const interval = bookingIntervalsById.get(booking.id);
+      if (!interval) return;
       const clamped = clampBookingToRange(
         booking,
-        parsedRangeStart,
-        parsedRangeEnd,
+        interval,
+        rangeStartMs,
+        rangeEndExclusiveMs,
       );
       if (!clamped) return;
 
@@ -408,11 +523,12 @@ export function BookingCalendar({
       map.set(vehicleId, existing);
     });
     map.forEach((vehicleBookings, vehicleId) => {
-      vehicleBookings.sort((a, b) => a.startIndex - b.startIndex);
+      vehicleBookings.sort((a, b) => a.offsetDays - b.offsetDays);
       map.set(vehicleId, vehicleBookings);
     });
+
     return map;
-  }, [bookings, parsedRangeStart, parsedRangeEnd]);
+  }, [bookings, bookingIntervalsById, rangeStartMs, rangeEndExclusiveMs]);
 
   const carOutBookingIdSet = useMemo(
     () => new Set(carOutBookingIds),
@@ -422,25 +538,21 @@ export function BookingCalendar({
   const bookingsByVehicle = useMemo(() => {
     const map = new Map<
       string,
-      { bookingId: string; rentalStart: string; rentalEnd: string }[]
+      { bookingId: string; interval: BookingInterval }[]
     >();
     bookings.forEach((booking) => {
-      if (
-        !booking.assignedFleetVehicleId ||
-        !booking.rentalStart ||
-        !booking.rentalEnd
-      )
-        return;
+      if (!booking.assignedFleetVehicleId) return;
+      const interval = bookingIntervalsById.get(booking.id);
+      if (!interval) return;
       const entry = map.get(booking.assignedFleetVehicleId) ?? [];
       entry.push({
         bookingId: booking.id,
-        rentalStart: booking.rentalStart,
-        rentalEnd: booking.rentalEnd,
+        interval,
       });
       map.set(booking.assignedFleetVehicleId, entry);
     });
     return map;
-  }, [bookings]);
+  }, [bookings, bookingIntervalsById]);
 
   const sortedFleetVehicles = useMemo(() => {
     const list = [...fleetVehicles];
@@ -486,21 +598,15 @@ export function BookingCalendar({
     [fleetVehicles],
   );
 
-  const getAvailableFleetVehicles = (
-    bookingId: string,
-    rentalStart?: string,
-    rentalEnd?: string,
-  ) => {
-    if (!rentalStart || !rentalEnd) return sortedFleetVehicles;
-    const rentalStartDate = toDate(rentalStart);
-    const rentalEndDate = toDate(rentalEnd);
-    if (!rentalStartDate || !rentalEndDate) return sortedFleetVehicles;
+  const getAvailableFleetVehicles = (bookingId: string) => {
+    const requestedInterval = bookingIntervalsById.get(bookingId);
+    if (!requestedInterval) return sortedFleetVehicles;
     return sortedFleetVehicles.filter((vehicle) => {
       if (
         isFleetBlockedByServiceWindow({
           notes: vehicle.notes,
-          rentalStart: rentalStartDate,
-          rentalEnd: rentalEndDate,
+          rentalStart: requestedInterval.start,
+          rentalEnd: requestedInterval.end,
         })
       ) {
         return false;
@@ -510,12 +616,7 @@ export function BookingCalendar({
       return !bookedSlots.some(
         (slot) =>
           slot.bookingId !== bookingId &&
-          rangesOverlap(
-            rentalStart,
-            rentalEnd,
-            slot.rentalStart,
-            slot.rentalEnd,
-          ),
+          intervalsOverlap(requestedInterval, slot.interval),
       );
     });
   };
@@ -524,17 +625,15 @@ export function BookingCalendar({
     payload: DragPayload,
     vehicleId: string,
   ): boolean => {
+    const requestedInterval = bookingIntervalsById.get(payload.bookingId);
+    if (!requestedInterval) return false;
     const vehicle = fleetVehicleById.get(vehicleId);
-    const payloadStartDate = toDate(payload.rentalStart);
-    const payloadEndDate = toDate(payload.rentalEnd);
     if (
       vehicle &&
-      payloadStartDate &&
-      payloadEndDate &&
       isFleetBlockedByServiceWindow({
         notes: vehicle.notes,
-        rentalStart: payloadStartDate,
-        rentalEnd: payloadEndDate,
+        rentalStart: requestedInterval.start,
+        rentalEnd: requestedInterval.end,
       })
     ) {
       return false;
@@ -544,12 +643,7 @@ export function BookingCalendar({
     return !bookedSlots.some(
       (slot) =>
         slot.bookingId !== payload.bookingId &&
-        rangesOverlap(
-          payload.rentalStart,
-          payload.rentalEnd,
-          slot.rentalStart,
-          slot.rentalEnd,
-        ),
+        intervalsOverlap(requestedInterval, slot.interval),
     );
   };
 
@@ -571,10 +665,25 @@ export function BookingCalendar({
   );
 
   const firstColumnWidth = 380;
-  const dayColumnWidth = 100;
-  const dayGridTemplate = `repeat(${days.length}, ${dayColumnWidth}px)`;
+  const MIN_DAY_COLUMN_WIDTH = 84;
+  const DEFAULT_DAY_COLUMN_WIDTH = 100;
+  const fittedDayWidth =
+    rangeDays > 0 && timelineViewportWidth > 0
+      ? Math.floor(timelineViewportWidth / rangeDays)
+      : DEFAULT_DAY_COLUMN_WIDTH;
+  const dayColumnWidth = Math.max(MIN_DAY_COLUMN_WIDTH, fittedDayWidth);
   const timelineWidth = days.length * dayColumnWidth;
-  const rowHeightClass = 'h-[56px]';
+  const dayGridTemplate = `repeat(${days.length}, ${dayColumnWidth}px)`;
+  const rowStyle: CSSProperties = {
+    height: 56,
+    minHeight: 56,
+    maxHeight: 56,
+  };
+  const bookingChipStyleBase: CSSProperties = {
+    height: 48,
+    minHeight: 48,
+    maxHeight: 48,
+  };
 
   const handleAssign = (bookingId: string, fleetVehicleId: string | null) => {
     setMessage(null);
@@ -603,15 +712,11 @@ export function BookingCalendar({
     booking: BookingCalendarBooking,
     sourceVehicleId?: string,
   ): DragPayload | null => {
-    if (!booking.rentalStart || !booking.rentalEnd) return null;
-    const start = toDate(booking.rentalStart);
-    const end = toDate(booking.rentalEnd);
-    if (!start || !end) return null;
+    const interval = bookingIntervalsById.get(booking.id);
+    if (!interval) return null;
     return {
       bookingId: booking.id,
       sourceVehicleId,
-      rentalStart: booking.rentalStart,
-      rentalEnd: booking.rentalEnd,
     };
   };
 
@@ -636,7 +741,6 @@ export function BookingCalendar({
     event.preventDefault();
     const payload = readDragPayload(event);
     if (!payload) return;
-    if (!payload.rentalStart || !payload.rentalEnd) return;
 
     if (!isVehicleAvailable(payload, vehicleId)) {
       setMessage('Az autó már foglalt ebben az időszakban.');
@@ -718,12 +822,9 @@ export function BookingCalendar({
 
   const getAssignableUnassignedBookings = (vehicleId: string) =>
     unassignedBookings.filter((booking) => {
-      if (!booking.rentalStart || !booking.rentalEnd) return false;
       return isVehicleAvailable(
         {
           bookingId: booking.id,
-          rentalStart: booking.rentalStart,
-          rentalEnd: booking.rentalEnd,
         },
         vehicleId,
       );
@@ -758,9 +859,11 @@ export function BookingCalendar({
             className='rounded-md border px-3 py-2 text-sm'
           >
             <option value={7}>7 nap</option>
+            <option value={10}>10 nap</option>
             <option value={14}>14 nap</option>
             <option value={21}>21 nap</option>
             <option value={30}>30 nap</option>
+            <option value={45}>45 nap</option>
           </select>
         </div>
         <div className='flex items-center gap-2'>
@@ -786,7 +889,8 @@ export function BookingCalendar({
         <div className='flex items-center justify-between'>
           <h2 className='text-lg font-semibold'>Flotta idővonal</h2>
           <span className='text-sm text-muted-foreground'>
-            {formatDate(parsedRangeStart)} – {formatDate(parsedRangeEnd)}
+            {formatDate(toIsoDate(parsedRangeStart), 'short')} –{' '}
+            {formatDate(toIsoDate(parsedRangeEnd), 'short')}
           </span>
         </div>
         <div className='flex flex-col flex-wrap items-start gap-2 rounded-lg border border-slate-200 bg-muted/20 px-3 py-2 text-xs text-muted-foreground'>
@@ -884,10 +988,11 @@ export function BookingCalendar({
                   <div key={vehicle.id}>
                     <div
                       className={cn(
-                        `flex ${rowHeightClass} items-center  gap-3 border-b border-slate-300 bg-background px-3 transition-colors`,
+                        'flex items-center  gap-3 border-b border-slate-300 bg-background px-3 transition-colors',
                         isAllowedDrop && 'bg-emerald-100/70',
                         isBlockedDrop && 'bg-rose-100/70',
                       )}
+                      style={rowStyle}
                       onDragEnter={() => {
                         if (activeDrag) setHoverVehicleId(vehicle.id);
                       }}
@@ -954,7 +1059,10 @@ export function BookingCalendar({
               })}
             </div>
 
-            <div className='min-w-0 flex-1 overflow-x-auto'>
+            <div
+              ref={timelineViewportRef}
+              className='min-w-0 flex-1 overflow-x-auto'
+            >
               <div style={{ width: timelineWidth }}>
                 <div
                   className='grid h-11 border-b border-slate-300 bg-muted/40 text-xs font-semibold uppercase text-muted-foreground'
@@ -1000,11 +1108,14 @@ export function BookingCalendar({
                     <div key={vehicle.id}>
                       <div
                         className={cn(
-                          `${rowHeightClass} relative grid border-b border-slate-300 text-sm transition-colors cursor-pointer`,
+                          'relative grid overflow-hidden border-b border-slate-300 text-sm transition-colors cursor-pointer',
                           isAllowedDrop && 'bg-emerald-100/70',
                           isBlockedDrop && 'bg-rose-100/70',
                         )}
-                        style={{ gridTemplateColumns: dayGridTemplate }}
+                        style={{
+                          ...rowStyle,
+                          gridTemplateColumns: dayGridTemplate,
+                        }}
                         onDragEnter={() => {
                           if (activeDrag) setHoverVehicleId(vehicle.id);
                         }}
@@ -1106,7 +1217,10 @@ export function BookingCalendar({
                                         className='cursor-pointer transition-colors hover:!bg-sky-100 hover:!text-slate-900 data-[highlighted]:!bg-sky-100 data-[highlighted]:!text-slate-900 dark:hover:!bg-sky-900/40 dark:hover:!text-slate-50 dark:data-[highlighted]:!bg-sky-900/40 dark:data-[highlighted]:!text-slate-50'
                                         onSelect={() => {
                                           closeRowContextMenu();
-                                          handleAssign(unassignedBooking.id, vehicle.id);
+                                          handleAssign(
+                                            unassignedBooking.id,
+                                            vehicle.id,
+                                          );
                                         }}
                                       >
                                         {unassignedBooking.humanId &&
@@ -1128,10 +1242,12 @@ export function BookingCalendar({
                             day.date >= serviceWindow.from &&
                             day.date <= serviceWindow.to,
                           );
+                          const dayStartMs = rangeStartMs + idx * DAY_MS;
+                          const dayEndMs = dayStartMs + DAY_MS;
                           const isBookedDay = bookingsForVehicle.some(
                             (booking) =>
-                              idx >= booking.startIndex &&
-                              idx < booking.startIndex + booking.span,
+                              booking.clampedStartMs < dayEndMs &&
+                              booking.clampedEndMs > dayStartMs,
                           );
                           return (
                             <div
@@ -1140,7 +1256,9 @@ export function BookingCalendar({
                                 'border-l border-slate-300 bg-background transition-colors first:border-l-0',
                                 idx % 2 === 0 ? 'bg-background' : 'bg-muted/10',
                                 isServiceDay && 'bg-slate-300/60',
-                                !isBookedDay && 'hover:bg-sky-200/70',
+                                isBookedDay
+                                  ? 'hover:bg-sky-300/70'
+                                  : 'hover:bg-sky-200/70',
                                 isAllowedDrop && 'bg-emerald-100/70',
                                 isBlockedDrop && 'bg-rose-100/70',
                               )}
@@ -1151,6 +1269,19 @@ export function BookingCalendar({
                           const hasOut = carOutBookingIdSet.has(booking.id);
                           const bookingColor = getBookingIslandColor(
                             booking.deliveryIsland,
+                          );
+                          const bookingLeftPx =
+                            booking.offsetDays * dayColumnWidth;
+                          const bookingWidthPx = Math.max(
+                            6,
+                            booking.spanDays * dayColumnWidth,
+                          );
+                          const clampedBookingWidthPx = Math.max(
+                            6,
+                            Math.min(
+                              bookingWidthPx,
+                              Math.max(6, timelineWidth - bookingLeftPx),
+                            ),
                           );
                           const bookingMenuItemStyle = {
                             '--fleet-color': bookingColor,
@@ -1186,13 +1317,20 @@ export function BookingCalendar({
                                 <TooltipTrigger asChild>
                                   <div
                                     className={cn(
-                                      'm-1 flex flex-col items-center gap-1 rounded-md px-2 py-1 text-primary-foreground shadow-sm',
+                                      'my-0 min-w-0 flex flex-col items-center justify-center gap-1 overflow-hidden rounded-md px-2 py-1 text-primary-foreground shadow-sm',
                                       hasOut || isPending
                                         ? 'cursor-default'
                                         : 'cursor-grab active:cursor-grabbing',
                                     )}
                                     data-booking-chip='true'
                                     style={{
+                                      ...bookingChipStyleBase,
+                                      position: 'absolute',
+                                      left: `${bookingLeftPx}px`,
+                                      width: `${clampedBookingWidthPx}px`,
+                                      top: 4,
+                                      zIndex: 2,
+                                      boxSizing: 'border-box',
                                       backgroundColor: bookingColor,
                                       backgroundImage: `repeating-linear-gradient(to right, transparent 0, transparent ${
                                         dayColumnWidth - 1
@@ -1201,10 +1339,6 @@ export function BookingCalendar({
                                       }px, rgba(255,255,255,0.28) ${dayColumnWidth}px)`,
                                       boxShadow:
                                         'inset 0 0 0 1px rgba(15,23,42,0.2)',
-                                      gridColumn: `${
-                                        booking.startIndex + 1
-                                      } / span ${booking.span}`,
-                                      gridRow: '1',
                                     }}
                                     draggable={!isPending && !hasOut}
                                     onContextMenu={(event) => {
@@ -1258,14 +1392,14 @@ export function BookingCalendar({
                                       setHoverVehicleId(null);
                                     }}
                                   >
-                                    <div className='flex items-center justify-between gap-2 text-xs font-semibold'>
-                                      <span className='truncate'>
+                                    <div className='flex w-full min-w-0 items-center justify-center gap-2 text-xs font-semibold'>
+                                      <span className='block max-w-full truncate'>
                                         {booking.contactName || 'Foglalás'}
                                       </span>
                                     </div>
-                                    <div className='text-[11px] opacity-90'>
-                                      {booking.rentalStart} →{' '}
-                                      {booking.rentalEnd}
+                                    <div className='max-w-full truncate whitespace-nowrap text-[11px] opacity-90'>
+                                      {formatDate(booking.rentalStart, 'short')}{' '}
+                                      → {formatDate(booking.rentalEnd, 'short')}
                                     </div>
                                   </div>
                                 </TooltipTrigger>
@@ -1286,6 +1420,10 @@ export function BookingCalendar({
                                     <strong>Időszak:</strong>{' '}
                                     {booking.rentalStart ?? '—'} →{' '}
                                     {booking.rentalEnd ?? '—'}
+                                  </div>
+                                  <div>
+                                    <strong>Érkezés:</strong>{' '}
+                                    {booking.arrival ?? '—'}
                                   </div>
                                   <div>
                                     <strong>Státusz:</strong>{' '}
@@ -1386,7 +1524,7 @@ export function BookingCalendar({
                           {days.map((day, idx) => (
                             <div
                               key={idx}
-                              className='flex items-center justify-center border-l border-slate-300 px-2 text-center first:border-l-0'
+                              className='flex items-center justify-center border-l border-slate-300 px-2 text-center first:border-l-0 '
                             >
                               {day.label}
                             </div>
@@ -1430,11 +1568,7 @@ export function BookingCalendar({
             <UnassignedBookingCard
               key={booking.id}
               booking={booking}
-              fleetVehicles={getAvailableFleetVehicles(
-                booking.id,
-                booking.rentalStart,
-                booking.rentalEnd,
-              )}
+              fleetVehicles={getAvailableFleetVehicles(booking.id)}
               disabled={isPending}
               onAssign={(bookingId, vehicleId) =>
                 handleAssign(bookingId, vehicleId)

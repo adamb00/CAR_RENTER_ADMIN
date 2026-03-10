@@ -32,39 +32,47 @@ export async function createVehicleHandoverAction(
 
   const fleetVehicle = await db.fleetVehicle.findUnique({
     where: { id: data.fleetVehicleId },
-    select: { id: true },
+    select: { id: true, odometer: true },
   });
 
   if (!fleetVehicle) {
     return { error: 'A flottajármű nem található.' };
   }
 
-  if (direction === 'in' && data.mileage != null) {
-    const handoverOut = await db.vehicleHandover.findFirst({
-      where: {
-        bookingId: data.bookingId,
-        fleetVehicleId: data.fleetVehicleId,
-        direction: 'out',
-      },
-      orderBy: { handoverAt: 'desc' },
-      select: { mileage: true },
-    });
-    const outMileage = handoverOut?.mileage;
-    if (outMileage != null && data.mileage < outMileage) {
+  if (data.mileage != null) {
+    let minimumMileage = Math.max(0, fleetVehicle.odometer ?? 0);
+
+    if (direction === 'in') {
+      const handoverOut = await db.vehicleHandover.findFirst({
+        where: {
+          bookingId: data.bookingId,
+          fleetVehicleId: data.fleetVehicleId,
+          direction: 'out',
+        },
+        orderBy: { handoverAt: 'desc' },
+        select: { mileage: true },
+      });
+      const outMileage = handoverOut?.mileage;
+      if (outMileage != null) {
+        minimumMileage = Math.max(minimumMileage, outMileage);
+      }
+    }
+
+    if (data.mileage < minimumMileage) {
       return {
-        error: `A km óra állás nem lehet kisebb, mint a kiadáskori érték (${outMileage} km).`,
+        error: `A km óra állás nem lehet kisebb, mint az utolsó rögzített érték (${minimumMileage} km).`,
       };
     }
   }
 
   const handoverAt = data.handoverAt ? new Date(data.handoverAt) : new Date();
 
-  const shouldUpdateOdometer = direction === 'in' && data.mileage != null;
+  const shouldUpdateOdometer = data.mileage != null;
   const locationValue = data.location?.trim();
   const shouldUpdateLocation = Boolean(locationValue);
   const costUpdates: Array<{
     direction: 'out' | 'in';
-    costType: 'tip' | 'fuel' | 'ferry' | 'cleaning';
+    costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
     amount: number;
   }> = [
     ...(direction === 'out' && data.tip != null
@@ -79,10 +87,23 @@ export async function createVehicleHandoverAction(
     ...(data.cleaningCost != null
       ? [{ direction: direction as 'out' | 'in', costType: 'cleaning' as const, amount: data.cleaningCost }]
       : []),
+    ...(direction === 'out' && data.commission != null
+      ? [
+          {
+            direction: 'out' as const,
+            costType: 'commission' as const,
+            amount: data.commission,
+          },
+        ]
+      : []),
   ];
 
   try {
     const created = await db.$transaction(async (tx) => {
+      const rangeField =
+        data.rangeKm != null
+          ? ({ rangeKm: data.rangeKm } as Record<string, unknown>)
+          : {};
       const createdRow = await tx.vehicleHandover.create({
         data: {
           bookingId: data.bookingId,
@@ -94,6 +115,7 @@ export async function createVehicleHandoverAction(
           notes: data.notes?.trim() || null,
           damages: data.damages?.trim() || null,
           damagesImages: data.damagesImages ?? [],
+          ...rangeField,
         },
         select: { id: true },
       });

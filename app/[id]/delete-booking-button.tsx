@@ -1,47 +1,47 @@
 'use client';
-
-import { Archive } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
-
-import { archiveBookingAction } from '@/actions/archiveBookingAction';
-import { Button } from '@/components/ui/button';
+import { deleteBookingAction } from '@/actions/deleteBookingAction';
 import { StatusMessage } from '@/components/confirm-button/types';
+import { Button } from '@/components/ui/button';
+import { Delete } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
-type ArchiveBookingButtonProps = {
+import React, { useState, useTransition } from 'react';
+
+type DeleteBookingButtonProps = {
   bookingId: string;
   bookingCode: string;
 };
 
-export const ArchiveBookingButton = ({
+export const DeleteBookingButton = ({
   bookingId,
   bookingCode,
-}: ArchiveBookingButtonProps) => {
+}: DeleteBookingButtonProps) => {
   const router = useRouter();
   const [status, setStatus] = useState<StatusMessage | null>(null);
-  const [isArchiving, startTransition] = useTransition();
-  const [isArchived, setIsArchived] = useState(false);
+  const [isDeleting, startTransition] = useTransition();
+  const [isDeleted, setIsDeleted] = useState(false);
 
-  const handleArchive = () => {
-    if (isArchived) return;
+  const handleDelete = () => {
+    if (isDeleted) return;
 
     const confirmed = window.confirm(
-      `Biztos ezt szeretnéd?\n\nA(z) ${bookingCode} foglalás archiválás után nem jelenik meg a foglalások között és a statisztikában.`,
+      `Biztos ezt szeretnéd?\n\nA(z) ${bookingCode} foglalás törlése visszafordíthatatlan folyamat.`,
     );
     if (!confirmed) return;
 
     setStatus(null);
     startTransition(async () => {
-      const result = await archiveBookingAction({ bookingId });
+      const result = await deleteBookingAction({ bookingId });
       if (result?.error) {
         setStatus({ type: 'error', message: result.error });
         return;
       }
       setStatus({
         type: 'success',
-        message: result?.success ?? 'Foglalás archiválva.',
+        message: result?.success ?? 'Foglalás törölve.',
       });
-      setIsArchived(true);
+      setIsDeleted(true);
+      router.push('/calendar');
       router.refresh();
     });
   };
@@ -52,11 +52,11 @@ export const ArchiveBookingButton = ({
         type='button'
         variant='outline'
         className='gap-2 hover:bg-foreground hover:text-primary-foreground'
-        disabled={isArchiving || isArchived}
-        onClick={handleArchive}
+        disabled={isDeleting || isDeleted}
+        onClick={handleDelete}
       >
-        <Archive className='h-4 w-4' />
-        {isArchived ? 'Archiválva' : 'Archiválás'}
+        <Delete className='h-4 w-4' />
+        {isDeleted ? 'Törölve' : 'Törlés'}
       </Button>
       {status && (
         <p

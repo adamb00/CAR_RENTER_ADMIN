@@ -9,6 +9,8 @@ import { getBookingById, getIsCarOut } from '@/data-service/bookings';
 import { getArchivedBookingIdSet } from '@/lib/booking-archive';
 import { isCancelledBookingStatus } from '@/lib/booking-conflicts';
 import { db } from '@/lib/db';
+import { formatPlaceType } from '@/lib/format/format-place';
+import { formatDocumentType } from '@/lib/format/format-document';
 
 const stringifyJson = (value: unknown) =>
   JSON.stringify(value ?? null, null, 2);
@@ -59,7 +61,11 @@ const toUtcDateFromDateInput = (value?: string): Date | null => {
   const year = Number.parseInt(yearText, 10);
   const month = Number.parseInt(monthText, 10);
   const day = Number.parseInt(dayText, 10);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day)
+  ) {
     return null;
   }
   const parsed = new Date(Date.UTC(year, month - 1, day));
@@ -145,9 +151,17 @@ type BookingDeliveryDetailsRow = {
 
 type BookingHandoverCostRow = {
   direction: 'out' | 'in';
-  costType: 'tip' | 'fuel' | 'ferry' | 'cleaning';
+  costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
   amount: unknown;
 };
+
+type HandoverDirectionValue = 'out' | 'in';
+type HandoverCostTypeValue =
+  | 'tip'
+  | 'fuel'
+  | 'ferry'
+  | 'cleaning'
+  | 'commission';
 
 export default async function BookingEditPage({
   params,
@@ -223,12 +237,24 @@ export default async function BookingEditPage({
   const pricingSnapshot = pricingRows[0] ?? null;
   const deliveryDetails = deliveryRows[0] ?? null;
   const payload = isRecord(booking.payload) ? booking.payload : null;
-  const payloadContact = payload && isRecord(payload.contact) ? payload.contact : null;
+  const payloadContact =
+    payload && isRecord(payload.contact) ? payload.contact : null;
   const payloadRentalPeriod =
     payload && isRecord(payload.rentalPeriod) ? payload.rentalPeriod : null;
-  const payloadPricing = payload && isRecord(payload.pricing) ? payload.pricing : null;
+  const payloadPricing =
+    payload && isRecord(payload.pricing) ? payload.pricing : null;
   const payloadDelivery =
     payload && isRecord(payload.delivery) ? payload.delivery : null;
+  const payloadHandoverCosts =
+    payload && isRecord(payload.handoverCosts) ? payload.handoverCosts : null;
+  const payloadHandoverOutCosts =
+    payloadHandoverCosts && isRecord(payloadHandoverCosts.out)
+      ? payloadHandoverCosts.out
+      : null;
+  const payloadHandoverInCosts =
+    payloadHandoverCosts && isRecord(payloadHandoverCosts.in)
+      ? payloadHandoverCosts.in
+      : null;
   const payloadDriversSource = payload?.driver;
   const payloadDriversRaw = Array.isArray(payloadDriversSource)
     ? payloadDriversSource
@@ -256,10 +282,12 @@ export default async function BookingEditPage({
       locationStreet: toDriverFormString(location?.street),
       locationStreetType: toDriverFormString(location?.streetType),
       locationDoorNumber: toDriverFormString(location?.doorNumber),
-      documentType: toDriverFormString(document?.type),
+      documentType: formatDocumentType(toDriverFormString(document?.type)),
       documentNumber: toDriverFormString(document?.number),
       drivingLicenceNumber: toDriverFormString(document?.drivingLicenceNumber),
-      drivingLicenceCategory: toDriverFormString(document?.drivingLicenceCategory),
+      drivingLicenceCategory: toDriverFormString(
+        document?.drivingLicenceCategory,
+      ),
     };
     if (Object.values(mapped).some((value) => value.trim().length > 0)) {
       acc.push(mapped);
@@ -270,7 +298,8 @@ export default async function BookingEditPage({
   const payloadRentalEnd = toPayloadDateInput(payloadRentalPeriod?.endDate);
 
   const effectiveCarId = firstString(booking.carid, payload?.carId) ?? '';
-  const effectiveRentalEnd = booking.rentalend ?? toUtcDateFromDateInput(payloadRentalEnd);
+  const effectiveRentalEnd =
+    booking.rentalend ?? toUtcDateFromDateInput(payloadRentalEnd);
   let maxExtendableRentalEnd = '';
   let nextCarBookingCode = '';
 
@@ -311,6 +340,76 @@ export default async function BookingEditPage({
     }
   }
 
+  const handoverCostsMap = new Map<string, string>();
+  for (const row of handoverCostRows) {
+    const amount = toAmountString(row.amount).trim();
+    if (!amount) continue;
+    handoverCostsMap.set(`${row.direction}:${row.costType}`, amount);
+  }
+
+  const getLegacyHandoverAmount = (
+    direction: HandoverDirectionValue,
+    costType: HandoverCostTypeValue,
+  ) => {
+    if (costType === 'tip') {
+      if (direction !== 'out') return undefined;
+      return firstString(payload?.handoverTip, payloadPricing?.tip);
+    }
+
+    const source = direction === 'out' ? payloadHandoverOutCosts : payloadHandoverInCosts;
+    if (!source) return undefined;
+
+    if (costType === 'fuel') {
+      return toOptionalTrimmedString(source.fuelCost);
+    }
+    if (costType === 'ferry') {
+      return toOptionalTrimmedString(source.ferryCost);
+    }
+    if (costType === 'cleaning') {
+      return toOptionalTrimmedString(source.cleaningCost);
+    }
+    return (
+      toOptionalTrimmedString(source.commissionCost) ??
+      toOptionalTrimmedString(source.commission)
+    );
+  };
+
+  const ensureHandoverCost = (
+    direction: HandoverDirectionValue,
+    costType: HandoverCostTypeValue,
+  ) => {
+    const key = `${direction}:${costType}`;
+    if (handoverCostsMap.has(key)) return;
+    const legacyAmount = getLegacyHandoverAmount(direction, costType);
+    if (!legacyAmount) return;
+    handoverCostsMap.set(key, legacyAmount);
+  };
+
+  ensureHandoverCost('out', 'tip');
+  ensureHandoverCost('out', 'fuel');
+  ensureHandoverCost('out', 'ferry');
+  ensureHandoverCost('out', 'cleaning');
+  ensureHandoverCost('out', 'commission');
+  ensureHandoverCost('in', 'fuel');
+  ensureHandoverCost('in', 'ferry');
+  ensureHandoverCost('in', 'cleaning');
+  ensureHandoverCost('in', 'commission');
+
+  const effectiveHandoverCosts: BookingAdminInitialData['handoverCosts'] =
+    Array.from(handoverCostsMap.entries())
+      .map(([key, amount]) => {
+        const [direction, costType] = key.split(':');
+        if (!direction || !costType) return null;
+        return {
+          direction: direction as HandoverDirectionValue,
+          costType: costType as HandoverCostTypeValue,
+          amount,
+        };
+      })
+      .filter((row): row is BookingAdminInitialData['handoverCosts'][number] =>
+        Boolean(row),
+      );
+
   const initial: BookingAdminInitialData = {
     id: booking.id,
     createdAt: booking.createdAt.toISOString(),
@@ -320,14 +419,16 @@ export default async function BookingEditPage({
     carId: effectiveCarId,
     quoteId: firstString(booking.quoteid, payload?.quoteId) ?? '',
     contactName: firstString(booking.contactname, payloadContact?.name) ?? '',
-    contactEmail: firstString(booking.contactemail, payloadContact?.email) ?? '',
+    contactEmail:
+      firstString(booking.contactemail, payloadContact?.email) ?? '',
     contactPhone:
       firstString(
         booking.contactphone,
         payloadContact?.phoneNumber,
         payload?.contactPhone,
       ) ?? '',
-    rentalStart: toDateInputValue(booking.rentalstart) || payloadRentalStart || '',
+    rentalStart:
+      toDateInputValue(booking.rentalstart) || payloadRentalStart || '',
     rentalEnd: toDateInputValue(booking.rentalend) || payloadRentalEnd || '',
     originalRentalEnd:
       toDateInputValue(booking.rentalend) || payloadRentalEnd || '',
@@ -343,18 +444,30 @@ export default async function BookingEditPage({
     drivers: payloadDrivers,
     hasPricingSnapshot: Boolean(pricingSnapshot),
     pricingSnapshot: {
-      rentalFee: firstString(pricingSnapshot?.rentalFee, payloadPricing?.rentalFee) ?? '',
-      insurance: firstString(pricingSnapshot?.insurance, payloadPricing?.insurance) ?? '',
-      deposit: firstString(pricingSnapshot?.deposit, payloadPricing?.deposit) ?? '',
+      rentalFee:
+        firstString(pricingSnapshot?.rentalFee, payloadPricing?.rentalFee) ??
+        '',
+      insurance:
+        firstString(pricingSnapshot?.insurance, payloadPricing?.insurance) ??
+        '',
+      deposit:
+        firstString(pricingSnapshot?.deposit, payloadPricing?.deposit) ?? '',
       deliveryFee:
-        firstString(pricingSnapshot?.deliveryFee, payloadPricing?.deliveryFee) ?? '',
+        firstString(
+          pricingSnapshot?.deliveryFee,
+          payloadPricing?.deliveryFee,
+        ) ?? '',
       extrasFee:
-        firstString(pricingSnapshot?.extrasFee, payloadPricing?.extrasFee) ?? '',
+        firstString(pricingSnapshot?.extrasFee, payloadPricing?.extrasFee) ??
+        '',
       tip: firstString(pricingSnapshot?.tip, payloadPricing?.tip) ?? '',
     },
     hasDeliveryDetails: Boolean(deliveryDetails),
     deliveryDetails: {
-      placeType: firstString(deliveryDetails?.placeType, payloadDelivery?.placeType) ?? '',
+      placeType:
+        formatPlaceType(
+          firstString(deliveryDetails?.placeType, payloadDelivery?.placeType),
+        ) ?? '',
       locationName:
         firstString(
           deliveryDetails?.locationName,
@@ -366,34 +479,40 @@ export default async function BookingEditPage({
           deliveryDetails?.addressLine,
           toAddressLineFromPayload(payloadDelivery?.address),
         ) ?? '',
-      island: firstString(deliveryDetails?.island, payloadDelivery?.island) ?? '',
+      island:
+        firstString(deliveryDetails?.island, payloadDelivery?.island) ?? '',
       arrivalFlight:
-        firstString(deliveryDetails?.arrivalFlight, payloadDelivery?.arrivalFlight) ??
-        '',
+        firstString(
+          deliveryDetails?.arrivalFlight,
+          payloadDelivery?.arrivalFlight,
+        ) ?? '',
       departureFlight:
         firstString(
           deliveryDetails?.departureFlight,
           payloadDelivery?.departureFlight,
         ) ?? '',
       arrivalHour:
-        firstString(deliveryDetails?.arrivalHour, payloadDelivery?.arrivalHour) ?? '',
+        firstString(
+          deliveryDetails?.arrivalHour,
+          payloadDelivery?.arrivalHour,
+        ) ?? '',
       arrivalMinute:
         firstString(
           deliveryDetails?.arrivalMinute,
           payloadDelivery?.arrivalMinute,
         ) ?? '',
     },
-    handoverCosts: handoverCostRows.map((row) => ({
-      direction: row.direction,
-      costType: row.costType,
-      amount: toAmountString(row.amount),
-    })),
+    handoverCosts: effectiveHandoverCosts,
     vehicleHandovers: vehicleHandovers.map((row) => ({
       fleetVehicleId: row.fleetVehicleId,
       direction: row.direction,
       handoverAt: toDateTimeInputValue(row.handoverAt),
       handoverBy: row.handoverBy ?? '',
       mileage: row.mileage != null ? String(row.mileage) : '',
+      rangeKm:
+        (row as { rangeKm?: number | null }).rangeKm != null
+          ? String((row as { rangeKm?: number | null }).rangeKm)
+          : '',
       notes: row.notes ?? '',
       damages: row.damages ?? '',
       damagesImages: row.damagesImages.join('\n'),
