@@ -1,12 +1,13 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mail, Plus, Trash2 } from 'lucide-react';
+import { Mail, MessageCircle, Plus, Trash2 } from 'lucide-react';
 import { useState, useTransition } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { sendBookingRequestEmailAction } from '@/actions/sendBookingRequestEmailAction';
+import { sendBookingRequestWhatsappAction } from '@/actions/sendBookingRequestWhatsappAction';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -60,6 +61,8 @@ type PricingFormInputs = z.input<typeof pricingSchema>;
 type BookingRequestButtonProps = {
   quoteId: string;
   email?: string | null;
+  phone?: string | null;
+  preferredChannel?: 'email' | 'phone' | 'whatsapp' | 'viber' | null;
   name?: string | null;
   locale?: string | null;
   carId?: string | null;
@@ -73,6 +76,8 @@ type BookingRequestButtonProps = {
 export const BookingRequestButton = ({
   quoteId,
   email,
+  phone,
+  preferredChannel,
   name,
   locale,
   carId,
@@ -88,6 +93,7 @@ export const BookingRequestButton = ({
   } | null>(null);
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
+  const effectiveChannel = preferredChannel === 'whatsapp' ? 'whatsapp' : 'email';
 
   const form = useForm<PricingFormInputs, any, PricingFormValues>({
     resolver: zodResolver(pricingSchema),
@@ -112,11 +118,11 @@ export const BookingRequestButton = ({
     name: 'offers',
   });
 
-  const missingEmail = !email;
+  const missingContact = effectiveChannel === 'whatsapp' ? !phone : !email;
   const missingCar = carOptions.length === 0;
 
   const onSubmit = (values: PricingFormValues) => {
-    if (missingEmail) return;
+    if (missingContact) return;
     setStatus(null);
     startTransition(async () => {
       const offers = await Promise.all(
@@ -135,6 +141,35 @@ export const BookingRequestButton = ({
           };
         }),
       );
+
+      if (effectiveChannel === 'whatsapp') {
+        const result = await sendBookingRequestWhatsappAction({
+          quoteId,
+          phone,
+          name,
+          locale,
+          rentalStart,
+          rentalEnd,
+          adminName: values.adminName,
+          offers,
+        });
+
+        if (result?.error) {
+          setStatus({ type: 'error', message: result.error });
+          return;
+        }
+
+        if (result?.whatsappUrl) {
+          window.open(result.whatsappUrl, '_blank', 'noopener,noreferrer');
+        }
+
+        setStatus({
+          type: 'success',
+          message: result?.success ?? 'WhatsApp ajánlat megnyitva.',
+        });
+        setOpen(false);
+        return;
+      }
 
       const result = await sendBookingRequestEmailAction({
         quoteId,
@@ -183,22 +218,32 @@ export const BookingRequestButton = ({
         <SheetTrigger asChild>
           <Button
             type='button'
-            disabled={isPending || missingEmail || missingCar}
+            disabled={isPending || missingContact || missingCar}
             className='gap-2'
           >
-            <Mail className='h-4 w-4' />
-            {isPending ? 'Küldés...' : 'Foglalás kérő e-mail küldése'}
+            {effectiveChannel === 'whatsapp' ? (
+              <MessageCircle className='h-4 w-4' />
+            ) : (
+              <Mail className='h-4 w-4' />
+            )}
+            {isPending
+              ? 'Küldés...'
+              : effectiveChannel === 'whatsapp'
+                ? 'Foglalás kérő WhatsApp küldése'
+                : 'Foglalás kérő e-mail küldése'}
           </Button>
         </SheetTrigger>
 
-        {missingEmail && (
+        {missingContact && (
           <p className='text-sm text-destructive'>
-            Nincs e-mail cím megadva ehhez az ajánlatkéréshez.
+            {effectiveChannel === 'whatsapp'
+              ? 'Nincs telefonszám megadva ehhez az ajánlatkéréshez.'
+              : 'Nincs e-mail cím megadva ehhez az ajánlatkéréshez.'}
           </p>
         )}
         {missingCar && (
           <p className='text-sm text-destructive'>
-            Nincs elérhető autó a listában, így nem küldhető ki az e-mail.
+            Nincs elérhető autó a listában, így nem küldhető ki az ajánlat.
           </p>
         )}
         {status && (
@@ -219,10 +264,14 @@ export const BookingRequestButton = ({
         className='w-full sm:max-w-md overflow-y-scroll'
       >
         <SheetHeader>
-          <SheetTitle>Foglaláskérés e-mail</SheetTitle>
+          <SheetTitle>
+            {effectiveChannel === 'whatsapp'
+              ? 'Foglaláskérés WhatsApp'
+              : 'Foglaláskérés e-mail'}
+          </SheetTitle>
           <SheetDescription>
             Add meg a bérleti díjat, a kauciót és a teljes körű biztosítás díját
-            az e-mailhez.
+            az ajánlathoz.
           </SheetDescription>
           {monthlyPrice != null && (
             <div className='mt-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-foreground'>
@@ -404,12 +453,20 @@ export const BookingRequestButton = ({
                       render={({ field }) => (
                         <FormItem>
                           <FormControl>
-                            <Input
-                              type='text'
-                              label='Átvétel helye'
-                              placeholder='pl. Budapest, Deák tér'
-                              {...field}
-                            />
+                            <div className='space-y-2'>
+                              <label className='text-sm font-medium text-foreground'>
+                                Átvétel helye
+                              </label>
+                              <select
+                                className='w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
+                                value={field.value ?? ''}
+                                onChange={field.onChange}
+                              >
+                                <option value=''>Válassz helyet</option>
+                                <option value='reptér'>Reptér</option>
+                                <option value='szálloda'>Szálloda</option>
+                              </select>
+                            </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>

@@ -102,6 +102,8 @@ export default async function QuoteDetailPage({
         <BookingRequestButton
           quoteId={quote.id}
           email={quote.email}
+          phone={quote.phone}
+          preferredChannel={quote.preferredChannel}
           name={quote.name}
           locale={quote.locale}
           carId={quote.carId}

@@ -131,7 +131,8 @@ const buildBookingRequestRecord = (
 
 const markQuoteAsProcessed = async (
   quoteId: string,
-  bookingRequestData: BookingRequestOfferData[]
+  bookingRequestData: BookingRequestOfferData[],
+  signerName?: string | null,
 ) => {
   await db.contactQuotes.update({
     where: { id: quoteId },
@@ -141,6 +142,12 @@ const markQuoteAsProcessed = async (
       bookingRequestData,
     },
   });
+
+  await db.$executeRaw`
+    UPDATE "ContactQuotes"
+    SET "signerName" = ${toNullableString(signerName)}
+    WHERE "id" = ${quoteId}::uuid
+  `;
 };
 
 export const sendBookingRequestEmailAction = async (
@@ -201,7 +208,11 @@ export const sendBookingRequestEmailAction = async (
   }
 
   try {
-    await markQuoteAsProcessed(input.quoteId, bookingRequestData);
+    await markQuoteAsProcessed(
+      input.quoteId,
+      bookingRequestData,
+      input.adminName,
+    );
     revalidatePath('/quotes');
     revalidatePath(`/quotes/${input.quoteId}`);
   } catch (error) {

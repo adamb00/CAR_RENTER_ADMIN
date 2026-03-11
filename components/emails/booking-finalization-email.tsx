@@ -1,7 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 import * as React from 'react';
 
-import { ADMIN_SIGNATURE, BRAND } from '@/lib/constants';
+import { BRAND } from '@/lib/constants';
+import { EmailSignatureBlock, resolveEmailSignatureData } from './email-signature';
 import type { BookingFinalizationCopy } from './utils/finalization-copy';
 
 export type BookingFinalizationEmailInput = {
@@ -182,6 +183,13 @@ export default function BookingFinalizationEmail({
       value: formatLine(input.delivery?.departureFlight),
     },
   ];
+  const signatureData = resolveEmailSignatureData({
+    signerName: input.signerName,
+    locale: input.locale,
+    adminTitle: copy.signatureRole,
+    localizedSiteUrl: copy.signatureWebsite,
+    sloganLines: copy.signatureSlogans,
+  });
 
   return (
     <div style={{ margin: 0, padding: 0, background: BRAND.background }}>
@@ -692,42 +700,7 @@ export default function BookingFinalizationEmail({
                         width='100%'
                         style={{ marginTop: 32 }}
                       >
-                        <tbody>
-                          <tr>
-                            <td align='right'>
-                              <div
-                                style={{
-                                  textAlign: 'right',
-                                  fontSize: 13,
-                                  lineHeight: 1.6,
-                                  color: BRAND.navy,
-                                  display: 'inline-block',
-                                  maxWidth: 260,
-                                }}
-                              >
-                                <strong>{input.signerName}</strong>
-                                <br />
-                                {copy.signatureRole}
-                                <br />
-                                {ADMIN_SIGNATURE.company}
-                                <br />
-                                Tel: {ADMIN_SIGNATURE.phone}
-                                <br />
-                                Email: {ADMIN_SIGNATURE.email}
-                                <br />
-                                Web: {copy.signatureWebsite}
-                                <br />
-                                {copy.signatureLocation}
-                                {copy.signatureSlogans.map((line) => (
-                                  <React.Fragment key={line}>
-                                    <br />
-                                    <em>{line}</em>
-                                  </React.Fragment>
-                                ))}
-                              </div>
-                            </td>
-                          </tr>
-                        </tbody>
+                        <EmailSignatureBlock data={signatureData} />
                       </table>
                     </td>
                   </tr>

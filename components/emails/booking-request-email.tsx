@@ -1,5 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
-import { ADMIN_SIGNATURE, BRAND } from '@/lib/constants';
+import { BRAND } from '@/lib/constants';
+import {
+  EmailSignatureBlock,
+  buildEmailSignatureText,
+  resolveEmailSignatureData,
+} from './email-signature';
 import { EMAIL_COPY } from './utils/email-copy';
 import { LOCALIZED_STATIC } from './utils/localized-static';
 
@@ -504,11 +509,13 @@ export function BookingRequestEmailTemplate({
   const localeSafe = normalizeLocale(input.locale);
   const staticText = getStaticTexts(localeSafe);
 
-  const signerName = sanitizeName(input.adminName) ?? 'Zodiacs Rent a Car';
-  const signerNameHtml = escapeHtml(signerName);
-  const adminTitle = escapeHtml(staticText.adminTitle);
-  const sloganLines = staticText.slogans.map((line) => escapeHtml(line));
-  const localizedSiteUrl = `https://zodiacsrentacar.com/${localeSafe}`;
+  const signatureData = resolveEmailSignatureData({
+    signerName: input.adminName,
+    locale: localeSafe,
+    adminTitle: staticText.adminTitle,
+    localizedSiteUrl: `https://zodiacsrentacar.com/${localeSafe}`,
+    sloganLines: staticText.slogans,
+  });
 
   const offers = Array.isArray(input.offers) ? input.offers : [];
   const offerBlocks = buildOfferBlocks(offers, staticText, copy);
@@ -738,49 +745,7 @@ export function BookingRequestEmailTemplate({
                         cellSpacing={0}
                         style={{ borderCollapse: 'collapse' }}
                       >
-                        <tbody>
-                          <tr>
-                            <td align='right' style={{ textAlign: 'right' }}>
-                              <div
-                                style={{
-                                  marginTop: 10,
-                                  fontSize: 13,
-                                  color: BRAND.navyLight,
-                                  lineHeight: 1.5,
-                                  display: 'inline-block',
-                                  textAlign: 'right',
-                                }}
-                              >
-                                <div style={{ fontWeight: 700 }}>
-                                  {signerNameHtml}
-                                </div>
-                                <div>{adminTitle}</div>
-                                <div>{escapeHtml(ADMIN_SIGNATURE.company)}</div>
-                                <div>
-                                  Tel: {escapeHtml(ADMIN_SIGNATURE.phone)}
-                                </div>
-                                <div>
-                                  Email: {escapeHtml(ADMIN_SIGNATURE.email)}
-                                </div>
-                                <div>Web: {escapeHtml(localizedSiteUrl)}</div>
-                                <div>
-                                  {escapeHtml(ADMIN_SIGNATURE.locations)}
-                                </div>
-                                {sloganLines.map((line, idx) => (
-                                  <div
-                                    key={idx}
-                                    style={{
-                                      fontStyle: 'italic',
-                                      marginTop: idx === 0 ? 6 : 0,
-                                    }}
-                                  >
-                                    {line}
-                                  </div>
-                                ))}
-                              </div>
-                            </td>
-                          </tr>
-                        </tbody>
+                        <EmailSignatureBlock data={signatureData} />
                       </table>
                     </td>
                   </tr>
@@ -808,10 +773,13 @@ export const buildTextBody = (
   const days = rentalDays(input.rentalStart, input.rentalEnd);
   const localeSafe = normalizeLocale(input.locale);
   const staticText = getStaticTexts(localeSafe);
-  const signerName = sanitizeName(input.adminName) ?? 'Zodiacs Rent a Car';
-  const adminTitle = staticText.adminTitle;
-  const slogans = staticText.slogans;
-  const localizedSiteUrl = `https://zodiacsrentacar.com/${localeSafe}`;
+  const signatureData = resolveEmailSignatureData({
+    signerName: input.adminName,
+    locale: localeSafe,
+    adminTitle: staticText.adminTitle,
+    localizedSiteUrl: `https://zodiacsrentacar.com/${localeSafe}`,
+    sloganLines: staticText.slogans,
+  });
 
   const offers = Array.isArray(input.offers) ? input.offers : [];
   const offersText = offers
@@ -863,14 +831,6 @@ export const buildTextBody = (
   ${staticText.deliveryNote}
   
   ${copy.signature}
-  
-  ${signerName}
-  ${adminTitle}
-  ${ADMIN_SIGNATURE.company}
-  Tel: ${ADMIN_SIGNATURE.phone}
-  Email: ${ADMIN_SIGNATURE.email}
-  Web: ${localizedSiteUrl}
-  Helyszín: ${ADMIN_SIGNATURE.locations}
-  
-  ${slogans.join('\n')}`;
+
+  ${buildEmailSignatureText(signatureData)}`;
 };

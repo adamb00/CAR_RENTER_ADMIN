@@ -55,6 +55,7 @@ export type ContactQuote = ContactQuotePayload & {
   createdAt: string | null;
   updatedAt?: string | null;
   status?: string;
+  signerName?: string | null;
   carName?: string | null;
   bookingRequestData?: BookingRequestDataPayload;
   rentalDays?: number;
@@ -113,6 +114,9 @@ const normalizeBookingRequestData = (
 };
 
 const normalizeQuote = (quote: ContactQuotes): ContactQuote => {
+  const signerName =
+    (quote as ContactQuotes & { signerName?: string | null }).signerName ??
+    null;
   const delivery =
     (quote.delivery as ContactQuote['delivery'] | undefined) ?? {};
   const address = delivery.address ?? {};
@@ -154,6 +158,7 @@ const normalizeQuote = (quote: ContactQuotes): ContactQuote => {
       },
     },
     status: quote.status ?? undefined,
+    signerName,
     bookingRequestData: normalizeBookingRequestData(quote.bookingRequestData),
   };
 };

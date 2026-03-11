@@ -1,9 +1,15 @@
 import type * as React from 'react';
-import { ADMIN_SIGNATURE, BRAND } from '@/lib/constants';
+import { BRAND } from '@/lib/constants';
+import {
+  EmailSignatureBlock,
+  buildEmailSignatureText,
+  resolveEmailSignatureData,
+} from './email-signature';
 
 export type BookingConfirmationEmailInput = {
   bookingCode: string;
   name?: string | null;
+  signerName?: string | null;
   locale?: string | null;
   carLabel?: string | null;
   rentalStart?: string | null;
@@ -158,6 +164,10 @@ export const buildBookingConfirmationText = (
   const extrasFee = formatPrice(input.extrasFee);
   const period = formatPeriod(input.rentalStart, input.rentalEnd, input.locale);
   const car = input.carLabel ?? '—';
+  const signatureData = resolveEmailSignatureData({
+    signerName: input.signerName,
+    locale: input.locale,
+  });
 
   return [
     copy.greeting(sanitizeName(input.name)),
@@ -175,9 +185,7 @@ export const buildBookingConfirmationText = (
     '',
     copy.outro,
     '',
-    ADMIN_SIGNATURE.company,
-    ADMIN_SIGNATURE.phone,
-    ADMIN_SIGNATURE.email,
+    buildEmailSignatureText(signatureData),
   ].join('\n');
 };
 
@@ -191,6 +199,10 @@ export default function BookingConfirmationEmail({
   const extrasFee = formatPrice(input.extrasFee);
   const period = formatPeriod(input.rentalStart, input.rentalEnd, input.locale);
   const name = sanitizeName(input.name);
+  const signatureData = resolveEmailSignatureData({
+    signerName: input.signerName,
+    locale: input.locale,
+  });
 
   return (
     <html lang={input.locale ?? 'hu'}>
@@ -313,15 +325,15 @@ export default function BookingConfirmationEmail({
                     <tr>
                       <td style={{ fontSize: '13px', color: BRAND.navyLight }}>
                         <p>{copy.outro}</p>
-                        <p style={{ marginBottom: 0 }}>
-                          {ADMIN_SIGNATURE.company}
-                          <br />
-                          {ADMIN_SIGNATURE.phone}
-                          <br />
-                          {ADMIN_SIGNATURE.email}
-                          <br />
-                          {ADMIN_SIGNATURE.website}
-                        </p>
+                        <table
+                          role='presentation'
+                          width='100%'
+                          cellPadding={0}
+                          cellSpacing={0}
+                          style={{ borderCollapse: 'collapse', marginTop: 14 }}
+                        >
+                          <EmailSignatureBlock data={signatureData} />
+                        </table>
                       </td>
                     </tr>
                   </tbody>

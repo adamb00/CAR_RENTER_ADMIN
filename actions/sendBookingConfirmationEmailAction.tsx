@@ -22,6 +22,7 @@ import { revalidatePath } from 'next/cache';
 
 type SendBookingConfirmationEmailInput = {
   bookingId: string;
+  signerName?: string;
 };
 
 type SendBookingConfirmationEmailResult = {
@@ -64,6 +65,7 @@ const selectBookingRequestData = (
 
 export const sendBookingConfirmationEmailAction = async ({
   bookingId,
+  signerName,
 }: SendBookingConfirmationEmailInput): Promise<SendBookingConfirmationEmailResult> => {
   const trimmedBookingId = bookingId?.trim();
   if (!trimmedBookingId) {
@@ -93,6 +95,8 @@ export const sendBookingConfirmationEmailAction = async ({
   }
 
   const quote = booking.quoteId ? await getQuoteById(booking.quoteId) : null;
+  const resolvedSignerName =
+    signerName?.trim() || booking.signerName?.trim() || 'Zodiacs Rent a Car';
   const selectedRequestData = selectBookingRequestData(
     quote?.bookingRequestData,
     booking.carId ?? booking.payload?.carId ?? null
@@ -117,6 +121,7 @@ export const sendBookingConfirmationEmailAction = async ({
   const emailInput: BookingConfirmationEmailInput = {
     bookingCode: booking.humanId ?? booking.id,
     name: booking.payload?.contact?.name ?? booking.contactName,
+    signerName: resolvedSignerName,
     locale,
     carLabel: formatCarLabel(booking, quote?.carName),
     rentalStart,
@@ -161,8 +166,16 @@ export const sendBookingConfirmationEmailAction = async ({
 
     await db.rentRequests.update({
       where: { id: booking.id },
-      data: { status: nextStatus, updatedAt: new Date() },
+      data: {
+        status: nextStatus,
+        updatedAt: new Date(),
+      },
     });
+    await db.$executeRaw`
+      UPDATE "RentRequests"
+      SET "signerName" = ${resolvedSignerName}
+      WHERE "id" = ${booking.id}::uuid
+    `;
     revalidatePath('/');
     revalidatePath(`/${booking.id}`);
   } catch (error) {

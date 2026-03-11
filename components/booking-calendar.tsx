@@ -139,6 +139,12 @@ const UnassignedBookingCard = ({
           {booking.deliveryLocation?.trim() || '—'}
         </span>
       </div>
+      <div className='text-sm text-muted-foreground mb-4'>
+        Sziget:{' '}
+        <span className='font-medium text-foreground'>
+          {booking.deliveryIsland?.trim() || '-'}
+        </span>
+      </div>
 
       <div className='space-y-1'>
         <div className='relative w-full'>

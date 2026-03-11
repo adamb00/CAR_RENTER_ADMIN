@@ -1,7 +1,12 @@
 /* eslint-disable @next/next/no-img-element */
 import type { ReactNode } from 'react';
 
-import { ADMIN_SIGNATURE, BRAND } from '@/lib/constants';
+import { BRAND } from '@/lib/constants';
+import {
+  EmailSignatureBlock,
+  buildEmailSignatureText,
+  resolveEmailSignatureData,
+} from './email-signature';
 import type { BookingRejectionCopy } from '@/components/emails/utils/rejection-copy';
 
 export type BookingRejectionEmailInput = {
@@ -66,6 +71,10 @@ export const buildBookingRejectionText = (
   input: BookingRejectionEmailInput,
 ) => {
   const period = formatPeriod(input.rentalStart, input.rentalEnd, input.locale);
+  const signatureData = resolveEmailSignatureData({
+    signerName: input.signerName,
+    locale: input.locale,
+  });
   return [
     copy.greeting(sanitizeName(input.name)),
     '',
@@ -79,10 +88,7 @@ export const buildBookingRejectionText = (
     copy.contactLine,
     '',
     `${copy.closing},`,
-    input.signerName,
-    ADMIN_SIGNATURE.company,
-    ADMIN_SIGNATURE.phone,
-    ADMIN_SIGNATURE.email,
+    buildEmailSignatureText(signatureData),
   ].join('\n');
 };
 
@@ -104,6 +110,10 @@ export default function BookingRejectionEmail({
     { label: copy.carLabel, value: lineValue(input.carLabel) },
     { label: copy.periodLabel, value: lineValue(period) },
   ];
+  const signatureData = resolveEmailSignatureData({
+    signerName: input.signerName,
+    locale: input.locale,
+  });
 
   return (
     <div style={{ margin: 0, padding: 0, background: BRAND.background }}>
@@ -318,34 +328,7 @@ export default function BookingRejectionEmail({
                         width='100%'
                         style={{ marginTop: 26 }}
                       >
-                        <tbody>
-                          <tr>
-                            <td align='right'>
-                              <div
-                                style={{
-                                  textAlign: 'right',
-                                  fontSize: 13,
-                                  lineHeight: 1.6,
-                                  color: BRAND.navy,
-                                  display: 'inline-block',
-                                  maxWidth: 260,
-                                }}
-                              >
-                                {copy.closing},
-                                <br />
-                                <strong>{input.signerName}</strong>
-                                <br />
-                                {ADMIN_SIGNATURE.company}
-                                <br />
-                                Tel: {ADMIN_SIGNATURE.phone}
-                                <br />
-                                Email: {ADMIN_SIGNATURE.email}
-                                <br />
-                                Web: {ADMIN_SIGNATURE.website}
-                              </div>
-                            </td>
-                          </tr>
-                        </tbody>
+                        <EmailSignatureBlock data={signatureData} />
                       </table>
                     </td>
                   </tr>

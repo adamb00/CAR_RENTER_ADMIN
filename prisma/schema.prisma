@@ -90,6 +90,7 @@ model ContactQuotes {
   bookingRequestData Json?
   rentaldays         Int?
   offerAccepted      Int?
+  signerName         String?
   RentRequests       RentRequests[]
 
   @@index([createdAt], map: "idx_contactquotes_created_at")
@@ -116,6 +117,7 @@ model RentRequests {
   archivedAt    DateTime?      @db.Timestamptz(6)
   humanId       String?        @unique
   rentaldays    Int?
+  signerName    String?
   ContactQuotes ContactQuotes? @relation(fields: [quoteid], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vehicleHandovers VehicleHandover[]
   bookingContract BookingContract?

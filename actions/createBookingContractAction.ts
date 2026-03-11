@@ -24,6 +24,11 @@ import {
   type ContractLocale,
   resolveContractLocale,
 } from '@/lib/contract-copy';
+import {
+  EmailSignatureBlock,
+  buildEmailSignatureText,
+  resolveEmailSignatureData,
+} from '@/components/emails/email-signature';
 
 const createBookingContractSchema = z.object({
   bookingId: z.string().min(1),
@@ -275,6 +280,25 @@ export const createBookingContractAction = async (
       locale === 'en'
         ? `Rental agreement (${bookingCode})`
         : `Rental agreement / ${CONTRACT_COPY[locale].title} (${bookingCode})`;
+    const signatureData = resolveEmailSignatureData({
+      signerName: data.signerName,
+      locale,
+    });
+    const { createElement } = await import('react');
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const signatureHtml = renderToStaticMarkup(
+      createElement(
+        'table',
+        {
+          role: 'presentation',
+          width: '100%',
+          cellPadding: 0,
+          cellSpacing: 0,
+          style: { borderCollapse: 'collapse', marginTop: 16 },
+        },
+        createElement(EmailSignatureBlock, { data: signatureData }),
+      ),
+    );
     const text = [
       toBilingualText(locale, englishGreetingLine, localizedGreetingLine),
       '',
@@ -282,7 +306,7 @@ export const createBookingContractAction = async (
       toBilingualText(locale, englishAttachmentLine, emailCopy.attachmentLine),
       '',
       toBilingualText(locale, englishClosingLine, emailCopy.closing),
-      'ZODIACS Rent a Car',
+      buildEmailSignatureText(signatureData),
     ].join('\n');
     const html = `<!doctype html>
       <div style="margin:0; padding:24px; background:#f8fafc;">
@@ -291,7 +315,7 @@ export const createBookingContractAction = async (
           ${toBilingualHtml(locale, englishSignedLine, emailCopy.signedLine)}
           ${toBilingualHtml(locale, englishAttachmentLine, emailCopy.attachmentLine)}
           ${toBilingualHtml(locale, englishClosingLine, emailCopy.closing)}
-          <p style="margin:0; font-weight:700;">ZODIACS Rent a Car</p>
+          ${signatureHtml}
         </div>
       </div>`;
 
@@ -309,6 +333,18 @@ export const createBookingContractAction = async (
         },
       ],
     });
+
+    await db.rentRequests.update({
+      where: { id: booking.id },
+      data: {
+        updatedAt: new Date(),
+      },
+    });
+    await db.$executeRaw`
+      UPDATE "RentRequests"
+      SET "signerName" = ${data.signerName.trim()}
+      WHERE "id" = ${booking.id}::uuid
+    `;
 
     await db.bookingContract.update({
       where: { id: created.id },

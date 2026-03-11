@@ -867,7 +867,7 @@ export function ManualBookingForm({
             }
           />
           <Input
-            label='Átvétel díja'
+            label='Kiszállítás díja'
             value={form.pricingDeliveryFee}
             onChange={(event) =>
               updateField('pricingDeliveryFee', event.target.value)

@@ -9,7 +9,6 @@ import {
   PUBLIC_SITE_BASE_URL,
   BOOKING_EMAIL_FROM,
   LOGO_URL,
-  ADMIN_SIGNATURE,
   RENT_STATUS_FORM_SUBMITTED,
   RENT_STATUS_REGISTERED,
 } from '@/lib/constants';
@@ -22,6 +21,10 @@ import {
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getFinalizationCopy } from '@/components/emails/utils/finalization-copy';
+import {
+  buildEmailSignatureText,
+  resolveEmailSignatureData,
+} from '@/components/emails/email-signature';
 import type { BookingRequestData } from '@/types/booking-request';
 import { hasAssignedFleetAssignment } from '@/lib/booking-conflicts';
 
@@ -315,6 +318,13 @@ export const sendBookingFinalizationEmailAction = async ({
     rentalStart,
     localeRaw,
   )} → ${formatPlainDate(rentalEnd, localeRaw)}`;
+  const signatureData = resolveEmailSignatureData({
+    signerName: emailInput.signerName,
+    locale: emailInput.locale,
+    adminTitle: copy.signatureRole,
+    localizedSiteUrl: copy.signatureWebsite,
+    sloganLines: copy.signatureSlogans,
+  });
   const extrasListText =
     emailInput.extrasList && emailInput.extrasList.length > 0
       ? emailInput.extrasList.join(', ')
@@ -393,8 +403,7 @@ export const sendBookingFinalizationEmailAction = async ({
     `${copy.questionCta}: ${contactUrl}`,
     '',
     `${copy.closing},`,
-    emailInput.signerName,
-    ADMIN_SIGNATURE.company,
+    buildEmailSignatureText(signatureData),
   );
   const { renderToStaticMarkup } = await import('react-dom/server');
   const html = `<!doctype html>${renderToStaticMarkup(
@@ -439,6 +448,11 @@ export const sendBookingFinalizationEmailAction = async ({
         updatedAt: new Date(),
       },
     });
+    await db.$executeRaw`
+      UPDATE "RentRequests"
+      SET "signerName" = ${trimmedName}
+      WHERE "id" = ${booking.id}::uuid
+    `;
     revalidatePath('/');
     revalidatePath(`/${booking.id}`);
   } catch (error) {

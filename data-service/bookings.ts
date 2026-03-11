@@ -137,6 +137,7 @@ export type BookingSelfServiceEvent = {
 export type Booking = {
   id: string;
   humanId?: string | null;
+  signerName?: string | null;
   locale: string;
   carId?: string;
   carLabel?: string;
@@ -817,10 +818,14 @@ const applyNormalizedPayloadByBookingId = ({
 };
 
 const normalizeBooking = (booking: BookingWithQuote): Booking => {
+  const signerName =
+    (booking as BookingWithQuote & { signerName?: string | null }).signerName ??
+    null;
   const normalizedPayload = normalizeBookingPayload(booking.payload);
   return {
     id: booking.id,
     humanId: booking.humanId ?? booking.ContactQuotes?.humanId ?? null,
+    signerName,
     locale: booking.locale ?? '',
     carId: booking.carid ?? undefined,
     assignedFleetVehicleId:

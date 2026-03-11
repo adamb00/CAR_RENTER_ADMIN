@@ -145,6 +145,11 @@ export const sendBookingRejectionEmailAction = async ({
         updatedAt: new Date(),
       },
     });
+    await db.$executeRaw`
+      UPDATE "RentRequests"
+      SET "signerName" = ${trimmedName}
+      WHERE "id" = ${booking.id}::uuid
+    `;
     revalidatePath('/');
     revalidatePath(`/${booking.id}`);
   } catch (error) {
