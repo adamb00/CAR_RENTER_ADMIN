@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import type { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { vehicleHandoverSchema } from '@/lib/vehicle-handover-schema';
+import { vehicleHandoverSchema } from '@/schemas/vehicle-handover-schema';
 
 export async function createVehicleHandoverAction(
   input: z.infer<typeof vehicleHandoverSchema>,
@@ -15,6 +15,7 @@ export async function createVehicleHandoverAction(
   }
 
   const data = parsed.data;
+
   const direction = data.direction ?? 'out';
 
   if (direction === 'in' && data.mileage == null) {
@@ -76,16 +77,40 @@ export async function createVehicleHandoverAction(
     amount: number;
   }> = [
     ...(direction === 'out' && data.tip != null
-      ? [{ direction: 'out' as const, costType: 'tip' as const, amount: data.tip }]
+      ? [
+          {
+            direction: 'out' as const,
+            costType: 'tip' as const,
+            amount: data.tip,
+          },
+        ]
       : []),
     ...(data.fuelCost != null
-      ? [{ direction: direction as 'out' | 'in', costType: 'fuel' as const, amount: data.fuelCost }]
+      ? [
+          {
+            direction: direction as 'out' | 'in',
+            costType: 'fuel' as const,
+            amount: data.fuelCost,
+          },
+        ]
       : []),
     ...(data.ferryCost != null
-      ? [{ direction: direction as 'out' | 'in', costType: 'ferry' as const, amount: data.ferryCost }]
+      ? [
+          {
+            direction: direction as 'out' | 'in',
+            costType: 'ferry' as const,
+            amount: data.ferryCost,
+          },
+        ]
       : []),
     ...(data.cleaningCost != null
-      ? [{ direction: direction as 'out' | 'in', costType: 'cleaning' as const, amount: data.cleaningCost }]
+      ? [
+          {
+            direction: direction as 'out' | 'in',
+            costType: 'cleaning' as const,
+            amount: data.cleaningCost,
+          },
+        ]
       : []),
     ...(direction === 'out' && data.commission != null
       ? [
@@ -100,25 +125,44 @@ export async function createVehicleHandoverAction(
 
   try {
     const created = await db.$transaction(async (tx) => {
+      const existingHandover = await tx.vehicleHandover.findFirst({
+        where: {
+          bookingId: data.bookingId,
+          fleetVehicleId: data.fleetVehicleId,
+          direction,
+        },
+        orderBy: [{ handoverAt: 'desc' }, { createdAt: 'desc' }],
+        select: { id: true },
+      });
+
       const rangeField =
         data.rangeKm != null
           ? ({ rangeKm: data.rangeKm } as Record<string, unknown>)
           : {};
-      const createdRow = await tx.vehicleHandover.create({
-        data: {
-          bookingId: data.bookingId,
-          fleetVehicleId: data.fleetVehicleId,
-          direction,
-          handoverAt,
-          handoverBy: data.handoverBy?.trim() || null,
-          mileage: data.mileage,
-          notes: data.notes?.trim() || null,
-          damages: data.damages?.trim() || null,
-          damagesImages: data.damagesImages ?? [],
-          ...rangeField,
-        },
-        select: { id: true },
-      });
+      const handoverData = {
+        bookingId: data.bookingId,
+        fleetVehicleId: data.fleetVehicleId,
+        direction,
+        handoverAt,
+        handoverBy: data.handoverBy?.trim() || null,
+        mileage: data.mileage,
+        notes: data.notes?.trim() || null,
+        damages: data.damages?.trim() || null,
+        damagesImages: data.damagesImages ?? [],
+        ...rangeField,
+      };
+      const createdRow = existingHandover
+        ? await tx.vehicleHandover.update({
+            where: { id: existingHandover.id },
+            data: handoverData,
+            select: { id: true },
+          })
+        : await tx.vehicleHandover.create({
+            data: {
+              ...handoverData,
+            },
+            select: { id: true },
+          });
 
       if (shouldUpdateOdometer || shouldUpdateLocation) {
         await tx.fleetVehicle.update({
@@ -168,7 +212,8 @@ export async function createVehicleHandoverAction(
     revalidatePath('/analitycs');
 
     return {
-      success: direction === 'in' ? 'Visszavétel rögzítve.' : 'Kiadás rögzítve.',
+      success:
+        direction === 'in' ? 'Visszavétel rögzítve.' : 'Kiadás rögzítve.',
       id: created.id,
     };
   } catch (error) {

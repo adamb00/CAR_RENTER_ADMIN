@@ -1116,8 +1116,9 @@ export const getDeliveryAddressByBookingId = async (
 };
 
 export const getIsCarOut = async (id: string) => {
-  const isCarOut = await db.bookingHandoverCost.findFirst({
+  const isCarOut = await db.vehicleHandover.findFirst({
     where: { bookingId: id, direction: 'out' },
+    select: { id: true },
   });
 
   if (isCarOut) return true;

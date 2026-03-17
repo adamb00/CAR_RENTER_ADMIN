@@ -1,6 +1,7 @@
 import CaroutForm from '@/components/carout-form';
 import { getBookingById } from '@/data-service/bookings';
 import { getVehicleById } from '@/data-service/cars';
+import { db } from '@/lib/db';
 import { formatDate } from '@/lib/format/format-date';
 import Link from 'next/link';
 
@@ -13,6 +14,32 @@ export default async function BookingIssuePage({
 
   const booking = await getBookingById(id);
   const vehicle = await getVehicleById(booking?.assignedFleetVehicleId ?? '');
+  const handoverOutRecord =
+    booking?.id && vehicle?.id
+      ? await db.vehicleHandover.findFirst({
+          where: {
+            bookingId: booking.id,
+            fleetVehicleId: vehicle.id,
+            direction: 'out',
+          },
+          orderBy: [{ handoverAt: 'desc' }, { createdAt: 'desc' }],
+          select: {
+            handoverAt: true,
+            handoverBy: true,
+            mileage: true,
+            rangeKm: true,
+            notes: true,
+            damages: true,
+            damagesImages: true,
+          },
+        })
+      : null;
+  const handoverOut = handoverOutRecord
+    ? {
+        ...handoverOutRecord,
+        handoverAt: handoverOutRecord.handoverAt.toISOString(),
+      }
+    : null;
 
   return (
     <div className='flex h-full flex-col gap-6 p-6'>
@@ -48,7 +75,7 @@ export default async function BookingIssuePage({
           </span>
         </p>
       </div>
-      <CaroutForm booking={booking} vehicle={vehicle} />
+      <CaroutForm booking={booking} vehicle={vehicle} handoverOut={handoverOut} />
     </div>
   );
 }

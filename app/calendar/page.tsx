@@ -1,8 +1,14 @@
-import { BookingCalendar } from '@/components/booking-calendar';
+import { BookingCalendar } from '@/components/booking/booking-calendar';
 import { getBookings } from '@/data-service/bookings';
 import { db } from '@/lib/db';
 import { resolveDeliveryIsland } from '@/lib/delivery-island';
 import { formatPlaceType } from '@/lib/format/format-place';
+
+type CalendarVehicleHandover = {
+  bookingId: string;
+  direction: 'out' | 'in';
+  handoverAt: Date;
+};
 
 export default async function CalendarPage() {
   const [bookings, fleetVehicles] = await Promise.all([
@@ -16,31 +22,27 @@ export default async function CalendarPage() {
   ]);
 
   const bookingIds = bookings.map((booking) => booking.id);
-  const [carOutBookings, vehicleHandovers] = bookingIds.length
-    ? await Promise.all([
-        db.bookingHandoverCost.findMany({
-          where: {
-            bookingId: { in: bookingIds },
-            direction: 'out',
-          },
-          select: { bookingId: true },
-          distinct: ['bookingId'],
-        }),
-        db.vehicleHandover.findMany({
-          where: {
-            bookingId: { in: bookingIds },
-            direction: { in: ['out', 'in'] },
-          },
-          select: {
-            bookingId: true,
-            direction: true,
-            handoverAt: true,
-          },
-          orderBy: { handoverAt: 'asc' },
-        }),
-      ])
-    : [[], []];
-  const carOutBookingIds = carOutBookings.map((booking) => booking.bookingId);
+  const vehicleHandovers: CalendarVehicleHandover[] = bookingIds.length
+    ? await db.vehicleHandover.findMany({
+        where: {
+          bookingId: { in: bookingIds },
+          direction: { in: ['out', 'in'] },
+        },
+        select: {
+          bookingId: true,
+          direction: true,
+          handoverAt: true,
+        },
+        orderBy: { handoverAt: 'asc' },
+      })
+    : [];
+  const carOutBookingIds = Array.from(
+    new Set(
+      vehicleHandovers
+        .filter((handover) => handover.direction === 'out')
+        .map((handover) => handover.bookingId),
+    ),
+  );
   const handoverByBookingId = new Map<
     string,
     { outAt?: string; inAt?: string }

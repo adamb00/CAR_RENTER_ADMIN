@@ -6,7 +6,7 @@ import { FloatingTextarea } from './ui/textarea';
 
 import { Booking } from '@/data-service/bookings';
 import { FleetVehicle } from '@prisma/client';
-import CarDamages from './car-damages';
+import CarDamages from './car/car-damages';
 import { Detail } from './ui/detail';
 import { Button } from './ui/button';
 import { createVehicleHandoverAction } from '@/actions/createVehicleHandoverAction';
@@ -17,6 +17,8 @@ import {
   getFleetPlaceValue,
 } from '@/lib/fleet-places';
 import { formatAddress } from '@/lib/format/format-address';
+import { TAKE_OPTIONS } from '@/lib/constants';
+import { formatArrivalTime } from '@/lib/format/format-date';
 
 const emptyForm = {
   take: '',
@@ -35,41 +37,48 @@ const emptyForm = {
   damagesImages: [] as string[],
 };
 
-const takeOptions = [
-  { value: 'Kis Róbert', label: 'Kis Róbert' },
-  { value: 'Hidas Andrea', label: 'Hidas Andrea' },
-  { value: 'Orosz Tamás', label: 'Orosz Tamás' },
-  { value: 'Veress Gabriella', label: 'Veress Gabriella' },
-  { value: 'Kis Viktória', label: 'Kis Viktória' },
-  { value: 'Kis Patrícia', label: 'Kis Patrícia' },
-];
-
-const formatArrivalTime = (hour?: string | null, minute?: string | null) => {
-  const hourText = hour?.trim() ?? '';
-  const minuteText = minute?.trim() ?? '';
-  if (!hourText && !minuteText) return 'Nincs megadva';
-
-  const normalizedHour =
-    hourText.length > 0 && /^\d+$/.test(hourText)
-      ? hourText.padStart(2, '0')
-      : hourText || '--';
-  const normalizedMinute =
-    minuteText.length > 0 && /^\d+$/.test(minuteText)
-      ? minuteText.padStart(2, '0')
-      : minuteText || '--';
-
-  return `${normalizedHour}:${normalizedMinute}`;
-};
-
 type CaroutFormProps = {
   booking: Booking | null;
   vehicle: FleetVehicle | null;
+  handoverOut?: {
+    handoverAt: string;
+    handoverBy: string | null;
+    mileage: number | null;
+    rangeKm: number | null;
+    notes: string | null;
+    damages: string | null;
+    damagesImages: string[];
+  } | null;
 };
 
 type CaroutFormValues = typeof emptyForm;
+const toParsedDate = (value?: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const toDateInputValue = (value?: string | null) => {
+  const parsed = toParsedDate(value);
+  if (!parsed) return '';
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const toTimeInputValue = (value?: string | null) => {
+  const parsed = toParsedDate(value);
+  if (!parsed) return '';
+  const hours = String(parsed.getHours()).padStart(2, '0');
+  const minutes = String(parsed.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
 export default function CaroutForm({
   booking,
   vehicle,
+  handoverOut,
 }: CaroutFormProps) {
   const normalizedInitialValues = useMemo(() => emptyForm, []);
   const [form, setForm] = useState<CaroutFormValues>(normalizedInitialValues);
@@ -146,6 +155,27 @@ export default function CaroutForm({
       };
     });
   }, [booking?.payload?.handoverCosts?.out]);
+
+  React.useEffect(() => {
+    if (!handoverOut) return;
+
+    setForm((prev) => ({
+      ...prev,
+      take: handoverOut.handoverBy ?? prev.take,
+      date: toDateInputValue(handoverOut.handoverAt) || prev.date,
+      time: toTimeInputValue(handoverOut.handoverAt) || prev.time,
+      milage:
+        handoverOut.mileage != null ? String(handoverOut.mileage) : prev.milage,
+      rangeKm:
+        handoverOut.rangeKm != null ? String(handoverOut.rangeKm) : prev.rangeKm,
+      notes: handoverOut.notes ?? prev.notes,
+      damages: handoverOut.damages ?? prev.damages,
+      damagesImages:
+        handoverOut.damagesImages.length > 0
+          ? handoverOut.damagesImages
+          : prev.damagesImages,
+    }));
+  }, [handoverOut]);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -368,9 +398,7 @@ export default function CaroutForm({
         <Detail
           label='Kaució'
           value={
-            booking?.pricing?.deposit
-              ? `${booking.pricing.deposit} €`
-              : '0 €'
+            booking?.pricing?.deposit ? `${booking.pricing.deposit} €` : '0 €'
           }
         />
         <Detail
@@ -409,7 +437,7 @@ export default function CaroutForm({
           alwaysFloatLabel
           value={form.take}
           onChange={(e) => {
-            const selected = takeOptions.find(
+            const selected = TAKE_OPTIONS.find(
               (opt) => opt.value === e.target.value,
             );
             setForm((prev) => ({
@@ -422,7 +450,7 @@ export default function CaroutForm({
           <option value='' disabled>
             Kérlek válassz ki valakit!
           </option>
-          {takeOptions.map((option) => (
+          {TAKE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
