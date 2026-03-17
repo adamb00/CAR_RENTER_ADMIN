@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { CarsTable } from '@/components/cars-table';
+import { CarsTable } from '@/components/car/car-table';
 
 export default async function CarsPage() {
   const cars = await db.car.findMany({
@@ -28,9 +28,12 @@ export default async function CarsPage() {
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
       <div className='flex flex-col gap-2'>
-        <h1 className='text-2xl font-semibold tracking-tight'>Flotta áttekintés</h1>
+        <h1 className='text-2xl font-semibold tracking-tight'>
+          Flotta áttekintés
+        </h1>
         <p className='text-muted-foreground'>
-          A lenti táblázat az autók fotóit, márkáját, típusát, elérhető színeit, havi áraikat és kapacitását foglalja össze.
+          A lenti táblázat az autók fotóit, márkáját, típusát, elérhető színeit,
+          havi áraikat és kapacitását foglalja össze.
         </p>
       </div>
 

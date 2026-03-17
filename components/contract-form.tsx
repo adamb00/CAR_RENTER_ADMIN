@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import SignaturePad, {
   type SignaturePadHandle,
-} from '@/components/signature-pad';
+} from '@/components/ui/signature-pad';
 
 type ExistingContract = {
   signedAt: string;

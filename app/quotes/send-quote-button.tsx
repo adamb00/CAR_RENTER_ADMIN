@@ -4,7 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Mail, MessageCircle, Plus, Send, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
-import { z } from 'zod';
 
 import { createContactQuoteAction } from '@/actions/createContactQuoteAction';
 import { sendBookingRequestEmailAction } from '@/actions/sendBookingRequestEmailAction';
@@ -27,164 +26,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { LOCALE_LABELS } from '@/lib/constants';
+import { LOCALE_LABELS, SUPPORTED_LOCALE_CODES } from '@/lib/constants';
+import {
+  isSupportedLocale,
+  QuoteSendFormInputs,
+  QuoteSendFormValues,
+  quoteSendSchema,
+} from '@/schemas/quoteSchema';
 import { useRouter } from 'next/navigation';
-
-const optionalPrice = z
-  .string()
-  .transform((val): string | undefined =>
-    val && val.trim().length > 0 ? val.trim() : undefined,
-  );
-
-const optionalText = z
-  .string()
-  .transform((val): string | undefined =>
-    val && val.trim().length > 0 ? val.trim() : undefined,
-  );
-
-const offerSchema = z.object({
-  carId: z.string().min(1, 'Autó kiválasztása kötelező'),
-  rentalFee: optionalPrice,
-  deposit: optionalPrice,
-  insurance: optionalPrice,
-  deliveryFee: optionalPrice,
-  deliveryLocation: optionalText,
-  extrasFee: optionalPrice,
-});
-
-const SUPPORTED_LOCALE_CODES = Object.keys(LOCALE_LABELS);
-const SUPPORTED_LOCALE_SET = new Set(SUPPORTED_LOCALE_CODES);
-const isSupportedLocale = (value?: string | null): value is string =>
-  Boolean(value && SUPPORTED_LOCALE_SET.has(value));
-
-const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const quoteSendSchema = z
-  .object({
-    quoteMode: z.enum(['existing', 'new']),
-    quoteId: z.string().default(''),
-    channel: z.enum(['email', 'whatsapp']),
-    sendLocale: z.string().default('en'),
-    adminName: z.string().min(1, 'Név kötelező'),
-    newName: z.string().default(''),
-    newEmail: z.string().default(''),
-    newPhone: z.string().default(''),
-    newRentalStart: z.string().default(''),
-    newRentalEnd: z.string().default(''),
-    newCarId: z.string().default(''),
-    offers: z.array(offerSchema).min(1, 'Legalább egy ajánlat szükséges'),
-  })
-  .superRefine((values, ctx) => {
-    if (values.quoteMode === 'existing' && !values.quoteId.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Ajánlatkérés kiválasztása kötelező',
-        path: ['quoteId'],
-      });
-    }
-
-    if (!isSupportedLocale(values.sendLocale)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Válassz nyelvet a listából',
-        path: ['sendLocale'],
-      });
-    }
-
-    if (values.quoteMode !== 'new') return;
-
-    const newEmail = values.newEmail.trim();
-    const newPhone = values.newPhone.trim();
-
-    if (!values.newName.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Név kötelező',
-        path: ['newName'],
-      });
-    }
-
-    if (values.channel === 'email') {
-      if (!newEmail) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'E-mail kötelező',
-          path: ['newEmail'],
-        });
-      } else if (!z.string().email().safeParse(newEmail).success) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Érvényes e-mail címet adj meg',
-          path: ['newEmail'],
-        });
-      }
-    } else if (!newPhone) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Telefonszám kötelező',
-        path: ['newPhone'],
-      });
-    }
-
-    if (
-      values.newRentalStart.trim() &&
-      !DATE_INPUT_PATTERN.test(values.newRentalStart.trim())
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Érvényes dátum szükséges (ÉÉÉÉ-HH-NN)',
-        path: ['newRentalStart'],
-      });
-    }
-
-    if (
-      values.newRentalEnd.trim() &&
-      !DATE_INPUT_PATTERN.test(values.newRentalEnd.trim())
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Érvényes dátum szükséges (ÉÉÉÉ-HH-NN)',
-        path: ['newRentalEnd'],
-      });
-    }
-
-    const start = values.newRentalStart.trim();
-    const end = values.newRentalEnd.trim();
-    if (start && end && start > end) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'A záró dátum nem lehet korábbi a kezdésnél',
-        path: ['newRentalEnd'],
-      });
-    }
-  });
-
-type QuoteSendFormValues = z.output<typeof quoteSendSchema>;
-type QuoteSendFormInputs = z.input<typeof quoteSendSchema>;
-
-type QuoteOption = {
-  id: string;
-  humanId?: string | null;
-  name: string;
-  email?: string | null;
-  phone?: string | null;
-  preferredChannel?: 'email' | 'phone' | 'whatsapp' | 'viber' | null;
-  locale?: string | null;
-  rentalStart?: string | null;
-  rentalEnd?: string | null;
-  carId?: string | null;
-};
-
-type CarOption = {
-  id: string;
-  label: string;
-  monthlyPrices: number[];
-  images: string[];
-};
-
-type SendQuoteButtonProps = {
-  quotes: QuoteOption[];
-  carOptions: CarOption[];
-};
+import { SendQuoteButtonProps } from './types';
 
 export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
   const [status, setStatus] = useState<{

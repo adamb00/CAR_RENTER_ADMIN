@@ -8,120 +8,13 @@ import { Button } from '@/components/ui/button';
 import { FloatingSelect } from '@/components/ui/floating-select';
 import { Input } from '@/components/ui/input';
 import { formatLocale } from '@/lib/format/format-locale';
-import { getStatusMeta } from '@/lib/status';
-
-type HandoverDirectionValue = 'out' | 'in';
-type HandoverCostTypeValue =
-  | 'tip'
-  | 'fuel'
-  | 'ferry'
-  | 'cleaning'
-  | 'commission';
-
-type BookingPricingSnapshotForm = {
-  rentalFee: string;
-  insurance: string;
-  deposit: string;
-  deliveryFee: string;
-  extrasFee: string;
-  tip: string;
-};
-
-type BookingDeliveryDetailsForm = {
-  placeType: string;
-  locationName: string;
-  addressLine: string;
-  island: string;
-  arrivalFlight: string;
-  departureFlight: string;
-  arrivalHour: string;
-  arrivalMinute: string;
-};
-
-type BookingDriverForm = {
-  firstName_1: string;
-  firstName_2: string;
-  lastName_1: string;
-  lastName_2: string;
-  phoneNumber: string;
-  email: string;
-  dateOfBirth: string;
-  placeOfBirth: string;
-  locationCountry: string;
-  locationPostalCode: string;
-  locationCity: string;
-  locationStreet: string;
-  locationStreetType: string;
-  locationDoorNumber: string;
-  documentType: string;
-  documentNumber: string;
-  drivingLicenceNumber: string;
-  drivingLicenceCategory: string;
-};
-
-type BookingHandoverCostForm = {
-  direction: HandoverDirectionValue;
-  costType: HandoverCostTypeValue;
-  amount: string;
-};
-
-type VehicleHandoverForm = {
-  fleetVehicleId: string;
-  direction: HandoverDirectionValue;
-  handoverAt: string;
-  handoverBy: string;
-  mileage: string;
-  rangeKm: string;
-  notes: string;
-  damages: string;
-  damagesImages: string;
-};
-
-type BookingContractForm = {
-  signerName: string;
-  signerEmail: string;
-  contractVersion: string;
-  contractText: string;
-  signatureData: string;
-  lessorSignatureData: string;
-  signedAt: string;
-  pdfSentAt: string;
-};
-
-export type BookingAdminInitialData = {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
-  humanId: string;
-  locale: string;
-  carId: string;
-  quoteId: string;
-  contactName: string;
-  contactEmail: string;
-  contactPhone: string;
-  rentalStart: string;
-  rentalEnd: string;
-  originalRentalEnd: string;
-  maxExtendableRentalEnd: string;
-  nextCarBookingCode: string;
-  rentalDays: string;
-  status: string;
-  updatedNote: string;
-  payloadJson: string;
-  drivers: BookingDriverForm[];
-  hasPricingSnapshot: boolean;
-  pricingSnapshot: BookingPricingSnapshotForm;
-  hasDeliveryDetails: boolean;
-  deliveryDetails: BookingDeliveryDetailsForm;
-  handoverCosts: BookingHandoverCostForm[];
-  vehicleHandovers: VehicleHandoverForm[];
-  hasBookingContract: boolean;
-  bookingContract: BookingContractForm;
-};
-
-type BookingAdminEditFormProps = {
-  initial: BookingAdminInitialData;
-};
+import {
+  BookingAdminEditFormProps,
+  BookingAdminInitialData,
+  BookingDeliveryDetailsForm,
+  BookingPricingSnapshotForm,
+  HandoverCostTypeValue,
+} from './types';
 
 export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
   const [isPending, startTransition] = useTransition();
@@ -198,8 +91,6 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
       };
     });
   };
-
-  const meta = getStatusMeta(form.status);
 
   const hasRentalEndUpperLimit = Boolean(
     form.maxExtendableRentalEnd &&

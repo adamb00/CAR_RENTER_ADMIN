@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ColumnDef,
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
@@ -14,170 +13,10 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Input } from '@/components/ui/input';
-import {
-  CAR_BODY_TYPE_LABELS,
-  CAR_COLOR_LABELS,
-  CAR_FUEL_LABELS,
-  CAR_TRANSMISSION_LABELS,
-} from '@/lib/car-options';
+import { CAR_COLOR_LABELS } from '@/lib/car-options';
 import { cn } from '@/lib/utils';
-
-type CarListEntry = {
-  id: string;
-  manufacturer: string;
-  model: string;
-  seats: number;
-  smallLuggage: number;
-  largeLuggage: number;
-  bodyType: string;
-  fuel: string;
-  transmission: string;
-  monthlyPrices: number[];
-  colors: string[];
-};
-
-type CarWithComputed = CarListEntry;
-
-const SortIndicator = ({
-  direction,
-}: {
-  direction: false | 'asc' | 'desc';
-}) => (
-  <span className='text-xs text-muted-foreground'>
-    {direction === 'asc' ? '▲' : direction === 'desc' ? '▼' : ''}
-  </span>
-);
-
-const buildColumns = (): ColumnDef<CarWithComputed>[] => [
-  {
-    accessorKey: 'manufacturer',
-    header: ({ column }) => (
-      <button
-        type='button'
-        className='flex items-center gap-1'
-        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-      >
-        Gyártó / Típus
-        <SortIndicator direction={column.getIsSorted()} />
-      </button>
-    ),
-    cell: ({ row }) => (
-      <div className='flex flex-col'>
-        <span className='font-semibold text-foreground'>
-          {row.original.manufacturer}
-        </span>
-        <span className='text-sm text-muted-foreground'>
-          {row.original.model}
-        </span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'seats',
-    header: ({ column }) => (
-      <button
-        type='button'
-        className='flex items-center gap-1'
-        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-      >
-        Férőhely
-        <SortIndicator direction={column.getIsSorted()} />
-      </button>
-    ),
-    cell: ({ getValue }) => `${getValue<number>()} fő`,
-  },
-  {
-    accessorKey: 'smallLuggage',
-    header: ({ column }) => (
-      <button
-        type='button'
-        className='flex items-center gap-1'
-        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-      >
-        Kis bőrönd
-        <SortIndicator direction={column.getIsSorted()} />
-      </button>
-    ),
-    cell: ({ getValue }) => `${getValue<number>()} db`,
-  },
-  {
-    accessorKey: 'largeLuggage',
-    header: ({ column }) => (
-      <button
-        type='button'
-        className='flex items-center gap-1'
-        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-      >
-        Nagy bőrönd
-        <SortIndicator direction={column.getIsSorted()} />
-      </button>
-    ),
-    cell: ({ getValue }) => `${getValue<number>()} db`,
-  },
-  {
-    accessorKey: 'bodyType',
-    header: ({ column }) => (
-      <button
-        type='button'
-        className='flex items-center gap-1'
-        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-      >
-        Kivitel
-        <SortIndicator direction={column.getIsSorted()} />
-      </button>
-    ),
-    cell: ({ getValue }) =>
-      CAR_BODY_TYPE_LABELS[
-        getValue<string>() as keyof typeof CAR_BODY_TYPE_LABELS
-      ] ?? getValue<string>(),
-  },
-  {
-    accessorKey: 'fuel',
-    header: ({ column }) => (
-      <button
-        type='button'
-        className='flex items-center gap-1'
-        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-      >
-        Üzemanyag
-        <SortIndicator direction={column.getIsSorted()} />
-      </button>
-    ),
-    cell: ({ getValue }) =>
-      CAR_FUEL_LABELS[getValue<string>() as keyof typeof CAR_FUEL_LABELS] ??
-      getValue<string>(),
-  },
-  {
-    accessorKey: 'transmission',
-    header: ({ column }) => (
-      <button
-        type='button'
-        className='flex items-center gap-1'
-        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-      >
-        Váltó
-        <SortIndicator direction={column.getIsSorted()} />
-      </button>
-    ),
-    cell: ({ getValue }) =>
-      CAR_TRANSMISSION_LABELS[
-        getValue<string>() as keyof typeof CAR_TRANSMISSION_LABELS
-      ] ?? getValue<string>(),
-  },
-  {
-    accessorKey: 'monthlyPrices',
-    header: 'Aktuális havi ár',
-    enableSorting: false,
-    cell: ({ getValue }) => {
-      const prices = getValue<number[]>() ?? [];
-      const monthIndex = new Date().getMonth(); // 0-11
-      const currentPrice = prices[monthIndex];
-      return currentPrice != null
-        ? `${currentPrice.toLocaleString()} EUR`
-        : '—';
-    },
-  },
-];
+import { CarListEntry, CarWithComputed } from './types';
+import { buildColumns } from './car-table-columns';
 
 export function CarsTable({ data }: { data: CarListEntry[] }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -200,7 +39,7 @@ export function CarsTable({ data }: { data: CarListEntry[] }) {
       const colorText = (car.colors ?? [])
         .map(
           (color) =>
-            CAR_COLOR_LABELS[color as keyof typeof CAR_COLOR_LABELS] ?? color
+            CAR_COLOR_LABELS[color as keyof typeof CAR_COLOR_LABELS] ?? color,
         )
         .join(' ')
         .toLowerCase();
@@ -281,7 +120,7 @@ export function CarsTable({ data }: { data: CarListEntry[] }) {
                     ? null
                     : flexRender(
                         header.column.columnDef.header,
-                        header.getContext()
+                        header.getContext(),
                       )}
                 </th>
               ))}
@@ -296,7 +135,7 @@ export function CarsTable({ data }: { data: CarListEntry[] }) {
                 router.push(`/cars/${encodeURIComponent(row.original.id)}/edit`)
               }
               className={cn(
-                'group cursor-pointer transition-all duration-200 border-b border-border/70 hover:bg-primary/20 hover:shadow-sm'
+                'group cursor-pointer transition-all duration-200 border-b border-border/70 hover:bg-primary/20 hover:shadow-sm',
               )}
             >
               {row.getVisibleCells().map((cell) => (
@@ -306,7 +145,7 @@ export function CarsTable({ data }: { data: CarListEntry[] }) {
                 >
                   {flexRender(
                     cell.column.columnDef.cell ?? ((info) => info.getValue()),
-                    cell.getContext()
+                    cell.getContext(),
                   )}
                 </td>
               ))}
@@ -331,7 +170,7 @@ export function CarsTable({ data }: { data: CarListEntry[] }) {
             ? 'Nincs megjeleníthető autó.'
             : `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min(
                 (pagination.pageIndex + 1) * pagination.pageSize,
-                filteredData.length
+                filteredData.length,
               )} / ${filteredData.length} autó`}
         </p>
         <div className='flex items-center gap-2'>

@@ -1,5 +1,5 @@
 import { getBookings } from '@/data-service/bookings';
-import { BookingsTable } from '@/components/bookings-table';
+import { BookingsTable } from '@/components/booking/booking-table';
 
 export const revalidate = 0;
 

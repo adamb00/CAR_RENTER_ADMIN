@@ -1,16 +1,14 @@
-import { notFound } from 'next/navigation';
 import { Prisma } from '@prisma/client';
+import { notFound } from 'next/navigation';
 
-import {
-  BookingAdminEditForm,
-  type BookingAdminInitialData,
-} from '@/components/booking-admin-edit-form';
-import { getBookingById, getIsCarOut } from '@/data-service/bookings';
+import { BookingAdminEditForm } from '@/components/booking/booking-admin-edit-form';
+import { getBookingById } from '@/data-service/bookings';
 import { getArchivedBookingIdSet } from '@/lib/booking-archive';
 import { isCancelledBookingStatus } from '@/lib/booking-conflicts';
 import { db } from '@/lib/db';
-import { formatPlaceType } from '@/lib/format/format-place';
 import { formatDocumentType } from '@/lib/format/format-document';
+import { formatPlaceType } from '@/lib/format/format-place';
+import { BookingAdminInitialData } from '@/components/booking/types';
 
 const stringifyJson = (value: unknown) =>
   JSON.stringify(value ?? null, null, 2);
@@ -356,7 +354,8 @@ export default async function BookingEditPage({
       return firstString(payload?.handoverTip, payloadPricing?.tip);
     }
 
-    const source = direction === 'out' ? payloadHandoverOutCosts : payloadHandoverInCosts;
+    const source =
+      direction === 'out' ? payloadHandoverOutCosts : payloadHandoverInCosts;
     if (!source) return undefined;
 
     if (costType === 'fuel') {

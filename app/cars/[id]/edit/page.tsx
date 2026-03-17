@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 
 import { deleteCarAction } from '@/actions/updateCarAction';
-import { CarFleetSection } from '@/components/car-fleet-section';
+import { CarFleetSection } from '@/components/car/car-fleet-section';
 import { NewCarForm } from '@/components/new-car-form';
 import { CAR_COLORS, type CarColorOption } from '@/lib/car-options';
 import { db } from '@/lib/db';

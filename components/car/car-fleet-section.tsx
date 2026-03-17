@@ -1,44 +1,14 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { STATUS_LABELS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-
-type FleetStatus = 'available' | 'rented' | 'reserved' | 'maintenance';
-
-const STATUS_LABELS: Record<FleetStatus, string> = {
-  available: 'Elérhető',
-  rented: 'Kikölcsönözve',
-  reserved: 'Foglalt',
-  maintenance: 'Szerviz',
-};
-
-type FleetRow = {
-  id: string;
-  plate: string;
-  odometer: number;
-  status: FleetStatus;
-  year: string;
-  firstRegistration: string;
-  location: string;
-  locationColor?: string;
-  vin: string;
-  engineNumber: string;
-  addedAt: string;
-  inspectionExpiry: string;
-  notes: string;
-  damages: string;
-};
-
-type CarFleetSectionProps = {
-  carLabel: string;
-  carId: string;
-  initialRows: FleetRow[];
-};
+import { CarFleetSectionProps, FleetStatus } from './types';
 
 export function CarFleetSection({
   carLabel,
@@ -59,14 +29,6 @@ export function CarFleetSection({
       status === 'maintenance' && 'bg-sky-50 text-sky-700',
       status === 'reserved' && 'bg-slate-100 text-slate-700',
     );
-
-  // const statusSummary = useMemo(() => {
-  //   const summary = rows.reduce<Record<FleetStatus, number>>(
-  //     (acc, row) => ({ ...acc, [row.status]: (acc[row.status] ?? 0) + 1 }),
-  //     { available: 0, rented: 0, reserved: 0, maintenance: 0 },
-  //   );
-  //   return summary;
-  // }, [rows]);
 
   const filteredRows = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -89,7 +51,7 @@ export function CarFleetSection({
   const pageInfoLabel =
     filteredRows.length === 0
       ? '0 / 0'
-      : `${startIdx + 1}–${Math.min(endIdx, filteredRows.length)} / ${
+      : `${startIdx + 1}-${Math.min(endIdx, filteredRows.length)} / ${
           filteredRows.length
         }`;
   const goToEdit = (fleetId: string) => {
@@ -107,20 +69,6 @@ export function CarFleetSection({
             Az adott típusú autók aktuális állapota és adatai.
           </p>
         </div>
-        {/* <div className='flex flex-wrap gap-2 text-sm'>
-          <span className='rounded-full bg-emerald-50 px-3 py-1 text-emerald-700'>
-            Elérhető: {statusSummary['available']}
-          </span>
-          <span className='rounded-full bg-amber-50 px-3 py-1 text-amber-700'>
-            Kikölcsönözve: {statusSummary['rented']}
-          </span>
-          <span className='rounded-full bg-sky-50 px-3 py-1 text-sky-700'>
-            Szerviz: {statusSummary['maintenance']}
-          </span>
-          <span className='rounded-full bg-slate-100 px-3 py-1 text-slate-700'>
-            Foglalt: {statusSummary['reserved']}
-          </span>
-        </div> */}
       </div>
 
       <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between'>

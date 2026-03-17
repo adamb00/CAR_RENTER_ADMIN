@@ -1,6 +1,6 @@
 'use server';
 
-import type { BookingRequestOfferInput } from '@/components/emails/booking-request-email';
+import { BookingRequestOfferInput } from '@/components/emails/types';
 import { EMAIL_COPY } from '@/components/emails/utils/email-copy';
 import { LOCALIZED_STATIC } from '@/components/emails/utils/localized-static';
 import {
@@ -8,10 +8,7 @@ import {
   PUBLIC_SITE_BASE_URL,
 } from '@/lib/constants';
 import { db } from '@/lib/db';
-import {
-  hasWhatsappApiConfig,
-  sendWhatsappTextMessage,
-} from '@/lib/whatsapp';
+import { hasWhatsappApiConfig, sendWhatsappTextMessage } from '@/lib/whatsapp';
 import { revalidatePath } from 'next/cache';
 
 type SendBookingRequestWhatsappInput = {
@@ -201,7 +198,12 @@ export const sendBookingRequestWhatsappAction = async (
   const locale = normalizeLocale(input.locale);
   const offers: ResolvedOffer[] = input.offers.map((offer, index) => ({
     ...offer,
-    bookingLink: buildBookingLink(locale, offer.carId as string, input.quoteId, index),
+    bookingLink: buildBookingLink(
+      locale,
+      offer.carId as string,
+      input.quoteId,
+      index,
+    ),
   }));
 
   const text = buildWhatsappText({

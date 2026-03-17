@@ -4,9 +4,11 @@ import { revalidatePath } from 'next/cache';
 import type { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { fleetVehicleSchema } from '@/lib/fleet-vehicle-schema';
+import { fleetVehicleSchema } from '@/schemas/fleet-vehicle-schema';
 
-export async function createFleetVehicleAction(input: z.infer<typeof fleetVehicleSchema>) {
+export async function createFleetVehicleAction(
+  input: z.infer<typeof fleetVehicleSchema>,
+) {
   const parsed = fleetVehicleSchema.safeParse(input);
   if (!parsed.success) {
     return { error: 'Érvénytelen adatok, kérjük ellenőrizd a mezőket.' };
@@ -14,7 +16,8 @@ export async function createFleetVehicleAction(input: z.infer<typeof fleetVehicl
 
   const data = parsed.data;
 
-  const toDateOrNull = (value?: string) => (value ? new Date(value) : undefined);
+  const toDateOrNull = (value?: string) =>
+    value ? new Date(value) : undefined;
 
   try {
     const created = await db.fleetVehicle.create({

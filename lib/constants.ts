@@ -1,4 +1,5 @@
-import { FleetEditSection } from '@/components/fleet-add-form';
+import { FleetStatus } from '@/components/car/types';
+import type { FleetEditSection } from '@/components/car/types';
 
 export const DEFAULT_LOGIN_REDIRECT = '/';
 
@@ -103,4 +104,28 @@ export const FLEET_EDIT_SECTIONS: { id: FleetEditSection; label: string }[] = [
   { id: 'base', label: 'Alapadatok' },
   { id: 'service', label: 'Szerviz adatok' },
   { id: 'costs', label: 'Költségek' },
+];
+
+export const SUPPORTED_LOCALE_CODES = Object.keys(LOCALE_LABELS);
+export const SUPPORTED_LOCALE_SET = new Set(SUPPORTED_LOCALE_CODES);
+export const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+export const DAY_MS = 1000 * 60 * 60 * 24;
+
+export const MAX_DAMAGE_UPLOADS_PER_REQUEST = 3;
+
+export const STATUS_LABELS: Record<FleetStatus, string> = {
+  available: 'Elérhető',
+  rented: 'Kikölcsönözve',
+  reserved: 'Foglalt',
+  maintenance: 'Szerviz',
+};
+
+export const TAKE_OPTIONS = [
+  { value: 'Kis Róbert', label: 'Kis Róbert' },
+  { value: 'Hidas Andrea', label: 'Hidas Andrea' },
+  { value: 'Orosz Tamás', label: 'Orosz Tamás' },
+  { value: 'Veress Gabriella', label: 'Veress Gabriella' },
+  { value: 'Kis Viktória', label: 'Kis Viktória' },
+  { value: 'Kis Patrícia', label: 'Kis Patrícia' },
 ];

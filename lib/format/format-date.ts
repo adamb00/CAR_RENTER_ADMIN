@@ -56,8 +56,25 @@ export const formatArrivalTime = (
   return `${normalizedHour}:${normalizedMinute}`;
 };
 
-export const formatDatePeriod = (booking: Booking) => {
-  const start = booking.rentalStart ?? booking.payload?.rentalPeriod?.startDate;
-  const end = booking.rentalEnd ?? booking.payload?.rentalPeriod?.endDate;
-  return start || end ? `${start ?? '—'} → ${end ?? '—'}` : '—';
+export const formatDatePeriod = (
+  start?: string | null,
+  end?: string | null,
+  locale?: string | null,
+) => {
+  if (!start && !end) return null;
+  const formattedStart = formatDate(start, 'long');
+  const formattedEnd = formatDate(end, 'long');
+  if (formattedStart && formattedEnd)
+    return `${formattedStart} → ${formattedEnd}`;
+  return formattedStart ?? formattedEnd;
+};
+
+export const rentalDays = (start?: string | null, end?: string | null) => {
+  if (!start || !end) return null;
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
+  const diff = endDate.getTime() - startDate.getTime();
+  if (diff < 0) return null;
+  return Math.max(1, Math.round(diff / (1000 * 60 * 60 * 24)));
 };

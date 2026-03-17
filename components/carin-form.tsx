@@ -4,13 +4,14 @@ import { FloatingSelect } from './ui/floating-select';
 import { Input } from './ui/input';
 import { FloatingTextarea } from './ui/textarea';
 
-import { Booking } from '@/data-service/bookings';
-import { FleetVehicle } from '@prisma/client';
-import CarDamages from './car-damages';
-import { Detail } from './ui/detail';
-import { Button } from './ui/button';
 import { createVehicleHandoverAction } from '@/actions/createVehicleHandoverAction';
+import { Booking } from '@/data-service/bookings';
+import { TAKE_OPTIONS } from '@/lib/constants';
 import { formatAddress } from '@/lib/format/format-address';
+import { FleetVehicle } from '@prisma/client';
+import CarDamages from './car/car-damages';
+import { Button } from './ui/button';
+import { Detail } from './ui/detail';
 
 const emptyForm = {
   take: '',
@@ -28,15 +29,6 @@ const emptyForm = {
   damages: '',
   damagesImages: [] as string[],
 };
-
-const takeOptions = [
-  { value: 'Kis Róbert', label: 'Kis Róbert' },
-  { value: 'Hidas Andrea', label: 'Hidas Andrea' },
-  { value: 'Orosz Tamás', label: 'Orosz Tamás' },
-  { value: 'Veress Gabriella', label: 'Veress Gabriella' },
-  { value: 'Kis Viktória', label: 'Kis Viktória' },
-  { value: 'Kis Patrícia', label: 'Kis Patrícia' },
-];
 
 type CarinFormProps = {
   booking: Booking | null;
@@ -66,8 +58,7 @@ export default function CarinForm({
   const deliveryAddressRaw = booking?.delivery?.address
     ? formatAddress(booking.delivery.address)
     : '';
-  const deliveryAddress =
-    deliveryAddressRaw === '—' ? '' : deliveryAddressRaw;
+  const deliveryAddress = deliveryAddressRaw === '—' ? '' : deliveryAddressRaw;
   const hasDeliveryDetails = Boolean(deliveryLocation || deliveryAddress);
 
   React.useEffect(() => {
@@ -346,9 +337,7 @@ export default function CarinForm({
         <Detail
           label='Kaució'
           value={
-            booking?.pricing?.deposit
-              ? `${booking.pricing.deposit} €`
-              : '0 €'
+            booking?.pricing?.deposit ? `${booking.pricing.deposit} €` : '0 €'
           }
         />
         <Detail
@@ -403,7 +392,7 @@ export default function CarinForm({
           alwaysFloatLabel
           value={form.take}
           onChange={(e) => {
-            const selected = takeOptions.find(
+            const selected = TAKE_OPTIONS.find(
               (opt) => opt.value === e.target.value,
             );
             setForm((prev) => ({
@@ -416,7 +405,7 @@ export default function CarinForm({
           <option value='' disabled>
             Kérlek válassz ki valakit!
           </option>
-          {takeOptions.map((option) => (
+          {TAKE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

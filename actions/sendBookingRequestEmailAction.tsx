@@ -1,11 +1,5 @@
 'use server';
-import BookingRequestEmailTemplate, {
-  buildTextBody,
-  EmailCopy,
-  normalizeLocale,
-  SendBookingRequestEmailInput,
-  SendBookingRequestEmailResolvedInput,
-} from '@/components/emails/booking-request-email';
+import BookingRequestEmailTemplate from '@/components/emails/booking-request-email';
 import {
   BOOKING_EMAIL_FROM,
   LOGO_URL,
@@ -20,6 +14,13 @@ import {
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { EMAIL_COPY } from '@/components/emails/utils/email-copy';
+import {
+  EmailCopy,
+  SendBookingRequestEmailInput,
+  SendBookingRequestEmailResolvedInput,
+} from '@/components/emails/types';
+import { normalizeConfirmationLocale } from '@/lib/format/format-locale';
+import { buildTextBody } from '@/components/emails/utils/build-text-body';
 
 type SendBookingRequestEmailResult = {
   success?: string;
@@ -54,7 +55,7 @@ const getLogoDataUrl = async () => {
   const { join } = await import('node:path');
 
   const logoPaths = ['logo_white.png', 'logo_black.png'].map((file) =>
-    join(process.cwd(), 'public', file)
+    join(process.cwd(), 'public', file),
   );
 
   for (const logoPath of logoPaths) {
@@ -66,7 +67,7 @@ const getLogoDataUrl = async () => {
       console.error(
         'sendBookingRequestEmailAction logo load failed',
         logoPath,
-        error
+        error,
       );
     }
   }
@@ -77,7 +78,7 @@ const getLogoDataUrl = async () => {
 
 const buildHtmlBody = async (
   copy: EmailCopy,
-  input: SendBookingRequestEmailResolvedInput
+  input: SendBookingRequestEmailResolvedInput,
 ): Promise<string> => {
   const logoSrc = await getLogoDataUrl();
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -87,7 +88,7 @@ const buildHtmlBody = async (
       copy={copy}
       input={input}
       logoSrc={logoSrc ?? undefined}
-    />
+    />,
   );
 
   return `<!doctype html>${html}`;
@@ -97,9 +98,9 @@ const buildBookingLink = (
   locale: string,
   carId: string,
   quoteId: string,
-  offerIndex: number
+  offerIndex: number,
 ) => {
-  const safeLocale = normalizeLocale(locale);
+  const safeLocale = normalizeConfirmationLocale(locale);
   const encodedCarId = encodeURIComponent(carId);
   const encodedQuoteId = encodeURIComponent(quoteId);
   return `https://zodiacsrentacar.com/${safeLocale}/cars/${encodedCarId}/rent?quoteId=${encodedQuoteId}&offer=${offerIndex}`;
@@ -109,7 +110,7 @@ const toNullableString = (value?: string | null) =>
   value === undefined ? null : value;
 
 const buildBookingRequestRecord = (
-  input: SendBookingRequestEmailResolvedInput
+  input: SendBookingRequestEmailResolvedInput,
 ): BookingRequestOfferData[] =>
   input.offers.map((offer) => ({
     adminName: toNullableString(input.adminName),
@@ -151,7 +152,7 @@ const markQuoteAsProcessed = async (
 };
 
 export const sendBookingRequestEmailAction = async (
-  input: SendBookingRequestEmailInput
+  input: SendBookingRequestEmailInput,
 ): Promise<SendBookingRequestEmailResult> => {
   const recipient = input.email?.trim();
 
@@ -174,11 +175,16 @@ export const sendBookingRequestEmailAction = async (
     };
   }
 
-  const locale = normalizeLocale(input.locale);
+  const locale = normalizeConfirmationLocale(input.locale);
   const copy = EMAIL_COPY[locale] ?? EMAIL_COPY.en;
   const offersWithLinks = input.offers.map((offer, index) => ({
     ...offer,
-    bookingLink: buildBookingLink(locale, offer.carId as string, input.quoteId, index),
+    bookingLink: buildBookingLink(
+      locale,
+      offer.carId as string,
+      input.quoteId,
+      index,
+    ),
   }));
 
   const inputWithLinks: SendBookingRequestEmailResolvedInput = {

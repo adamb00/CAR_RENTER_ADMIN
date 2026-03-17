@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import {
   FleetAddForm,
   type FleetEditSection,
-} from '@/components/fleet-add-form';
+} from '@/components/car/car-fleet-add-form';
 import { FLEET_EDIT_SECTIONS } from '@/lib/constants';
 import { db } from '@/lib/db';
 import { getFleetPlaceLabel } from '@/lib/fleet-places';

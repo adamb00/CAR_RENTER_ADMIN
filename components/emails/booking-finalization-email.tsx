@@ -2,8 +2,13 @@
 import * as React from 'react';
 
 import { BRAND } from '@/lib/constants';
-import { EmailSignatureBlock, resolveEmailSignatureData } from './email-signature';
+import {
+  EmailSignatureBlock,
+  resolveEmailSignatureData,
+} from './email-signature';
 import type { BookingFinalizationCopy } from './utils/finalization-copy';
+import { formatDate, formatDatePeriod } from '@/lib/format/format-date';
+import { formatPriceValue } from '@/lib/format/format-price';
 
 export type BookingFinalizationEmailInput = {
   bookingCode: string;
@@ -50,22 +55,6 @@ type BookingFinalizationEmailProps = {
   logoSrc?: string | null;
 };
 
-const formatPrice = (value?: string | null) => {
-  const trimmed = value?.trim();
-  return trimmed && trimmed.length > 0 ? `${trimmed} €` : '—';
-};
-
-const formatDate = (value?: string | null, locale?: string | null) => {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(locale ?? 'hu-HU', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-};
-
 const Section = ({
   title,
   children,
@@ -105,10 +94,8 @@ export default function BookingFinalizationEmail({
   copy,
   logoSrc,
 }: BookingFinalizationEmailProps) {
-  const rentalPeriod = `${formatDate(
-    input.rentalStart,
-    input.locale
-  )} → ${formatDate(input.rentalEnd, input.locale)}`;
+  const rentalPeriod =
+    formatDatePeriod(input.rentalStart, input.rentalEnd, input.locale) || '';
   type InfoCard = { label: string; value: string };
 
   const summaryCards: InfoCard[] = [
@@ -121,9 +108,9 @@ export default function BookingFinalizationEmail({
   const addPriceCard = (
     label: string,
     value?: string | null,
-    skipEmpty = false
+    skipEmpty = false,
   ) => {
-    const formatted = formatPrice(value);
+    const formatted = formatPriceValue(value);
     if (skipEmpty && (!value || formatted === '—')) return;
     feeCards.push({ label, value: formatted });
   };
@@ -133,7 +120,7 @@ export default function BookingFinalizationEmail({
   addPriceCard(copy.labels.deliveryFee, input.deliveryFee);
   addPriceCard(copy.labels.extrasFee, input.extrasFee, true);
 
-  const totalPrice = formatPrice(input.totalFee);
+  const totalPrice = formatPriceValue(input.totalFee);
 
   const bookingInfo: InfoCard[] = [
     {

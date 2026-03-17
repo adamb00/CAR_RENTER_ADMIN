@@ -1,10 +1,13 @@
-import type * as React from 'react';
 import { BRAND } from '@/lib/constants';
+import { formatDatePeriod } from '@/lib/format/format-date';
+import { formatPriceValue } from '@/lib/format/format-price';
+import { InfoRow } from '../ui/email-info-row';
 import {
   EmailSignatureBlock,
   buildEmailSignatureText,
   resolveEmailSignatureData,
 } from './email-signature';
+import { sanitizeName } from '@/lib/sanitize-name';
 
 export type BookingConfirmationEmailInput = {
   bookingCode: string;
@@ -78,77 +81,6 @@ export const BOOKING_CONFIRMATION_COPY: Record<
   },
 };
 
-export const normalizeConfirmationLocale = (locale?: string | null) => {
-  if (!locale) return 'en';
-  const normalized = locale.toLowerCase();
-  return BOOKING_CONFIRMATION_COPY[normalized] ? normalized : 'en';
-};
-
-const sanitizeName = (value?: string | null) => {
-  const trimmed = value?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : undefined;
-};
-
-const formatDate = (value?: string | null, locale?: string | null) => {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(locale ?? 'hu-HU', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-};
-
-const formatPeriod = (
-  start?: string | null,
-  end?: string | null,
-  locale?: string | null
-) => {
-  if (!start && !end) return null;
-  const formattedStart = formatDate(start, locale);
-  const formattedEnd = formatDate(end, locale);
-  if (formattedStart && formattedEnd) return `${formattedStart} → ${formattedEnd}`;
-  return formattedStart ?? formattedEnd;
-};
-
-const formatPrice = (value?: string | null) => {
-  const trimmed = value?.trim();
-  if (!trimmed) return null;
-  return `${trimmed} €`;
-};
-
-const InfoRow = ({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | null;
-}) => (
-  <tr>
-    <td
-      style={{
-        padding: '6px 0',
-        fontSize: '13px',
-        color: BRAND.navy,
-        fontWeight: 600,
-        width: '40%',
-      }}
-    >
-      {label}
-    </td>
-    <td
-      style={{
-        padding: '6px 0',
-        fontSize: '13px',
-        color: BRAND.navyLight,
-      }}
-    >
-      {value ?? '—'}
-    </td>
-  </tr>
-);
-
 type BookingConfirmationEmailProps = {
   copy: BookingConfirmationCopy;
   input: BookingConfirmationEmailInput;
@@ -156,13 +88,17 @@ type BookingConfirmationEmailProps = {
 
 export const buildBookingConfirmationText = (
   copy: BookingConfirmationCopy,
-  input: BookingConfirmationEmailInput
+  input: BookingConfirmationEmailInput,
 ) => {
-  const rentalFee = formatPrice(input.rentalFee);
-  const insuranceFee = formatPrice(input.insuranceFee);
-  const deposit = formatPrice(input.deposit);
-  const extrasFee = formatPrice(input.extrasFee);
-  const period = formatPeriod(input.rentalStart, input.rentalEnd, input.locale);
+  const rentalFee = formatPriceValue(input.rentalFee);
+  const insuranceFee = formatPriceValue(input.insuranceFee);
+  const deposit = formatPriceValue(input.deposit);
+  const extrasFee = formatPriceValue(input.extrasFee);
+  const period = formatDatePeriod(
+    input.rentalStart,
+    input.rentalEnd,
+    input.locale,
+  );
   const car = input.carLabel ?? '—';
   const signatureData = resolveEmailSignatureData({
     signerName: input.signerName,
@@ -193,11 +129,15 @@ export default function BookingConfirmationEmail({
   copy,
   input,
 }: BookingConfirmationEmailProps) {
-  const rentalFee = formatPrice(input.rentalFee);
-  const insuranceFee = formatPrice(input.insuranceFee);
-  const deposit = formatPrice(input.deposit);
-  const extrasFee = formatPrice(input.extrasFee);
-  const period = formatPeriod(input.rentalStart, input.rentalEnd, input.locale);
+  const rentalFee = formatPriceValue(input.rentalFee);
+  const insuranceFee = formatPriceValue(input.insuranceFee);
+  const deposit = formatPriceValue(input.deposit);
+  const extrasFee = formatPriceValue(input.extrasFee);
+  const period = formatDatePeriod(
+    input.rentalStart,
+    input.rentalEnd,
+    input.locale,
+  );
   const name = sanitizeName(input.name);
   const signatureData = resolveEmailSignatureData({
     signerName: input.signerName,
@@ -239,7 +179,9 @@ export default function BookingConfirmationEmail({
                 >
                   <tbody>
                     <tr>
-                      <td style={{ textAlign: 'center', paddingBottom: '20px' }}>
+                      <td
+                        style={{ textAlign: 'center', paddingBottom: '20px' }}
+                      >
                         <h1
                           style={{
                             margin: 0,
@@ -254,7 +196,8 @@ export default function BookingConfirmationEmail({
                     <tr>
                       <td style={{ fontSize: '14px', color: BRAND.navyLight }}>
                         <p style={{ marginTop: 0 }}>
-                          {copy.greeting(name)}<br />
+                          {copy.greeting(name)}
+                          <br />
                           {copy.intro}
                         </p>
                         <p

@@ -8,6 +8,9 @@ import {
   resolveEmailSignatureData,
 } from './email-signature';
 import type { BookingRejectionCopy } from '@/components/emails/utils/rejection-copy';
+import { formatDatePeriod } from '@/lib/format/format-date';
+import { Block } from '../ui/email-block';
+import { sanitizeName } from '@/lib/sanitize-name';
 
 export type BookingRejectionEmailInput = {
   bookingCode: string;
@@ -19,58 +22,20 @@ export type BookingRejectionEmailInput = {
   signerName: string;
 };
 
-const sanitizeName = (value?: string | null) => {
-  const trimmed = value?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : undefined;
-};
-
-const formatDate = (value?: string | null, locale?: string | null) => {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(locale ?? 'en', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-};
-
-const formatPeriod = (
-  start?: string | null,
-  end?: string | null,
-  locale?: string | null,
-) => {
-  if (!start && !end) return null;
-  const formattedStart = formatDate(start, locale);
-  const formattedEnd = formatDate(end, locale);
-  if (formattedStart && formattedEnd) return `${formattedStart} -> ${formattedEnd}`;
-  return formattedStart ?? formattedEnd;
-};
-
 const lineValue = (value?: string | null) => {
   const trimmed = value?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : '—';
 };
 
-const Block = ({ children }: { children: ReactNode }) => (
-  <div
-    style={{
-      borderRadius: '10px',
-      background: 'rgba(2, 48, 71, 0.03)',
-      border: '1px solid rgba(2, 48, 71, 0.08)',
-      padding: '14px',
-      marginTop: '12px',
-    }}
-  >
-    {children}
-  </div>
-);
-
 export const buildBookingRejectionText = (
   copy: BookingRejectionCopy,
   input: BookingRejectionEmailInput,
 ) => {
-  const period = formatPeriod(input.rentalStart, input.rentalEnd, input.locale);
+  const period = formatDatePeriod(
+    input.rentalStart,
+    input.rentalEnd,
+    input.locale,
+  );
   const signatureData = resolveEmailSignatureData({
     signerName: input.signerName,
     locale: input.locale,
@@ -103,7 +68,11 @@ export default function BookingRejectionEmail({
   input,
   logoSrc,
 }: BookingRejectionEmailProps) {
-  const period = formatPeriod(input.rentalStart, input.rentalEnd, input.locale);
+  const period = formatDatePeriod(
+    input.rentalStart,
+    input.rentalEnd,
+    input.locale,
+  );
   const name = sanitizeName(input.name);
   const summaryCards = [
     { label: copy.bookingLabel, value: input.bookingCode },

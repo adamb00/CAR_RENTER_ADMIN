@@ -2,48 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { updateFleetVehicleDamagesImagesAction } from '@/actions/updateFleetVehicleDamagesImagesAction';
 import { Button } from '@/components/ui/button';
+import { MAX_DAMAGE_UPLOADS_PER_REQUEST } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-
-type DamageUploadStatus = 'pending' | 'uploading' | 'uploaded' | 'error';
-
-type DamageUploadItem = {
-  id: string;
-  file: File;
-  previewUrl: string;
-  status: DamageUploadStatus;
-  uploadedUrl?: string;
-  error?: string;
-};
-
-type CarDamagesProps = {
-  carId: string;
-  vehicleId?: string;
-  title?: string;
-  folderPrefix?: string;
-  initialImages?: string[];
-  onImagesChange?: (images: string[]) => void;
-  persistImages?: (
-    images: string[],
-  ) => Promise<{ error?: string } | string | void> | { error?: string } | string | void;
-};
-
-const MAX_DAMAGE_UPLOADS_PER_REQUEST = 3;
-
-const normalizeImages = (images: string[]) =>
-  Array.from(new Set(images.filter(Boolean)));
-
-const areImagesEqual = (a: string[], b: string[]) => {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i += 1) {
-    if (a[i] !== b[i]) return false;
-  }
-  return true;
-};
+import { CarDamagesProps, DamageUploadItem, DamageUploadStatus } from './types';
+import { areImagesEqual, normalizeImages } from './utils';
 
 export default function CarDamages({
-  carId,
   vehicleId,
   title = 'Sérülés fotók',
   folderPrefix = 'cars/damages',
@@ -158,18 +123,6 @@ export default function CarDamages({
       return crypto.randomUUID();
     }
     return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  };
-
-  const persistDamagesImages = async (nextImages: string[]) => {
-    if (!vehicleId) return;
-    const result = await updateFleetVehicleDamagesImagesAction({
-      id: vehicleId,
-      carId,
-      damagesImages: nextImages,
-    });
-    if (result?.error) {
-      setDamageUploadMessage(result.error);
-    }
   };
 
   const handleDamageFiles = (files: FileList | null) => {
@@ -401,7 +354,7 @@ export default function CarDamages({
         )}
         <div
           className={cn(
-            'flex min-h-[120px] cursor-pointer items-center justify-center rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground transition',
+            'flex min-h-30 cursor-pointer items-center justify-center rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground transition',
             isDragActive
               ? 'border-primary bg-primary/5 text-primary'
               : 'border-muted-foreground/30',

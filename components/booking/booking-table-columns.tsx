@@ -33,7 +33,7 @@ export const BookingTableColumns: ColumnDef<Booking>[] = [
     header: 'Időszak',
     cell: ({ row }) => (
       <div className='whitespace-nowrap text-muted-foreground'>
-        {formatDatePeriod(row.original)}
+        {formatDatePeriod(row.original.rentalStart, row.original.rentalEnd)}
       </div>
     ),
   },

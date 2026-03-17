@@ -4,11 +4,14 @@ import BookingConfirmationEmail, {
   BOOKING_CONFIRMATION_COPY,
   BookingConfirmationEmailInput,
   buildBookingConfirmationText,
-  normalizeConfirmationLocale,
 } from '@/components/emails/booking-confirmation-email';
 import { getBookingById } from '@/data-service/bookings';
 import { getQuoteById } from '@/data-service/quotes';
-import { BOOKING_EMAIL_FROM, RENT_STATUS_ACCEPTED, RENT_STATUS_REGISTERED } from '@/lib/constants';
+import {
+  BOOKING_EMAIL_FROM,
+  RENT_STATUS_ACCEPTED,
+  RENT_STATUS_REGISTERED,
+} from '@/lib/constants';
 import { hasAssignedFleetAssignment } from '@/lib/booking-conflicts';
 import type { BookingRequestData } from '@/types/booking-request';
 import {
@@ -19,6 +22,7 @@ import {
 } from '@/lib/mailer';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { normalizeConfirmationLocale } from '@/lib/format/format-locale';
 
 type SendBookingConfirmationEmailInput = {
   bookingId: string;
@@ -32,7 +36,7 @@ type SendBookingConfirmationEmailResult = {
 
 const formatCarLabel = (
   booking: Awaited<ReturnType<typeof getBookingById>>,
-  quoteCarName?: string | null
+  quoteCarName?: string | null,
 ) => {
   return (
     booking?.carLabel ??
@@ -45,7 +49,7 @@ const formatCarLabel = (
 
 const selectBookingRequestData = (
   raw: unknown,
-  carId?: string | null
+  carId?: string | null,
 ): BookingRequestData | undefined => {
   if (Array.isArray(raw)) {
     if (carId) {
@@ -54,7 +58,7 @@ const selectBookingRequestData = (
           entry &&
           typeof entry === 'object' &&
           'carId' in entry &&
-          (entry as { carId?: string | null }).carId === carId
+          (entry as { carId?: string | null }).carId === carId,
       );
       if (match) return match as BookingRequestData;
     }
@@ -99,7 +103,7 @@ export const sendBookingConfirmationEmailAction = async ({
     signerName?.trim() || booking.signerName?.trim() || 'Zodiacs Rent a Car';
   const selectedRequestData = selectBookingRequestData(
     quote?.bookingRequestData,
-    booking.carId ?? booking.payload?.carId ?? null
+    booking.carId ?? booking.payload?.carId ?? null,
   );
 
   const localeRaw =
@@ -116,7 +120,7 @@ export const sendBookingConfirmationEmailAction = async ({
   const depositFee =
     insuranceFee && insuranceFee.trim().length > 0
       ? null
-      : selectedRequestData?.deposit ?? null;
+      : (selectedRequestData?.deposit ?? null);
 
   const emailInput: BookingConfirmationEmailInput = {
     bookingCode: booking.humanId ?? booking.id,
@@ -135,7 +139,7 @@ export const sendBookingConfirmationEmailAction = async ({
   const text = buildBookingConfirmationText(copy, emailInput);
   const { renderToStaticMarkup } = await import('react-dom/server');
   const html = `<!doctype html>${renderToStaticMarkup(
-    <BookingConfirmationEmail copy={copy} input={emailInput} />
+    <BookingConfirmationEmail copy={copy} input={emailInput} />,
   )}`;
 
   try {

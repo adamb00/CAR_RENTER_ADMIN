@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 
-import { FleetAddForm } from '@/components/fleet-add-form';
+import { FleetAddForm } from '@/components/car/car-fleet-add-form';
 import { db } from '@/lib/db';
 
 export default async function CarFleetPage({

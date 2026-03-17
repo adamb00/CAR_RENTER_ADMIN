@@ -4,13 +4,15 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { fleetVehicleSchema } from '@/lib/fleet-vehicle-schema';
+import { fleetVehicleSchema } from '@/schemas/fleet-vehicle-schema';
 
 const updateFleetVehicleSchema = fleetVehicleSchema.extend({
   id: z.string().min(1),
 });
 
-export async function updateFleetVehicleAction(input: z.infer<typeof updateFleetVehicleSchema>) {
+export async function updateFleetVehicleAction(
+  input: z.infer<typeof updateFleetVehicleSchema>,
+) {
   const parsed = updateFleetVehicleSchema.safeParse(input);
   if (!parsed.success) {
     return { error: 'Érvénytelen adatok, kérjük ellenőrizd a mezőket.' };
@@ -27,7 +29,8 @@ export async function updateFleetVehicleAction(input: z.infer<typeof updateFleet
     return { error: 'A megadott autó nem található.' };
   }
 
-  const toDateOrNull = (value?: string) => (value ? new Date(value) : undefined);
+  const toDateOrNull = (value?: string) =>
+    value ? new Date(value) : undefined;
 
   try {
     await db.fleetVehicle.update({
