@@ -123,8 +123,8 @@ To (day/hour/minute) / -ig (nap/óra/perc): <<Rent.To>>
 1. Minimális vezetői feltétel: A bérlőnek 25 év felettinek kell lennie, és legalább 2 éve érvényes B kategóriás jogosítvánnyal kell rendelkeznie.
 2. Document Validity: All documents and licenses must remain valid during the rental period.
 2. Okmányok érvényessége: Az összes okmánynak és jogosítványnak érvényesnek kell lennie a teljes bérleti idő alatt.
-3. Payment Methods: Accepted payment methods are cash, bank card (VISA/Mastercard), or Revolut.
-3. Fizetési módok: Elfogadott fizetési módok: készpénz, bankkártya (VISA/Mastercard) vagy Revolut.
+3. Payment Methods: Accepted payment methods are cash, bank card (VISA/Mastercard), Bizum, or Revolut.
+3. Fizetési módok: Elfogadott fizetési módok: készpénz, bankkártya (VISA/Mastercard), Bizum vagy Revolut.
 4. Deposit: A deposit of €500 is required, unless full insurance without deductible is contracted.
 4. Letét: 500 € letét fizetendő, kivéve ha a bérlő teljes körű biztosítást köt (önrész nélkül).
 5. Insurance Exclusions: Even with full insurance, the Lessee is responsible for damages caused by: wrong fuel, key loss or breakage, off-road driving, traffic fines, alcohol/drug use, or taking the vehicle to unauthorized islands.

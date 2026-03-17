@@ -141,7 +141,8 @@ const PAYMENT_METHOD_VALUES = new Set([
   'advance_transfer',
   'cash_on_pickup',
   'card_on_pickup',
-  'instant_transfer_on_pickup',
+  'bizum_on_pickup',
+  'revolut_on_pickup',
 ]);
 
 const UUID_PATTERN =

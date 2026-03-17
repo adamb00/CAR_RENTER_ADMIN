@@ -27,10 +27,8 @@ export const paymentMethodOptions = [
   { value: 'advance_transfer', label: 'Előre utalás' },
   { value: 'cash_on_pickup', label: 'Átvételkor készpénz' },
   { value: 'card_on_pickup', label: 'Átvételkor bankkártya' },
-  {
-    value: 'instant_transfer_on_pickup',
-    label: 'Átvételkor azonnali átutalás',
-  },
+  { value: 'bizum_on_pickup', label: 'Bizum' },
+  { value: 'revolut_on_pickup', label: 'Revolut' },
 ] as const;
 
 export const placeTypeOptions = [

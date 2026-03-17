@@ -1,4 +1,4 @@
-import { EmailCopy } from '../booking-request-email';
+import { EmailCopy } from '../types';
 
 export const EMAIL_COPY: Record<string, EmailCopy> = {
   hu: {

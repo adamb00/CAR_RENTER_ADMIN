@@ -63,10 +63,15 @@ export const PAYMENT_METHOD_VALUES = [
   'advance_transfer',
   'cash_on_pickup',
   'card_on_pickup',
-  'instant_transfer_on_pickup',
+  'bizum_on_pickup',
+  'revolut_on_pickup',
 ] as const;
 
 export type PaymentMethodValue = (typeof PAYMENT_METHOD_VALUES)[number];
+export type LegacyPaymentMethodValue = 'instant_transfer_on_pickup';
+export type BookingPaymentMethodValue =
+  | PaymentMethodValue
+  | LegacyPaymentMethodValue;
 
 export type BookingPayload = {
   locale?: string;
@@ -112,7 +117,7 @@ export type BookingPayload = {
     privacy?: boolean;
     terms?: boolean;
     insurance?: boolean;
-    paymentMethod?: PaymentMethodValue;
+    paymentMethod?: BookingPaymentMethodValue;
   };
   pricing?: BookingPricing;
   handoverTip?: string;
@@ -178,11 +183,16 @@ const toOptionalBoolean = (value: unknown) =>
 
 const toOptionalPaymentMethod = (
   value: unknown,
-): PaymentMethodValue | undefined =>
-  typeof value === 'string' &&
-  PAYMENT_METHOD_VALUES.includes(value as PaymentMethodValue)
+): BookingPaymentMethodValue | undefined => {
+  if (value === 'instant_transfer_on_pickup') {
+    return value;
+  }
+
+  return typeof value === 'string' &&
+    PAYMENT_METHOD_VALUES.includes(value as PaymentMethodValue)
     ? (value as PaymentMethodValue)
     : undefined;
+};
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
