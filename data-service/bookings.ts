@@ -147,9 +147,19 @@ export type Booking = {
   carId?: string;
   carLabel?: string;
   quoteId?: string;
+  renterId?: string | null;
   contactName: string;
   contactEmail: string | null;
   contactPhone?: string | null;
+  renter?: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    taxId: string | null;
+    companyName: string | null;
+    paymentMethod: string | null;
+  } | null;
   assignedFleetVehicleId?: string;
   assignedFleetPlate?: string;
   deliveryIsland?: string | null;
@@ -539,6 +549,17 @@ type MinimalContactQuote = {
   humanId: string | null;
 };
 
+type BookingRenterRow = {
+  bookingId: string;
+  renterId: string | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  taxId: string | null;
+  companyName: string | null;
+  paymentMethod: string | null;
+};
+
 type BookingWithQuote = RentRequests & {
   ContactQuotes: MinimalContactQuote | null;
 };
@@ -795,6 +816,64 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
   };
 };
 
+const getRenterByBookingId = async (bookingIds: string[]) => {
+  const renterByBookingId = new Map<string, Booking['renter']>();
+  const renterIdByBookingId = new Map<string, string | null>();
+
+  if (bookingIds.length === 0) {
+    return {
+      renterByBookingId,
+      renterIdByBookingId,
+    };
+  }
+
+  const bookingIdsSql = Prisma.join(
+    bookingIds.map((id) => Prisma.sql`${id}::uuid`),
+  );
+
+  const rows = await db
+    .$queryRaw<BookingRenterRow[]>(
+      Prisma.sql`
+        SELECT
+          rr."id" AS "bookingId",
+          rr."renterId" AS "renterId",
+          r."name" AS "name",
+          r."email" AS "email",
+          r."phone" AS "phone",
+          r."taxId" AS "taxId",
+          r."companyName" AS "companyName",
+          r."paymentMethod" AS "paymentMethod"
+        FROM "RentRequests" rr
+        LEFT JOIN "Renters" r ON r."id" = rr."renterId"
+        WHERE rr."id" IN (${bookingIdsSql})
+      `,
+    )
+    .catch(() => []);
+
+  for (const row of rows) {
+    renterIdByBookingId.set(row.bookingId, row.renterId);
+    if (!row.renterId || !row.name) {
+      renterByBookingId.set(row.bookingId, null);
+      continue;
+    }
+
+    renterByBookingId.set(row.bookingId, {
+      id: row.renterId,
+      name: row.name,
+      email: row.email,
+      phone: row.phone,
+      taxId: row.taxId,
+      companyName: row.companyName,
+      paymentMethod: row.paymentMethod,
+    });
+  }
+
+  return {
+    renterByBookingId,
+    renterIdByBookingId,
+  };
+};
+
 const applyNormalizedPayloadByBookingId = ({
   bookingId,
   payload,
@@ -838,6 +917,7 @@ const normalizeBooking = (booking: BookingWithQuote): Booking => {
     signerName,
     locale: booking.locale ?? '',
     carId: booking.carid ?? undefined,
+    renterId: null,
     assignedFleetVehicleId:
       booking.assignedFleetVehicleId ??
       (isRecord(booking.payload)
@@ -856,6 +936,7 @@ const normalizeBooking = (booking: BookingWithQuote): Booking => {
     contactName: booking.contactname ?? '',
     contactEmail: booking.contactemail ?? null,
     contactPhone: booking.contactphone ?? null,
+    renter: null,
     rentalStart: toDateString(booking.rentalstart),
     rentalEnd: toDateString(booking.rentalend),
     rentalDays: booking.rentaldays ?? undefined,
@@ -898,6 +979,29 @@ const applyNormalizedStructuredFieldsByBookingId = ({
     pricing: withDeliveryLocationFallback(pricing, delivery),
     delivery,
     deliveryIsland: islandByBookingId.get(bookingId) ?? delivery?.island ?? null,
+  };
+};
+
+const applyRenterByBookingId = ({
+  booking,
+  renterByBookingId,
+  renterIdByBookingId,
+}: {
+  booking: Booking;
+  renterByBookingId: Map<string, Booking['renter']>;
+  renterIdByBookingId: Map<string, string | null>;
+}): Pick<Booking, 'renterId' | 'renter' | 'contactName' | 'contactEmail' | 'contactPhone'> => {
+  const renter = renterByBookingId.get(booking.id) ?? null;
+  const contactName = booking.contactName.trim();
+  const contactEmail = booking.contactEmail?.trim() ?? null;
+  const contactPhone = booking.contactPhone?.trim() ?? null;
+
+  return {
+    renterId: renterIdByBookingId.get(booking.id) ?? null,
+    renter,
+    contactName: contactName || renter?.name || booking.contactName,
+    contactEmail: contactEmail || renter?.email || booking.contactEmail,
+    contactPhone: contactPhone || renter?.phone || booking.contactPhone,
   };
 };
 
@@ -944,9 +1048,11 @@ export const getBookings = async (): Promise<Booking[]> => {
   await syncQuoteStatusesForBookings(activeBookingsRaw);
 
   const normalizedBase = activeBookingsRaw.map(normalizeBooking);
-  const normalizedPayloadParts = await getNormalizedPayloadPartsByBookingId(
-    normalizedBase.map((booking) => booking.id),
-  );
+  const bookingIds = normalizedBase.map((booking) => booking.id);
+  const [normalizedPayloadParts, renterParts] = await Promise.all([
+    getNormalizedPayloadPartsByBookingId(bookingIds),
+    getRenterByBookingId(bookingIds),
+  ]);
   const normalized = normalizedBase.map((booking) => {
     const normalizedFields = applyNormalizedStructuredFieldsByBookingId({
       bookingId: booking.id,
@@ -959,6 +1065,11 @@ export const getBookings = async (): Promise<Booking[]> => {
     return {
       ...booking,
       ...normalizedFields,
+      ...applyRenterByBookingId({
+        booking,
+        renterByBookingId: renterParts.renterByBookingId,
+        renterIdByBookingId: renterParts.renterIdByBookingId,
+      }),
       payload: applyNormalizedPayloadByBookingId({
         bookingId: booking.id,
         payload: booking.payload,
@@ -1009,8 +1120,9 @@ export const getBookingById = async (id: string): Promise<Booking | null> => {
   await syncQuoteStatusesForBookings([booking]);
 
   const normalizedBase = normalizeBooking(booking);
-  const normalizedPayloadParts = await getNormalizedPayloadPartsByBookingId([
-    normalizedBase.id,
+  const [normalizedPayloadParts, renterParts] = await Promise.all([
+    getNormalizedPayloadPartsByBookingId([normalizedBase.id]),
+    getRenterByBookingId([normalizedBase.id]),
   ]);
   const normalizedFields = applyNormalizedStructuredFieldsByBookingId({
     bookingId: normalizedBase.id,
@@ -1022,6 +1134,11 @@ export const getBookingById = async (id: string): Promise<Booking | null> => {
   const normalized = {
     ...normalizedBase,
     ...normalizedFields,
+    ...applyRenterByBookingId({
+      booking: normalizedBase,
+      renterByBookingId: renterParts.renterByBookingId,
+      renterIdByBookingId: renterParts.renterIdByBookingId,
+    }),
     payload: applyNormalizedPayloadByBookingId({
       bookingId: normalizedBase.id,
       payload: normalizedBase.payload,
@@ -1064,8 +1181,9 @@ export const getBookingByQuoteId = async (
   await syncQuoteStatusesForBookings([booking]);
 
   const normalizedBase = normalizeBooking(booking);
-  const normalizedPayloadParts = await getNormalizedPayloadPartsByBookingId([
-    normalizedBase.id,
+  const [normalizedPayloadParts, renterParts] = await Promise.all([
+    getNormalizedPayloadPartsByBookingId([normalizedBase.id]),
+    getRenterByBookingId([normalizedBase.id]),
   ]);
   const normalizedFields = applyNormalizedStructuredFieldsByBookingId({
     bookingId: normalizedBase.id,
@@ -1077,6 +1195,11 @@ export const getBookingByQuoteId = async (
   const normalized = {
     ...normalizedBase,
     ...normalizedFields,
+    ...applyRenterByBookingId({
+      booking: normalizedBase,
+      renterByBookingId: renterParts.renterByBookingId,
+      renterIdByBookingId: renterParts.renterIdByBookingId,
+    }),
     payload: applyNormalizedPayloadByBookingId({
       bookingId: normalizedBase.id,
       payload: normalizedBase.payload,

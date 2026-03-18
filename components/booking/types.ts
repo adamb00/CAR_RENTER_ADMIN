@@ -89,6 +89,9 @@ export type BookingAdminInitialData = {
   contactName: string;
   contactEmail: string;
   contactPhone: string;
+  renterTaxId: string;
+  renterCompanyName: string;
+  renterPaymentMethod: string;
   rentalStart: string;
   rentalEnd: string;
   originalRentalEnd: string;

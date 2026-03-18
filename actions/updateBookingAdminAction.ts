@@ -27,6 +27,9 @@ type UpdateBookingAdminInput = {
   contactName?: string;
   contactEmail?: string;
   contactPhone?: string;
+  renterTaxId?: string;
+  renterCompanyName?: string;
+  renterPaymentMethod?: string;
   rentalStart?: string;
   rentalEnd?: string;
   rentalDays?: string;
@@ -406,6 +409,14 @@ export const updateBookingAdminAction = async (
   })
     ? RENT_STATUS_REGISTERED
     : statusFromInput;
+  const renterData = {
+    name: toOptionalString(input.contactName) ?? 'Ismeretlen',
+    email: toOptionalString(input.contactEmail) ?? null,
+    phone: toOptionalString(input.contactPhone) ?? null,
+    taxId: toOptionalString(input.renterTaxId) ?? null,
+    companyName: toOptionalString(input.renterCompanyName) ?? null,
+    paymentMethod: toOptionalString(input.renterPaymentMethod) ?? null,
+  };
 
   try {
     await db.$transaction(async (tx) => {
@@ -429,6 +440,62 @@ export const updateBookingAdminAction = async (
           payload: payloadForStorage ?? Prisma.DbNull,
         },
       });
+
+      const renterLinkRows = await tx.$queryRaw<
+        Array<{ renterId: string | null }>
+      >`
+        SELECT "renterId"
+        FROM "RentRequests"
+        WHERE "id" = ${bookingId}::uuid
+        LIMIT 1
+      `;
+      const renterId = renterLinkRows[0]?.renterId ?? null;
+
+      if (renterId) {
+        await tx.$executeRaw`
+          UPDATE "Renters"
+          SET
+            "name" = ${renterData.name},
+            "email" = ${renterData.email},
+            "phone" = ${renterData.phone},
+            "taxId" = ${renterData.taxId},
+            "companyName" = ${renterData.companyName},
+            "paymentMethod" = ${renterData.paymentMethod},
+            "updatedAt" = timezone('utc'::text, now())
+          WHERE "id" = ${renterId}::uuid
+        `;
+      } else {
+        const createdRenterRows = await tx.$queryRaw<Array<{ id: string }>>`
+          INSERT INTO "Renters" (
+            "name",
+            "email",
+            "phone",
+            "taxId",
+            "companyName",
+            "paymentMethod",
+            "updatedAt"
+          )
+          VALUES (
+            ${renterData.name},
+            ${renterData.email},
+            ${renterData.phone},
+            ${renterData.taxId},
+            ${renterData.companyName},
+            ${renterData.paymentMethod},
+            timezone('utc'::text, now())
+          )
+          RETURNING "id"
+        `;
+        const createdRenter = createdRenterRows[0];
+        if (!createdRenter?.id) {
+          throw new Error('A bérlő mentése sikertelen.');
+        }
+        await tx.$executeRaw`
+          UPDATE "RentRequests"
+          SET "renterId" = ${createdRenter.id}::uuid
+          WHERE "id" = ${bookingId}::uuid
+        `;
+      }
 
       if (!pricingData) {
         await tx.$executeRaw`

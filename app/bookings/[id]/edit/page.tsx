@@ -153,6 +153,16 @@ type BookingHandoverCostRow = {
   amount: unknown;
 };
 
+type BookingRenterRow = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  taxId: string | null;
+  companyName: string | null;
+  paymentMethod: string | null;
+};
+
 type HandoverDirectionValue = 'out' | 'in';
 type HandoverCostTypeValue =
   | 'tip'
@@ -183,6 +193,7 @@ export default async function BookingEditPage({
     handoverCostRows,
     vehicleHandovers,
     bookingContract,
+    renterRows,
   ] = await Promise.all([
     db.$queryRaw<BookingPricingSnapshotRow[]>(
       Prisma.sql`
@@ -230,10 +241,27 @@ export default async function BookingEditPage({
       orderBy: { handoverAt: 'asc' },
     }),
     db.bookingContract.findUnique({ where: { bookingId: booking.id } }),
+    db.$queryRaw<BookingRenterRow[]>(
+      Prisma.sql`
+        SELECT
+          r."id",
+          r."name",
+          r."email",
+          r."phone",
+          r."taxId",
+          r."companyName",
+          r."paymentMethod"
+        FROM "RentRequests" rr
+        INNER JOIN "Renters" r ON r."id" = rr."renterId"
+        WHERE rr."id" = ${booking.id}::uuid
+        LIMIT 1
+      `,
+    ),
   ]);
 
   const pricingSnapshot = pricingRows[0] ?? null;
   const deliveryDetails = deliveryRows[0] ?? null;
+  const renter = renterRows[0] ?? null;
   const payload = isRecord(booking.payload) ? booking.payload : null;
   const payloadContact =
     payload && isRecord(payload.contact) ? payload.contact : null;
@@ -243,6 +271,9 @@ export default async function BookingEditPage({
     payload && isRecord(payload.pricing) ? payload.pricing : null;
   const payloadDelivery =
     payload && isRecord(payload.delivery) ? payload.delivery : null;
+  const payloadTax = payload && isRecord(payload.tax) ? payload.tax : null;
+  const payloadConsents =
+    payload && isRecord(payload.consents) ? payload.consents : null;
   const payloadHandoverCosts =
     payload && isRecord(payload.handoverCosts) ? payload.handoverCosts : null;
   const payloadHandoverOutCosts =
@@ -417,15 +448,23 @@ export default async function BookingEditPage({
     locale: firstString(booking.locale, payload?.locale) ?? '',
     carId: effectiveCarId,
     quoteId: firstString(booking.quoteid, payload?.quoteId) ?? '',
-    contactName: firstString(booking.contactname, payloadContact?.name) ?? '',
+    contactName:
+      firstString(booking.contactname, renter?.name, payloadContact?.name) ?? '',
     contactEmail:
-      firstString(booking.contactemail, payloadContact?.email) ?? '',
+      firstString(booking.contactemail, renter?.email, payloadContact?.email) ?? '',
     contactPhone:
       firstString(
         booking.contactphone,
+        renter?.phone,
         payloadContact?.phoneNumber,
         payload?.contactPhone,
       ) ?? '',
+    renterTaxId:
+      firstString(renter?.taxId, payloadTax?.id) ?? '',
+    renterCompanyName:
+      firstString(renter?.companyName, payloadTax?.companyName) ?? '',
+    renterPaymentMethod:
+      firstString(renter?.paymentMethod, payloadConsents?.paymentMethod) ?? '',
     rentalStart:
       toDateInputValue(booking.rentalstart) || payloadRentalStart || '',
     rentalEnd: toDateInputValue(booking.rentalend) || payloadRentalEnd || '',

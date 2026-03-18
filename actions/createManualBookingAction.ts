@@ -584,6 +584,14 @@ export async function createManualBookingAction({
     id: toOptionalString(tax?.id),
     companyName: toOptionalString(tax?.companyName),
   };
+  const renterData = {
+    name: effectiveContactName,
+    email: trimmedEmail ?? null,
+    phone: trimmedPhone ?? null,
+    taxId: normalizedTax.id ?? null,
+    companyName: normalizedTax.companyName ?? null,
+    paymentMethod: effectivePaymentMethod ?? null,
+  };
 
   const payload: Record<string, unknown> = {};
   const normalizedContactSame = toOptionalBoolean(contact?.same);
@@ -663,6 +671,32 @@ export async function createManualBookingAction({
 
       try {
         created = await db.$transaction(async (tx) => {
+          const createdRenterRows = await tx.$queryRaw<Array<{ id: string }>>`
+            INSERT INTO "Renters" (
+              "name",
+              "email",
+              "phone",
+              "taxId",
+              "companyName",
+              "paymentMethod",
+              "updatedAt"
+            )
+            VALUES (
+              ${renterData.name},
+              ${renterData.email},
+              ${renterData.phone},
+              ${renterData.taxId},
+              ${renterData.companyName},
+              ${renterData.paymentMethod},
+              timezone('utc'::text, now())
+            )
+            RETURNING "id"
+          `;
+          const createdRenter = createdRenterRows[0];
+          if (!createdRenter?.id) {
+            throw new Error('A bérlő mentése sikertelen.');
+          }
+
           const createdBooking = await tx.rentRequests.create({
             data: {
               locale: trimmedLocale,
@@ -697,6 +731,12 @@ export async function createManualBookingAction({
             },
             select: { id: true },
           });
+
+          await tx.$executeRaw`
+            UPDATE "RentRequests"
+            SET "renterId" = ${createdRenter.id}::uuid
+            WHERE "id" = ${createdBooking.id}::uuid
+          `;
 
           for (const row of handoverCostRows) {
             await tx.$executeRaw`

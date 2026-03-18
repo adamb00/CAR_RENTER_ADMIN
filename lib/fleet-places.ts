@@ -19,24 +19,24 @@ const FLEET_PLACES = [
     colorName: 'narancs',
     value: 'Fuerteventure Reptér II. csoport #ffa500',
   },
-  {
-    label: 'Fuerteventure Szállodák Észak II. csoport',
-    color: '#0f766e',
-    colorName: 'türkiz',
-    value: 'Fuerteventure Szállodák Észak II. csoport #0f766e',
-  },
-  {
-    label: 'Fuerteventure Szállodák Dél II. Csoport',
-    color: '#2563eb',
-    colorName: 'világoskék',
-    value: 'Fuerteventure Szállodák Dél II. Csoport #2563eb',
-  },
-  {
-    label: 'Fuerteventure Szállodák Közép II. csoport',
-    color: '#7c2d12',
-    colorName: 'barna',
-    value: 'Fuerteventure Szállodák Közép II. csoport #7c2d12',
-  },
+  // {
+  //   label: 'Fuerteventure Szállodák Észak II. csoport',
+  //   color: '#0f766e',
+  //   colorName: 'türkiz',
+  //   value: 'Fuerteventure Szállodák Észak II. csoport #0f766e',
+  // },
+  // {
+  //   label: 'Fuerteventure Szállodák Dél II. Csoport',
+  //   color: '#2563eb',
+  //   colorName: 'világoskék',
+  //   value: 'Fuerteventure Szállodák Dél II. Csoport #2563eb',
+  // },
+  // {
+  //   label: 'Fuerteventure Szállodák Közép II. csoport',
+  //   color: '#7c2d12',
+  //   colorName: 'barna',
+  //   value: 'Fuerteventure Szállodák Közép II. csoport #7c2d12',
+  // },
 ] as const;
 
 type FleetPlaceLabel = (typeof FLEET_PLACES)[number]['label'];

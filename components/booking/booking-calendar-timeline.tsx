@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { formatDate } from '@/lib/format/format-date';
-import { DAY_MS } from '@/lib/constants';
+import { DAY_MS, RENT_STATUS_CANCELLED } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
 import { BookingCalendarBookingChip } from './booking-calendar-booking-chip';
@@ -31,6 +31,20 @@ export function BookingCalendarTimeline({
   calendar,
 }: BookingCalendarTimelineProps) {
   const router = useRouter();
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  const getDayColumnClass = (
+    day: BookingCalendarModel['days'][number],
+    idx: number,
+  ) => {
+    const dayOfWeek = day.date.getUTCDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const isToday = day.iso === todayIso;
+
+    if (isToday) return 'bg-slate-500/40';
+    if (isWeekend) return 'bg-slate-400/30';
+    return idx % 2 === 0 ? 'bg-background' : 'bg-muted/10';
+  };
 
   return (
     <div className='space-y-3 rounded-xl border bg-card/40 p-4 shadow-sm min-w-0'>
@@ -44,7 +58,7 @@ export function BookingCalendarTimeline({
 
       <BookingCalendarLegend items={calendar.locationLegend} />
 
-      <div className='min-w-0 rounded-lg border border-slate-300 bg-background'>
+      <div className='min-w-0 rounded-lg border border-slate-300'>
         <div className='flex min-w-0'>
           <BookingCalendarVehicleSidebar
             vehicles={calendar.sortedFleetVehicles}
@@ -63,13 +77,16 @@ export function BookingCalendarTimeline({
           >
             <div style={{ width: calendar.timelineWidth }}>
               <div
-                className='grid h-11 border-b border-slate-300 bg-muted/40 text-xs font-semibold uppercase text-muted-foreground'
+                className='grid h-11 border-b border-slate-300 text-xs font-semibold uppercase text-muted-foreground'
                 style={{ gridTemplateColumns: calendar.dayGridTemplate }}
               >
-                {calendar.days.map((day) => (
+                {calendar.days.map((day, idx) => (
                   <div
                     key={day.iso}
-                    className='flex items-center justify-center border-l border-slate-300 px-2 text-center first:border-l-0'
+                    className={cn(
+                      'flex items-center justify-center border-l border-slate-300 px-2 text-center first:border-l-0',
+                      getDayColumnClass(day, idx),
+                    )}
                   >
                     {day.label}
                   </div>
@@ -88,6 +105,10 @@ export function BookingCalendarTimeline({
                 );
                 const assignableUnassignedBookings =
                   calendar.getAssignableUnassignedBookings(vehicle.id);
+                const activeAssignableUnassignedBookings =
+                  assignableUnassignedBookings.filter(
+                    (booking) => booking.status !== RENT_STATUS_CANCELLED,
+                  );
                 const menuItemStyle = {
                   '--fleet-color':
                     bookingIslandColor ?? getLocationColor(vehicle.location),
@@ -177,12 +198,13 @@ export function BookingCalendarTimeline({
                               className='max-h-80 w-85 overflow-y-auto'
                               sideOffset={4}
                             >
-                              {assignableUnassignedBookings.length === 0 ? (
+                              {activeAssignableUnassignedBookings.length ===
+                              0 ? (
                                 <DropdownMenuItem disabled>
                                   Nincs hozzárendelhető foglalás.
                                 </DropdownMenuItem>
                               ) : (
-                                assignableUnassignedBookings.map(
+                                activeAssignableUnassignedBookings.map(
                                   (unassignedBooking) => (
                                     <DropdownMenuItem
                                       key={unassignedBooking.id}
@@ -226,8 +248,8 @@ export function BookingCalendarTimeline({
                           <div
                             key={day.iso}
                             className={cn(
-                              'border-l border-slate-300 bg-background transition-colors first:border-l-0',
-                              idx % 2 === 0 ? 'bg-background' : 'bg-muted/10',
+                              'border-l border-slate-300 transition-colors first:border-l-0',
+                              getDayColumnClass(day, idx),
                               isServiceDay && 'bg-slate-300/60',
                               isBookedDay
                                 ? 'hover:bg-sky-300/70'
@@ -270,15 +292,18 @@ export function BookingCalendarTimeline({
 
                     {showDateRow && (
                       <div
-                        className='grid h-11 border-b border-slate-300 bg-muted/20 text-xs font-semibold uppercase text-muted-foreground'
+                        className='grid h-11 border-b border-slate-300 text-xs font-semibold uppercase text-muted-foreground'
                         style={{
                           gridTemplateColumns: calendar.dayGridTemplate,
                         }}
                       >
-                        {calendar.days.map((day) => (
+                        {calendar.days.map((day, idx) => (
                           <div
                             key={`${vehicle.id}-${day.iso}`}
-                            className='flex items-center justify-center border-l border-slate-300 px-2 text-center first:border-l-0'
+                            className={cn(
+                              'flex items-center justify-center border-l border-slate-300 px-2 text-center first:border-l-0',
+                              getDayColumnClass(day, idx),
+                            )}
                           >
                             {day.label}
                           </div>

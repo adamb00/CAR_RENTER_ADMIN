@@ -25,7 +25,12 @@ import type {
   ContextMenuPoint,
   VisibleBooking,
 } from './types';
-import { getBookingIslandColor, getBookingIslandLabel } from './utils';
+import {
+  getBookingIslandColor,
+  getBookingIslandLabel,
+  toDate,
+  toIsoDate,
+} from './utils';
 
 type BookingCalendarBookingChipProps = {
   booking: VisibleBooking;
@@ -38,7 +43,10 @@ type BookingCalendarBookingChipProps = {
   contextMenuBookingId: string | null;
   contextMenuPoint: ContextMenuPoint | null;
   onBookingMenuOpenChange: (bookingId: string, open: boolean) => void;
-  onOpenBookingMenu: (event: MouseEvent<HTMLElement>, bookingId: string) => void;
+  onOpenBookingMenu: (
+    event: MouseEvent<HTMLElement>,
+    bookingId: string,
+  ) => void;
   onBookingDragStart: (
     event: DragEvent<HTMLElement>,
     booking: VisibleBooking,
@@ -66,8 +74,24 @@ export function BookingCalendarBookingChip({
   const router = useRouter();
   const bookingColor = getBookingIslandColor(booking.deliveryIsland);
   const bookingIslandLabel = getBookingIslandLabel(booking.deliveryIsland);
-  const bookingLeftPx = booking.offsetDays * dayColumnWidth;
-  const bookingWidthPx = Math.max(6, booking.spanDays * dayColumnWidth);
+  const bookingStartDate = toDate(booking.rentalStart);
+  const bookingEndDate = toDate(booking.rentalEnd);
+  const isSameDayBooking =
+    bookingStartDate != null &&
+    bookingEndDate != null &&
+    toIsoDate(bookingStartDate) === toIsoDate(bookingEndDate);
+  const bookingDayOffset = isSameDayBooking
+    ? Math.floor(booking.offsetDays)
+    : booking.offsetDays;
+  const bookingLeftPx =
+    bookingDayOffset * dayColumnWidth +
+    (isSameDayBooking ? dayColumnWidth / 8 : 0);
+  const bookingWidthPx = Math.max(
+    6,
+    isSameDayBooking
+      ? dayColumnWidth * 0.75
+      : booking.spanDays * dayColumnWidth,
+  );
   const clampedBookingWidthPx = Math.max(
     6,
     Math.min(bookingWidthPx, Math.max(6, timelineWidth - bookingLeftPx)),
@@ -137,7 +161,11 @@ export function BookingCalendarBookingChip({
             </div>
           </div>
         </TooltipTrigger>
-        <TooltipContent side='top' sideOffset={6} className='min-w-64 space-y-1 text-xs'>
+        <TooltipContent
+          side='top'
+          sideOffset={6}
+          className='min-w-64 space-y-1 text-xs'
+        >
           <div>
             <strong>Foglalás:</strong> {booking.humanId ?? booking.id}
           </div>
@@ -158,25 +186,31 @@ export function BookingCalendarBookingChip({
             <strong>Autó:</strong> {vehicle.plate} - {vehicle.carLabel}
           </div>
           <div>
-            <strong>Átvétel helye:</strong> {booking.deliveryLocation?.trim() || '—'}
+            <strong>Átvétel helye:</strong>{' '}
+            {booking.deliveryLocation?.trim() || '—'}
           </div>
           <div>
             <strong>Sziget:</strong> {bookingIslandLabel}
           </div>
           <div>
-            <strong>Bérleti díj:</strong> {formatPriceValue(booking.pricing?.rentalFee)}
+            <strong>Bérleti díj:</strong>{' '}
+            {formatPriceValue(booking.pricing?.rentalFee)}
           </div>
           <div>
-            <strong>Kiszállási díj:</strong> {formatPriceValue(booking.pricing?.deliveryFee)}
+            <strong>Kiszállási díj:</strong>{' '}
+            {formatPriceValue(booking.pricing?.deliveryFee)}
           </div>
           <div>
-            <strong>Biztosítási díj:</strong> {formatPriceValue(booking.pricing?.insurance)}
+            <strong>Biztosítási díj:</strong>{' '}
+            {formatPriceValue(booking.pricing?.insurance)}
           </div>
           <div>
-            <strong>Kaució:</strong> {formatPriceValue(booking.pricing?.deposit)}
+            <strong>Kaució:</strong>{' '}
+            {formatPriceValue(booking.pricing?.deposit)}
           </div>
           <div>
-            <strong>Extrák díja:</strong> {formatPriceValue(booking.pricing?.extrasFee)}
+            <strong>Extrák díja:</strong>{' '}
+            {formatPriceValue(booking.pricing?.extrasFee)}
           </div>
         </TooltipContent>
       </Tooltip>

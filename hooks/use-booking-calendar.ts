@@ -30,8 +30,8 @@ import {
   toIsoDate,
 } from '../components/booking/utils';
 
-const FIRST_COLUMN_WIDTH = 380;
-const MIN_DAY_COLUMN_WIDTH = 84;
+const FIRST_COLUMN_WIDTH = 350;
+const MIN_DAY_COLUMN_WIDTH = 150;
 const DEFAULT_DAY_COLUMN_WIDTH = 100;
 const DEFAULT_RANGE_DAYS = 14;
 
@@ -75,28 +75,28 @@ const clampBookingToRange = (
   };
 };
 
-const adjustRangeStartForBookingEnds = (
-  requestedStartIso: string,
-  bookings: BookingCalendarBooking[],
-) => {
-  const requestedStartDate = toDate(requestedStartIso);
-  if (!requestedStartDate) return requestedStartIso;
-
-  const bookingEndDates = new Set(
-    bookings
-      .map((booking) => booking.rentalEnd?.trim())
-      .filter((value): value is string => Boolean(value)),
-  );
-
-  const adjusted = new Date(requestedStartDate);
-  let guard = 0;
-  while (guard < 366 && bookingEndDates.has(toIsoDate(adjusted))) {
-    adjusted.setUTCDate(adjusted.getUTCDate() - 1);
-    guard += 1;
-  }
-
-  return toIsoDate(adjusted);
-};
+// const adjustRangeStartForBookingEnds = (
+//   requestedStartIso: string,
+//   bookings: BookingCalendarBooking[],
+// ) => {
+//   const requestedStartDate = toDate(requestedStartIso);
+//   if (!requestedStartDate) return requestedStartIso;
+//
+//   const bookingEndDates = new Set(
+//     bookings
+//       .map((booking) => booking.rentalEnd?.trim())
+//       .filter((value): value is string => Boolean(value)),
+//   );
+//
+//   const adjusted = new Date(requestedStartDate);
+//   let guard = 0;
+//   while (guard < 366 && bookingEndDates.has(toIsoDate(adjusted))) {
+//     adjusted.setUTCDate(adjusted.getUTCDate() - 1);
+//     guard += 1;
+//   }
+//
+//   return toIsoDate(adjusted);
+// };
 
 const getTodayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -133,12 +133,12 @@ export function useBookingCalendar({
   const timelineViewportRef = useRef<HTMLDivElement | null>(null);
   const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
 
-  useEffect(() => {
-    const adjustedStart = adjustRangeStartForBookingEnds(rangeStart, bookings);
-    if (adjustedStart !== rangeStart) {
-      setRangeStart(adjustedStart);
-    }
-  }, [bookings, rangeStart]);
+  // useEffect(() => {
+  //   const adjustedStart = adjustRangeStartForBookingEnds(rangeStart, bookings);
+  //   if (adjustedStart !== rangeStart) {
+  //     setRangeStart(adjustedStart);
+  //   }
+  // }, [bookings, rangeStart]);
 
   useEffect(() => {
     const viewport = timelineViewportRef.current;

@@ -7,6 +7,7 @@ import { updateBookingAdminAction } from '@/actions/updateBookingAdminAction';
 import { Button } from '@/components/ui/button';
 import { FloatingSelect } from '@/components/ui/floating-select';
 import { Input } from '@/components/ui/input';
+import { paymentMethodOptions } from '@/components/manual-booking-form/constants';
 import { formatLocale } from '@/lib/format/format-locale';
 import {
   BookingAdminEditFormProps,
@@ -166,6 +167,9 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
         contactName: form.contactName,
         contactEmail: form.contactEmail,
         contactPhone: form.contactPhone,
+        renterTaxId: form.renterTaxId,
+        renterCompanyName: form.renterCompanyName,
+        renterPaymentMethod: form.renterPaymentMethod,
         rentalStart: form.rentalStart,
         rentalEnd: form.rentalEnd,
         rentalDays: form.rentalDays,
@@ -238,6 +242,33 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
               updateBaseField('contactPhone', event.target.value)
             }
           />
+          <Input
+            label='Adószám'
+            value={form.renterTaxId}
+            onChange={(event) =>
+              updateBaseField('renterTaxId', event.target.value)
+            }
+          />
+          <Input
+            label='Cégnév'
+            value={form.renterCompanyName}
+            onChange={(event) =>
+              updateBaseField('renterCompanyName', event.target.value)
+            }
+          />
+          <FloatingSelect
+            label='Fizetési mód'
+            value={form.renterPaymentMethod}
+            onChange={(event) =>
+              updateBaseField('renterPaymentMethod', event.target.value)
+            }
+          >
+            {paymentMethodOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </FloatingSelect>
           <Input
             label='Bérlés kezdete'
             type='date'
