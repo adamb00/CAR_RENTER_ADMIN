@@ -16,7 +16,12 @@ export function DriversSection({ formModel }: DriversSectionProps) {
     <div className='rounded-lg border p-4 space-y-4'>
       <div className='flex items-center justify-between'>
         <h2 className='text-base font-semibold'>Sofőrök</h2>
-        <Button type='button' variant='outline' size='sm' onClick={formModel.addDriver}>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          onClick={formModel.addDriver}
+        >
           Sofőr hozzáadása
         </Button>
       </div>
@@ -49,7 +54,7 @@ export function DriversSection({ formModel }: DriversSectionProps) {
             </label>
           ) : null}
 
-          <div className='grid gap-4 md:grid-cols-2'>
+          <div className='grid gap-4 md:grid-cols-5'>
             <Input
               label='Keresztnév'
               value={driver.firstName_1}
@@ -91,23 +96,22 @@ export function DriversSection({ formModel }: DriversSectionProps) {
                 formModel.updateDriver(index, 'dateOfBirth', event.target.value)
               }
             />
-            <Input
-              label='Születési hely'
-              value={driver.placeOfBirth}
-              onChange={(event) =>
-                formModel.updateDriver(index, 'placeOfBirth', event.target.value)
-              }
-            />
           </div>
 
           <div className='space-y-3'>
-            <h4 className='text-sm font-semibold text-muted-foreground'>Lakcím</h4>
-            <div className='grid gap-4 md:grid-cols-2'>
+            <h4 className='text-sm font-semibold text-muted-foreground'>
+              Lakcím
+            </h4>
+            <div className='grid gap-4 md:grid-cols-3'>
               <Input
                 label='Ország'
                 value={driver.locationCountry}
                 onChange={(event) =>
-                  formModel.updateDriver(index, 'locationCountry', event.target.value)
+                  formModel.updateDriver(
+                    index,
+                    'locationCountry',
+                    event.target.value,
+                  )
                 }
               />
               <Input
@@ -125,14 +129,22 @@ export function DriversSection({ formModel }: DriversSectionProps) {
                 label='Város'
                 value={driver.locationCity}
                 onChange={(event) =>
-                  formModel.updateDriver(index, 'locationCity', event.target.value)
+                  formModel.updateDriver(
+                    index,
+                    'locationCity',
+                    event.target.value,
+                  )
                 }
               />
               <Input
                 label='Utca'
                 value={driver.locationStreet}
                 onChange={(event) =>
-                  formModel.updateDriver(index, 'locationStreet', event.target.value)
+                  formModel.updateDriver(
+                    index,
+                    'locationStreet',
+                    event.target.value,
+                  )
                 }
               />
               <Input
@@ -164,12 +176,16 @@ export function DriversSection({ formModel }: DriversSectionProps) {
             <h4 className='text-sm font-semibold text-muted-foreground'>
               Személyi okmány
             </h4>
-            <div className='grid gap-4 md:grid-cols-2'>
+            <div className='grid gap-4 md:grid-cols-3'>
               <FloatingSelect
                 label='Okmány típusa'
                 value={driver.documentType}
                 onChange={(event) =>
-                  formModel.updateDriver(index, 'documentType', event.target.value)
+                  formModel.updateDriver(
+                    index,
+                    'documentType',
+                    event.target.value,
+                  )
                 }
               >
                 {documentTypeOptions.map((option) => (
@@ -182,23 +198,24 @@ export function DriversSection({ formModel }: DriversSectionProps) {
                 label='Okmány száma'
                 value={driver.documentNumber}
                 onChange={(event) =>
-                  formModel.updateDriver(index, 'documentNumber', event.target.value)
+                  formModel.updateDriver(
+                    index,
+                    'documentNumber',
+                    event.target.value,
+                  )
                 }
               />
-              <Input
-                label='Érvényesség kezdete'
-                type='date'
-                value={driver.validFrom}
-                onChange={(event) =>
-                  formModel.updateDriver(index, 'validFrom', event.target.value)
-                }
-              />
+
               <Input
                 label='Érvényesség vége'
                 type='date'
                 value={driver.validUntil}
                 onChange={(event) =>
-                  formModel.updateDriver(index, 'validUntil', event.target.value)
+                  formModel.updateDriver(
+                    index,
+                    'validUntil',
+                    event.target.value,
+                  )
                 }
               />
             </div>
@@ -208,7 +225,7 @@ export function DriversSection({ formModel }: DriversSectionProps) {
             <h4 className='text-sm font-semibold text-muted-foreground'>
               Jogosítvány
             </h4>
-            <div className='grid gap-4 md:grid-cols-2'>
+            <div className='grid gap-4 md:grid-cols-3'>
               <Input
                 label='Jogosítvány száma'
                 value={driver.drivingLicenceNumber}
@@ -231,18 +248,7 @@ export function DriversSection({ formModel }: DriversSectionProps) {
                   )
                 }
               />
-              <Input
-                label='Érvényesség kezdete'
-                type='date'
-                value={driver.drivingLicenceValidFrom}
-                onChange={(event) =>
-                  formModel.updateDriver(
-                    index,
-                    'drivingLicenceValidFrom',
-                    event.target.value,
-                  )
-                }
-              />
+
               <Input
                 label='Érvényesség vége'
                 type='date'

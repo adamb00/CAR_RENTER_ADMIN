@@ -21,7 +21,9 @@ export function PassengersSection({ formModel }: PassengersSectionProps) {
           min='0'
           step='1'
           value={formModel.form.adults}
-          onChange={(event) => formModel.updateField('adults', event.target.value)}
+          onChange={(event) =>
+            formModel.updateField('adults', event.target.value)
+          }
         />
       </div>
       <FloatingTextarea
@@ -34,7 +36,12 @@ export function PassengersSection({ formModel }: PassengersSectionProps) {
       <div className='space-y-3'>
         <div className='flex items-center justify-between'>
           <h3 className='text-sm font-semibold'>Gyerekek</h3>
-          <Button type='button' variant='outline' size='sm' onClick={formModel.addChild}>
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            onClick={formModel.addChild}
+          >
             Gyerek hozzáadása
           </Button>
         </div>
@@ -47,7 +54,7 @@ export function PassengersSection({ formModel }: PassengersSectionProps) {
               label={`Gyerek ${index + 1} - életkor`}
               type='number'
               min='0'
-              step='1'
+              step='0.5'
               value={child.age}
               onChange={(event) =>
                 formModel.updateChild(index, 'age', event.target.value)

@@ -55,7 +55,13 @@ export default async function QuoteDetailPage({
   const monthlyPrice =
     carForPricing?.monthlyPrices?.[new Date().getMonth()] ?? null;
   const allCars = await db.car.findMany({
-    select: { id: true, manufacturer: true, model: true, monthlyPrices: true },
+    select: {
+      id: true,
+      manufacturer: true,
+      model: true,
+      monthlyPrices: true,
+      images: true,
+    },
   });
 
   const formatDate = (value: string | null | undefined) => {
@@ -100,6 +106,7 @@ export default async function QuoteDetailPage({
         </div>
 
         <BookingRequestButton
+          rentalDays={quote.rentalDays}
           quoteId={quote.id}
           email={quote.email}
           phone={quote.phone}
@@ -115,6 +122,7 @@ export default async function QuoteDetailPage({
             id: car.id,
             label: `${car.manufacturer} ${car.model}`,
             monthlyPrices: car.monthlyPrices,
+            images: car.images,
           }))}
         />
       </div>

@@ -159,6 +159,27 @@ const toRecordOrNull = <T extends Record<string, unknown>>(
   return value as T;
 };
 
+const extractPrimaryDriverJson = (
+  payload: Prisma.InputJsonValue | null | undefined,
+): string | null => {
+  const record = toRecordOrNull<Record<string, unknown>>(payload);
+  const rawDriver = record?.driver;
+
+  if (Array.isArray(rawDriver)) {
+    const primaryDriver = rawDriver.find(
+      (item): item is Record<string, unknown> =>
+        Boolean(item) && typeof item === 'object' && !Array.isArray(item),
+    );
+    return primaryDriver ? JSON.stringify(primaryDriver) : null;
+  }
+
+  if (rawDriver && typeof rawDriver === 'object' && !Array.isArray(rawDriver)) {
+    return JSON.stringify(rawDriver);
+  }
+
+  return null;
+};
+
 const parseJson = <T>(
   label: string,
   raw?: string,
@@ -416,6 +437,7 @@ export const updateBookingAdminAction = async (
     taxId: toOptionalString(input.renterTaxId) ?? null,
     companyName: toOptionalString(input.renterCompanyName) ?? null,
     paymentMethod: toOptionalString(input.renterPaymentMethod) ?? null,
+    primaryDriverJson: extractPrimaryDriverJson(payloadParsed.data),
   };
 
   try {
@@ -461,6 +483,7 @@ export const updateBookingAdminAction = async (
             "taxId" = ${renterData.taxId},
             "companyName" = ${renterData.companyName},
             "paymentMethod" = ${renterData.paymentMethod},
+            "primaryDriver" = ${renterData.primaryDriverJson}::jsonb,
             "updatedAt" = timezone('utc'::text, now())
           WHERE "id" = ${renterId}::uuid
         `;
@@ -473,6 +496,7 @@ export const updateBookingAdminAction = async (
             "taxId",
             "companyName",
             "paymentMethod",
+            "primaryDriver",
             "updatedAt"
           )
           VALUES (
@@ -482,6 +506,7 @@ export const updateBookingAdminAction = async (
             ${renterData.taxId},
             ${renterData.companyName},
             ${renterData.paymentMethod},
+            ${renterData.primaryDriverJson}::jsonb,
             timezone('utc'::text, now())
           )
           RETURNING "id"

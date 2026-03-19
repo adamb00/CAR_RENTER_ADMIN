@@ -14,7 +14,7 @@ export function PricingSection({ formModel }: PricingSectionProps) {
   return (
     <div className='rounded-lg border p-4 space-y-4'>
       <h2 className='text-base font-semibold'>Díjak és fizetési adatok</h2>
-      <div className='grid gap-4 md:grid-cols-2'>
+      <div className='grid gap-4 md:grid-cols-5'>
         <Input
           label='Foglalási díj'
           value={formModel.form.pricingRentalFee}

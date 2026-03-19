@@ -11,7 +11,7 @@ export function BillingSection({ formModel }: BillingSectionProps) {
   return (
     <div className='rounded-lg border p-4 space-y-4'>
       <h2 className='text-base font-semibold'>Kapcsolat / számlázás</h2>
-      <div className='grid gap-4 md:grid-cols-2'>
+      <div className='grid gap-4 md:grid-cols-3'>
         <label className='md:col-span-3 flex items-center gap-2 text-sm text-muted-foreground'>
           <input
             type='checkbox'
@@ -82,7 +82,9 @@ export function BillingSection({ formModel }: BillingSectionProps) {
         <Input
           label='Adószám'
           value={formModel.form.taxId}
-          onChange={(event) => formModel.updateField('taxId', event.target.value)}
+          onChange={(event) =>
+            formModel.updateField('taxId', event.target.value)
+          }
         />
         <Input
           label='Cégnév'

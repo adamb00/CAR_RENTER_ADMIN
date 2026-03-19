@@ -6,26 +6,26 @@ import { cn } from '@/lib/utils';
 import type { ManualBookingFormModel } from '@/hooks/use-manual-booking-form';
 
 import { INVALID_FIELD_CLASS, localeOptions, statusOptions } from './constants';
+import { RenterNameAutocomplete } from './renter-name-autocomplete';
 
 type BookingDetailsSectionProps = {
   formModel: ManualBookingFormModel;
 };
 
-export function BookingDetailsSection({ formModel }: BookingDetailsSectionProps) {
+export function BookingDetailsSection({
+  formModel,
+}: BookingDetailsSectionProps) {
   return (
     <div className='rounded-lg border p-4 space-y-4'>
       <h2 className='text-base font-semibold'>Foglalási adatok</h2>
-      <div className='grid gap-4 md:grid-cols-3'>
-        <Input
-          label='Név'
+      <div className='grid gap-4 md:grid-cols-5'>
+        <RenterNameAutocomplete
           value={formModel.form.contactName}
-          onChange={(event) =>
-            formModel.updateField('contactName', event.target.value)
-          }
-          data-field='contactName'
-          className={cn(
-            formModel.isFieldInvalid('contactName') && INVALID_FIELD_CLASS,
-          )}
+          renters={formModel.renters}
+          onChange={formModel.handleContactNameChange}
+          onSelect={formModel.applyRenter}
+          selectedRenterId={formModel.form.renterId}
+          invalid={formModel.isFieldInvalid('contactName')}
           disabled={formModel.contactMatchesPrimaryDriver}
         />
         <Input
@@ -56,7 +56,9 @@ export function BookingDetailsSection({ formModel }: BookingDetailsSectionProps)
         <FloatingSelect
           label='Nyelv'
           value={formModel.form.locale}
-          onChange={(event) => formModel.updateField('locale', event.target.value)}
+          onChange={(event) =>
+            formModel.updateField('locale', event.target.value)
+          }
         >
           {localeOptions.map((option) => (
             <option key={option.value} value={option.value}>
@@ -67,7 +69,9 @@ export function BookingDetailsSection({ formModel }: BookingDetailsSectionProps)
         <FloatingSelect
           label='Állapot'
           value={formModel.form.status}
-          onChange={(event) => formModel.updateField('status', event.target.value)}
+          onChange={(event) =>
+            formModel.updateField('status', event.target.value)
+          }
         >
           {statusOptions.map((option) => (
             <option key={option.value} value={option.value}>
@@ -98,7 +102,9 @@ export function BookingDetailsSection({ formModel }: BookingDetailsSectionProps)
           disabled={
             formModel.lockFleetVehicle || Boolean(formModel.form.fleetVehicleId)
           }
-          className={cn(formModel.isFieldInvalid('carId') && INVALID_FIELD_CLASS)}
+          className={cn(
+            formModel.isFieldInvalid('carId') && INVALID_FIELD_CLASS,
+          )}
         >
           <option value=''>Válassz autót</option>
           {formModel.carOptions.map((car) => (

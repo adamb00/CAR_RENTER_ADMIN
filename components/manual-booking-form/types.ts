@@ -10,9 +10,51 @@ export type CarOption = {
   label: string;
 };
 
+export type RenterPrimaryDriver = {
+  firstName_1?: string | null;
+  firstName_2?: string | null;
+  lastName_1?: string | null;
+  lastName_2?: string | null;
+  phoneNumber?: string | null;
+  email?: string | null;
+  dateOfBirth?: string | null;
+  placeOfBirth?: string | null;
+  location?: {
+    country?: string | null;
+    postalCode?: string | null;
+    city?: string | null;
+    street?: string | null;
+    streetType?: string | null;
+    doorNumber?: string | null;
+  } | null;
+  document?: {
+    type?: string | null;
+    number?: string | null;
+    validFrom?: string | null;
+    validUntil?: string | null;
+    drivingLicenceNumber?: string | null;
+    drivingLicenceCategory?: string | null;
+    drivingLicenceValidFrom?: string | null;
+    drivingLicenceValidUntil?: string | null;
+    drivingLicenceIsOlderThan_3?: boolean | null;
+  } | null;
+};
+
+export type RenterOption = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  taxId: string | null;
+  companyName: string | null;
+  paymentMethod: string | null;
+  primaryDriver: RenterPrimaryDriver | null;
+};
+
 export type ManualBookingFormProps = {
   fleetOptions: FleetOption[];
   carOptions: CarOption[];
+  renters: RenterOption[];
   initialValues?: {
     fleetVehicleId?: string;
     rentalStart?: string;
@@ -58,6 +100,7 @@ export type DriverDraft = {
 export type FormState = {
   locale: string;
   status: string;
+  renterId: string;
   quoteIdentifier: string;
   rentalStart: string;
   rentalEnd: string;

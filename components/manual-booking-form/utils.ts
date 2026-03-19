@@ -3,6 +3,7 @@ import type {
   DriverDraft,
   FormState,
   ManualBookingFormProps,
+  RenterPrimaryDriver,
   ValidationField,
 } from './types';
 
@@ -42,6 +43,7 @@ export const buildInitialManualBookingForm = (
 ): FormState => ({
   locale: 'hu',
   status: 'registered',
+  renterId: '',
   quoteIdentifier: '',
   rentalStart: initialValues?.rentalStart ?? '',
   rentalEnd: initialValues?.rentalEnd ?? '',
@@ -128,6 +130,55 @@ export const buildNameFromDriver = (driver?: DriverDraft) =>
     .filter((part): part is string => Boolean(part && part.length > 0))
     .join(' ');
 
+const toDraftString = (value?: string | null) => value?.trim() ?? '';
+
+const toTriState = (
+  value?: boolean | null,
+): DriverDraft['drivingLicenceIsOlderThan_3'] => {
+  if (value === true) return 'true';
+  if (value === false) return 'false';
+  return '';
+};
+
+export const mapRenterPrimaryDriverToDraft = (
+  primaryDriver?: RenterPrimaryDriver | null,
+): DriverDraft => ({
+  ...createEmptyDriver(),
+  firstName_1: toDraftString(primaryDriver?.firstName_1),
+  firstName_2: toDraftString(primaryDriver?.firstName_2),
+  lastName_1: toDraftString(primaryDriver?.lastName_1),
+  lastName_2: toDraftString(primaryDriver?.lastName_2),
+  phoneNumber: toDraftString(primaryDriver?.phoneNumber),
+  email: toDraftString(primaryDriver?.email),
+  dateOfBirth: toDraftString(primaryDriver?.dateOfBirth),
+  placeOfBirth: toDraftString(primaryDriver?.placeOfBirth),
+  locationCountry: toDraftString(primaryDriver?.location?.country),
+  locationPostalCode: toDraftString(primaryDriver?.location?.postalCode),
+  locationCity: toDraftString(primaryDriver?.location?.city),
+  locationStreet: toDraftString(primaryDriver?.location?.street),
+  locationStreetType: toDraftString(primaryDriver?.location?.streetType),
+  locationDoorNumber: toDraftString(primaryDriver?.location?.doorNumber),
+  documentType: toDraftString(primaryDriver?.document?.type),
+  documentNumber: toDraftString(primaryDriver?.document?.number),
+  validFrom: toDraftString(primaryDriver?.document?.validFrom),
+  validUntil: toDraftString(primaryDriver?.document?.validUntil),
+  drivingLicenceNumber: toDraftString(
+    primaryDriver?.document?.drivingLicenceNumber,
+  ),
+  drivingLicenceCategory: toDraftString(
+    primaryDriver?.document?.drivingLicenceCategory,
+  ),
+  drivingLicenceValidFrom: toDraftString(
+    primaryDriver?.document?.drivingLicenceValidFrom,
+  ),
+  drivingLicenceValidUntil: toDraftString(
+    primaryDriver?.document?.drivingLicenceValidUntil,
+  ),
+  drivingLicenceIsOlderThan_3: toTriState(
+    primaryDriver?.document?.drivingLicenceIsOlderThan_3,
+  ),
+});
+
 export const getValidationFieldFromError = (
   error: string,
 ): ValidationField | null => {
@@ -144,6 +195,7 @@ export const getValidationFieldFromError = (
 export const buildManualBookingPayload = (form: FormState) => ({
   locale: form.locale,
   status: form.status,
+  renterId: form.renterId || null,
   quoteIdentifier: form.quoteIdentifier,
   contactName: form.contactName,
   contactEmail: form.contactEmail,

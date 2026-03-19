@@ -26,7 +26,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { getCarById } from '@/data-service/cars';
 
 const optionalPrice = z
   .string()
@@ -60,6 +59,7 @@ type PricingFormInputs = z.input<typeof pricingSchema>;
 
 type BookingRequestButtonProps = {
   quoteId: string;
+  rentalDays?: number | null;
   email?: string | null;
   phone?: string | null;
   preferredChannel?: 'email' | 'phone' | 'whatsapp' | 'viber' | null;
@@ -70,10 +70,16 @@ type BookingRequestButtonProps = {
   rentalStart?: string | null;
   rentalEnd?: string | null;
   monthlyPrice?: number | null;
-  carOptions?: { id: string; label: string; monthlyPrices: number[] }[];
+  carOptions?: {
+    id: string;
+    label: string;
+    monthlyPrices: number[];
+    images: string[];
+  }[];
 };
 
 export const BookingRequestButton = ({
+  rentalDays,
   quoteId,
   email,
   phone,
@@ -93,7 +99,8 @@ export const BookingRequestButton = ({
   } | null>(null);
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
-  const effectiveChannel = preferredChannel === 'whatsapp' ? 'whatsapp' : 'email';
+  const effectiveChannel =
+    preferredChannel === 'whatsapp' ? 'whatsapp' : 'email';
 
   const form = useForm<PricingFormInputs, any, PricingFormValues>({
     resolver: zodResolver(pricingSchema),
@@ -123,24 +130,51 @@ export const BookingRequestButton = ({
 
   const onSubmit = (values: PricingFormValues) => {
     if (missingContact) return;
+
+    const hasWeeklyPriceConflict = values.offers.some((offer) => {
+      if (!offer.rentalFee || !rentalDays || rentalDays < 7) {
+        return false;
+      }
+
+      const selectedCar = carOptions.find(
+        (option) => option.id === offer.carId,
+      );
+      const selectedWeeklyPrice =
+        selectedCar?.monthlyPrices?.[currentMonthIndex] ?? monthlyPrice;
+
+      if (selectedWeeklyPrice == null) {
+        return false;
+      }
+
+      return Number(offer.rentalFee) <= selectedWeeklyPrice;
+    });
+
+    if (hasWeeklyPriceConflict) {
+      const shouldContinue = window.confirm(
+        'Az előjegyzett ár 1 hétre vonatkozik. A bérlés 7 vagy több napos, de legalább egy megadott bérleti díj nem magasabb ennél. Kattints az OK gombra, ha szeretnéd így is küldeni.',
+      );
+
+      if (!shouldContinue) {
+        return;
+      }
+    }
+
     setStatus(null);
     startTransition(async () => {
-      const offers = await Promise.all(
-        values.offers.map(async (offer) => {
-          const car = offer.carId ? await getCarById(offer.carId) : null;
-          return {
-            carId: offer.carId,
-            carName: car ? `${car.manufacturer} ${car.model}` : carName,
-            carImages: car?.images ?? [],
-            rentalFee: offer.rentalFee ?? undefined,
-            deposit: offer.deposit ?? undefined,
-            insurance: offer.insurance ?? undefined,
-            deliveryFee: offer.deliveryFee ?? undefined,
-            deliveryLocation: offer.deliveryLocation ?? undefined,
-            extrasFee: offer.extrasFee ?? undefined,
-          };
-        }),
-      );
+      const offers = values.offers.map((offer) => {
+        const car = carOptions.find((option) => option.id === offer.carId);
+        return {
+          carId: offer.carId,
+          carName: car?.label ?? carName,
+          carImages: car?.images ?? [],
+          rentalFee: offer.rentalFee ?? undefined,
+          deposit: offer.deposit ?? undefined,
+          insurance: offer.insurance ?? undefined,
+          deliveryFee: offer.deliveryFee ?? undefined,
+          deliveryLocation: offer.deliveryLocation ?? undefined,
+          extrasFee: offer.extrasFee ?? undefined,
+        };
+      });
 
       if (effectiveChannel === 'whatsapp') {
         const result = await sendBookingRequestWhatsappAction({
@@ -275,10 +309,14 @@ export const BookingRequestButton = ({
           </SheetDescription>
           {monthlyPrice != null && (
             <div className='mt-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-foreground'>
-              Aktuális havi díj (emlékeztető):{' '}
+              Aktuális előjegyzett heti díj:{' '}
               <span className='font-semibold'>
-                {monthlyPrice.toLocaleString()} EUR
+                {monthlyPrice.toLocaleString()} EUR / hét
               </span>
+              <div>
+                Bérelni kívánt napok száma:{' '}
+                <span className='font-semibold'>{rentalDays} nap</span>
+              </div>
             </div>
           )}
         </SheetHeader>

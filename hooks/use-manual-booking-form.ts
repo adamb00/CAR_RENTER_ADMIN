@@ -12,6 +12,7 @@ import type {
   FormState,
   ManualBookingFormMessage,
   ManualBookingFormProps,
+  RenterOption,
   TriState,
   ValidationField,
 } from '@/components/manual-booking-form/types';
@@ -22,12 +23,14 @@ import {
   createEmptyChild,
   createEmptyDriver,
   getValidationFieldFromError,
+  mapRenterPrimaryDriverToDraft,
   splitNameForDriver,
 } from '@/components/manual-booking-form/utils';
 
 export function useManualBookingForm({
   fleetOptions,
   carOptions,
+  renters,
   initialValues,
   lockFleetVehicle = false,
 }: ManualBookingFormProps) {
@@ -137,6 +140,64 @@ export function useManualBookingForm({
         previous.filter((item) => item !== (key as ValidationField)),
       );
     }
+  };
+
+  const applyRenter = (renter: RenterOption) => {
+    setForm((previous) => {
+      const nextDrivers = [...previous.drivers];
+      const primaryDriver = renter.primaryDriver
+        ? mapRenterPrimaryDriverToDraft(renter.primaryDriver)
+        : null;
+
+      if (primaryDriver) {
+        nextDrivers[0] = primaryDriver;
+      } else if (nextDrivers.length === 0) {
+        nextDrivers.push(createEmptyDriver());
+      }
+
+      return {
+        ...previous,
+        renterId: renter.id,
+        contactName: renter.name,
+        contactEmail: renter.email ?? '',
+        contactPhone: renter.phone ?? '',
+        taxId: renter.taxId ?? '',
+        taxCompanyName: renter.companyName ?? '',
+        paymentMethod: renter.paymentMethod ?? '',
+        invoiceName: renter.companyName || renter.name,
+        invoiceEmail: renter.email ?? '',
+        invoicePhoneNumber: renter.phone ?? '',
+        invoiceCountry: primaryDriver?.locationCountry ?? previous.invoiceCountry,
+        invoicePostalCode:
+          primaryDriver?.locationPostalCode ?? previous.invoicePostalCode,
+        invoiceCity: primaryDriver?.locationCity ?? previous.invoiceCity,
+        invoiceStreet: primaryDriver?.locationStreet ?? previous.invoiceStreet,
+        invoiceStreetType:
+          primaryDriver?.locationStreetType ?? previous.invoiceStreetType,
+        invoiceDoorNumber:
+          primaryDriver?.locationDoorNumber ?? previous.invoiceDoorNumber,
+        drivers: nextDrivers,
+      };
+    });
+    setInvalidFields((previous) =>
+      previous.filter(
+        (item) =>
+          item !== 'contactName' &&
+          item !== 'contactEmail' &&
+          item !== 'contactPhone',
+      ),
+    );
+  };
+
+  const handleContactNameChange = (value: string) => {
+    setForm((previous) => ({
+      ...previous,
+      contactName: value,
+      renterId: '',
+    }));
+    setInvalidFields((previous) =>
+      previous.filter((item) => item !== 'contactName'),
+    );
   };
 
   const handleFleetVehicleChange = (fleetVehicleId: string) => {
@@ -275,6 +336,7 @@ export function useManualBookingForm({
     form,
     fleetOptions,
     carOptions,
+    renters,
     lockFleetVehicle,
     isPending,
     message,
@@ -283,6 +345,8 @@ export function useManualBookingForm({
     contactMatchesPrimaryDriver,
     setContactMatchesPrimaryDriver,
     updateField,
+    handleContactNameChange,
+    applyRenter,
     handleFleetVehicleChange,
     handleCarChange,
     updateChild,

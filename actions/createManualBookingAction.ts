@@ -60,6 +60,7 @@ type DriverInput = {
 type CreateManualBookingInput = {
   locale?: string;
   status?: string;
+  renterId?: string | null;
   quoteIdentifier?: string;
   contactName: string;
   contactEmail?: string;
@@ -305,9 +306,16 @@ const pruneUndefined = (value: unknown): unknown => {
   return value === undefined ? undefined : value;
 };
 
+const toPrimaryDriverJson = (drivers: unknown[]): string | null => {
+  const primaryDriver = drivers[0];
+  if (!primaryDriver || typeof primaryDriver !== 'object') return null;
+  return JSON.stringify(primaryDriver);
+};
+
 export async function createManualBookingAction({
   locale,
   status,
+  renterId,
   quoteIdentifier,
   contactName,
   contactEmail,
@@ -332,6 +340,7 @@ export async function createManualBookingAction({
 }: CreateManualBookingInput): Promise<CreateManualBookingResult> {
   const trimmedName = toOptionalString(contactName);
   const effectiveContactName = trimmedName ?? 'Ismeretlen';
+  const trimmedRenterId = toOptionalString(renterId);
   const trimmedEmail = toOptionalString(contactEmail);
   const trimmedPhone = toOptionalString(contactPhone);
   const trimmedLocale = toOptionalString(locale) ?? 'hu';
@@ -344,6 +353,14 @@ export async function createManualBookingAction({
 
   const parsedStart = toOptionalDate(trimmedRentalStart);
   const parsedEnd = toOptionalDate(trimmedRentalEnd);
+
+  const selectedRenter =
+    trimmedRenterId && UUID_PATTERN.test(trimmedRenterId)
+      ? await db.renter.findUnique({
+          where: { id: trimmedRenterId },
+          select: { id: true },
+        })
+      : null;
 
   let linkedQuoteId: string | null = null;
   if (trimmedQuoteIdentifier) {
@@ -584,6 +601,7 @@ export async function createManualBookingAction({
     id: toOptionalString(tax?.id),
     companyName: toOptionalString(tax?.companyName),
   };
+  const primaryDriverJson = toPrimaryDriverJson(normalizedDrivers);
   const renterData = {
     name: effectiveContactName,
     email: trimmedEmail ?? null,
@@ -591,6 +609,7 @@ export async function createManualBookingAction({
     taxId: normalizedTax.id ?? null,
     companyName: normalizedTax.companyName ?? null,
     paymentMethod: effectivePaymentMethod ?? null,
+    primaryDriverJson,
   };
 
   const payload: Record<string, unknown> = {};
@@ -671,29 +690,54 @@ export async function createManualBookingAction({
 
       try {
         created = await db.$transaction(async (tx) => {
-          const createdRenterRows = await tx.$queryRaw<Array<{ id: string }>>`
-            INSERT INTO "Renters" (
-              "name",
-              "email",
-              "phone",
-              "taxId",
-              "companyName",
-              "paymentMethod",
-              "updatedAt"
-            )
-            VALUES (
-              ${renterData.name},
-              ${renterData.email},
-              ${renterData.phone},
-              ${renterData.taxId},
-              ${renterData.companyName},
-              ${renterData.paymentMethod},
-              timezone('utc'::text, now())
-            )
-            RETURNING "id"
-          `;
-          const createdRenter = createdRenterRows[0];
-          if (!createdRenter?.id) {
+          const effectiveRenterId = selectedRenter?.id ?? null;
+
+          if (effectiveRenterId) {
+            await tx.$executeRaw`
+              UPDATE "Renters"
+              SET
+                "name" = ${renterData.name},
+                "email" = ${renterData.email},
+                "phone" = ${renterData.phone},
+                "taxId" = ${renterData.taxId},
+                "companyName" = ${renterData.companyName},
+                "paymentMethod" = ${renterData.paymentMethod},
+                "primaryDriver" = ${renterData.primaryDriverJson}::jsonb,
+                "updatedAt" = timezone('utc'::text, now())
+              WHERE "id" = ${effectiveRenterId}::uuid
+            `;
+          }
+
+          let createdRenterId = effectiveRenterId;
+
+          if (!createdRenterId) {
+            const createdRenterRows = await tx.$queryRaw<Array<{ id: string }>>`
+              INSERT INTO "Renters" (
+                "name",
+                "email",
+                "phone",
+                "taxId",
+                "companyName",
+                "paymentMethod",
+                "primaryDriver",
+                "updatedAt"
+              )
+              VALUES (
+                ${renterData.name},
+                ${renterData.email},
+                ${renterData.phone},
+                ${renterData.taxId},
+                ${renterData.companyName},
+                ${renterData.paymentMethod},
+                ${renterData.primaryDriverJson}::jsonb,
+                timezone('utc'::text, now())
+              )
+              RETURNING "id"
+            `;
+            createdRenterId = createdRenterRows[0]?.id ?? null;
+          }
+
+          if (!createdRenterId) {
             throw new Error('A bérlő mentése sikertelen.');
           }
 
@@ -703,6 +747,7 @@ export async function createManualBookingAction({
               carid: selectedFleet?.carId ?? trimmedCarId ?? null,
               assignedFleetVehicleId: selectedFleet?.id ?? null,
               assignedFleetPlate: selectedFleet?.plate ?? null,
+              renterId: createdRenterId,
               quoteid: linkedQuoteId,
               contactname: effectiveContactName,
               contactemail: trimmedEmail ?? '',
@@ -731,12 +776,6 @@ export async function createManualBookingAction({
             },
             select: { id: true },
           });
-
-          await tx.$executeRaw`
-            UPDATE "RentRequests"
-            SET "renterId" = ${createdRenter.id}::uuid
-            WHERE "id" = ${createdBooking.id}::uuid
-          `;
 
           for (const row of handoverCostRows) {
             await tx.$executeRaw`

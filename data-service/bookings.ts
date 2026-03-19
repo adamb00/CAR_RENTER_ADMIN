@@ -159,6 +159,7 @@ export type Booking = {
     taxId: string | null;
     companyName: string | null;
     paymentMethod: string | null;
+    primaryDriver: BookingDriver | null;
   } | null;
   assignedFleetVehicleId?: string;
   assignedFleetPlate?: string;
@@ -558,6 +559,7 @@ type BookingRenterRow = {
   taxId: string | null;
   companyName: string | null;
   paymentMethod: string | null;
+  primaryDriver: unknown;
 };
 
 type BookingWithQuote = RentRequests & {
@@ -842,7 +844,8 @@ const getRenterByBookingId = async (bookingIds: string[]) => {
           r."phone" AS "phone",
           r."taxId" AS "taxId",
           r."companyName" AS "companyName",
-          r."paymentMethod" AS "paymentMethod"
+          r."paymentMethod" AS "paymentMethod",
+          r."primaryDriver" AS "primaryDriver"
         FROM "RentRequests" rr
         LEFT JOIN "Renters" r ON r."id" = rr."renterId"
         WHERE rr."id" IN (${bookingIdsSql})
@@ -865,6 +868,9 @@ const getRenterByBookingId = async (bookingIds: string[]) => {
       taxId: row.taxId,
       companyName: row.companyName,
       paymentMethod: row.paymentMethod,
+      primaryDriver: isRecord(row.primaryDriver)
+        ? (row.primaryDriver as BookingDriver)
+        : null,
     });
   }
 
