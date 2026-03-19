@@ -167,7 +167,9 @@ export default function CaroutForm({
       milage:
         handoverOut.mileage != null ? String(handoverOut.mileage) : prev.milage,
       rangeKm:
-        handoverOut.rangeKm != null ? String(handoverOut.rangeKm) : prev.rangeKm,
+        handoverOut.rangeKm != null
+          ? String(handoverOut.rangeKm)
+          : prev.rangeKm,
       notes: handoverOut.notes ?? prev.notes,
       damages: handoverOut.damages ?? prev.damages,
       damagesImages:
@@ -538,7 +540,7 @@ export default function CaroutForm({
               setForm((prev) => ({ ...prev, fuelCost: e.target.value }))
             }
           />
-          <Input
+          {/* <Input
             label='Komp (opcionális)'
             type='number'
             inputMode='decimal'
@@ -559,7 +561,7 @@ export default function CaroutForm({
             onChange={(e) =>
               setForm((prev) => ({ ...prev, cleaningCost: e.target.value }))
             }
-          />
+          /> */}
           <Input
             label='Jutalék (opcionális)'
             type='number'

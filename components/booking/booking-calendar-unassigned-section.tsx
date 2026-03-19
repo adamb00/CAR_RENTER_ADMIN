@@ -22,7 +22,12 @@ export function BookingCalendarUnassignedSection({
           Hozzárendelésre váró foglalások
         </h3>
         <span className='text-sm text-muted-foreground'>
-          {calendar.unassignedBookings.length} tétel
+          {
+            calendar.unassignedBookings.filter(
+              (booking) => booking.status !== RENT_STATUS_CANCELLED,
+            ).length
+          }{' '}
+          tétel
         </span>
       </div>
       <div className='grid gap-3 md:grid-cols-2'>

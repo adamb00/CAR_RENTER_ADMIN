@@ -131,8 +131,10 @@ export const BookingRequestButton = ({
   const onSubmit = (values: PricingFormValues) => {
     if (missingContact) return;
 
+    const rentalWeeks = rentalDays ? Math.max(1, Math.ceil(rentalDays / 7)) : 1;
+
     const hasWeeklyPriceConflict = values.offers.some((offer) => {
-      if (!offer.rentalFee || !rentalDays || rentalDays < 7) {
+      if (!offer.rentalFee) {
         return false;
       }
 
@@ -146,12 +148,19 @@ export const BookingRequestButton = ({
         return false;
       }
 
-      return Number(offer.rentalFee) <= selectedWeeklyPrice;
+      const rentalFee = Number(offer.rentalFee);
+      if (Number.isNaN(rentalFee)) {
+        return false;
+      }
+
+      const minimumExpectedRentalFee = selectedWeeklyPrice * rentalWeeks;
+
+      return rentalFee <= minimumExpectedRentalFee;
     });
 
     if (hasWeeklyPriceConflict) {
       const shouldContinue = window.confirm(
-        'Az előjegyzett ár 1 hétre vonatkozik. A bérlés 7 vagy több napos, de legalább egy megadott bérleti díj nem magasabb ennél. Kattints az OK gombra, ha szeretnéd így is küldeni.',
+        'Legalább egy megadott bérleti díj kisebb vagy egyenlő az előre meghatározott bérleti díjnál.  Kattints az OK gombra, ha szeretnéd így is küldeni.',
       );
 
       if (!shouldContinue) {

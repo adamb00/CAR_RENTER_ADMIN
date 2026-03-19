@@ -468,7 +468,7 @@ export default function CarinForm({
             setForm((prev) => ({ ...prev, fuelCost: e.target.value }))
           }
         />
-        <Input
+        {/* <Input
           label='Komp (opcionális)'
           type='number'
           inputMode='decimal'
@@ -489,7 +489,7 @@ export default function CarinForm({
           onChange={(e) =>
             setForm((prev) => ({ ...prev, cleaningCost: e.target.value }))
           }
-        />
+        /> */}
         <div className='md:col-span-2'>
           <FloatingTextarea
             label='Megjegyzések'

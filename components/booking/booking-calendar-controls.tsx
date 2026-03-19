@@ -36,12 +36,14 @@ export function BookingCalendarControls({
           }
           className='rounded-md border px-3 py-2 text-sm'
         >
-          <option value={7}>7 nap</option>
+          {/* <option value={7}>7 nap</option>
           <option value={10}>10 nap</option>
-          <option value={14}>14 nap</option>
+          <option value={14}>14 nap</option> */}
           <option value={21}>21 nap</option>
           <option value={30}>30 nap</option>
           <option value={45}>45 nap</option>
+          <option value={125}>125 nap</option>
+          <option value={365}>365 nap</option>
         </select>
       </div>
       <div className='flex items-center gap-2'>

@@ -1,4 +1,5 @@
 import {
+  BadgeDollarSign,
   BarChart3,
   Bell,
   BookOpen,
@@ -42,6 +43,11 @@ export const navItems = (unreadBadgeCount: number) =>
         title: 'Statisztikák',
         url: '/analitycs',
         icon: BarChart3,
+      },
+      {
+        title: 'Költségek',
+        url: '/costs',
+        icon: BadgeDollarSign,
       },
       {
         title: 'Autók',
