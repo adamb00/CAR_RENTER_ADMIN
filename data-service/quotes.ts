@@ -60,6 +60,7 @@ export type ContactQuote = ContactQuotePayload & {
   bookingRequestData?: BookingRequestDataPayload;
   rentalDays?: number;
   offerAccepted?: number;
+  offerSent?: Date | null;
 };
 
 const toDateString = (value?: Date | null) =>
@@ -145,6 +146,7 @@ const normalizeQuote = (quote: ContactQuotes): ContactQuote => {
     carName: quote.carname ?? undefined,
     rentalDays,
     offerAccepted: quote.offerAccepted ?? undefined,
+    offerSent: quote.offerSent ?? null,
     delivery: {
       placeType: delivery.placeType ?? undefined,
       locationName: delivery.locationName ?? undefined,

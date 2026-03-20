@@ -258,6 +258,7 @@ export const sendBookingRequestWhatsappAction = async (
         status: CONTACT_STATUS_QUOTE_SENT,
         updatedAt: new Date(),
         bookingRequestData,
+        offerSent: new Date(),
       },
     });
 

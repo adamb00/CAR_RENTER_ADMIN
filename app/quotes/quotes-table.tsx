@@ -10,23 +10,16 @@ import {
 } from '@tanstack/react-table';
 
 import type { ContactQuote } from '@/data-service/quotes';
+import {
+  formatDate,
+  formatDatePeriod,
+  formatElapsedSinceDate,
+} from '@/lib/format/format-date';
 import { getStatusMeta } from '@/lib/status';
 import { cn } from '@/lib/utils';
+import { AlertTriangle } from 'lucide-react';
 
 type QuoteRow = ContactQuote;
-
-const formatDate = (value: string | null | undefined) => {
-  if (!value) return '—';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('hu-HU');
-};
-
-const formatPeriod = (quote: QuoteRow) => {
-  if (quote.rentalStart || quote.rentalEnd) {
-    return `${quote.rentalStart ?? '—'} → ${quote.rentalEnd ?? '—'}`;
-  }
-  return '—';
-};
 
 type QuotesTableProps = {
   data: QuoteRow[];
@@ -82,7 +75,7 @@ export default function QuotesTable({ data }: QuotesTableProps) {
             className='block whitespace-nowrap text-muted-foreground'
             prefetch={false}
           >
-            {formatPeriod(row.original)}
+            {formatDatePeriod(row.original.rentalStart, row.original.rentalEnd)}
           </Link>
         ),
       },
@@ -118,8 +111,8 @@ export default function QuotesTable({ data }: QuotesTableProps) {
             {row.original.carName
               ? row.original.carName
               : row.original.carId
-              ? `#${row.original.carId}`
-              : '—'}
+                ? `#${row.original.carId}`
+                : '—'}
           </Link>
         ),
       },
@@ -132,12 +125,46 @@ export default function QuotesTable({ data }: QuotesTableProps) {
             className='block whitespace-nowrap text-muted-foreground'
             prefetch={false}
           >
-            {formatDate(row.original.createdAt)}
+            {formatDate(row.original.createdAt, 'long')}
+          </Link>
+        ),
+      },
+      {
+        header: 'Ajánlat kiküldve',
+        accessorKey: 'offerSent',
+        cell: ({ row }) => (
+          <Link
+            href={`/quotes/${row.original.id}`}
+            className='block whitespace-nowrap text-muted-foreground'
+            prefetch={false}
+          >
+            {row.original.offerSent ? (
+              <div className='flex flex-col gap-2'>
+                <div>{formatDate(row.original.offerSent, 'long')}</div>
+                <div className='text-xs'>
+                  Eltelt idő:{' '}
+                  {+formatElapsedSinceDate(row.original.offerSent).split(
+                    ' ',
+                  )[0] >= 7 ? (
+                    <div>
+                      <AlertTriangle className='h-3.5 w-3.5 text-rose-500' />
+                      {formatElapsedSinceDate(row.original.offerSent)}
+                    </div>
+                  ) : (
+                    formatElapsedSinceDate(row.original.offerSent)
+                  )}
+                </div>
+              </div>
+            ) : (
+              <span className='text-center items-center self-center text-xl w-full'>
+                -
+              </span>
+            )}
           </Link>
         ),
       },
     ],
-    []
+    [],
   );
 
   const filteredData = useMemo(() => {
@@ -223,7 +250,7 @@ export default function QuotesTable({ data }: QuotesTableProps) {
                     ? null
                     : flexRender(
                         header.column.columnDef.header,
-                        header.getContext()
+                        header.getContext(),
                       )}
                 </th>
               ))}

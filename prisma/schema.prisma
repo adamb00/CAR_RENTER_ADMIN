@@ -90,6 +90,7 @@ model ContactQuotes {
   bookingRequestData Json?
   rentaldays         Int?
   offerAccepted      Int?
+  offerSent          DateTime?      @db.Date
   signerName         String?
   RentRequests       RentRequests[]
 
@@ -137,7 +138,7 @@ model RentRequests {
 model Renter {
   id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name          String
-  email         String?        @unique
+  email         String?
   phone         String?
   taxId         String?
   companyName   String?

@@ -1,19 +1,27 @@
 import { Booking } from '@/data-service/bookings';
 
+const parseDateValue = (value?: Date | string | null) => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 export const formatDate = (
-  value: string | null | undefined,
+  value: Date | string | null | undefined,
   month: 'short' | 'long',
   locale: string = 'hu-HU',
 ) => {
   if (!value) return '—';
-  const date = new Date(value);
-  return isNaN(date.getTime())
-    ? value
-    : date.toLocaleDateString(locale, {
+  const date = parseDateValue(value);
+  return date
+    ? date.toLocaleDateString(locale, {
         year: 'numeric',
         month: month,
         day: 'numeric',
-      });
+      })
+    : typeof value === 'string'
+      ? value
+      : '—';
 };
 
 export const formatDateTimeDetail = (value?: string | null) => {
@@ -30,10 +38,29 @@ export const formatDateTimeDetail = (value?: string | null) => {
 };
 
 export const formatDateForInput = (value?: Date | string | null) => {
-  if (!value) return '';
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
+  const date = parseDateValue(value);
+  if (!date) return '';
   return date.toISOString().slice(0, 10);
+};
+
+export const formatElapsedSinceDate = (
+  value?: Date | string | null,
+  locale: string = 'hu-HU',
+) => {
+  const date = parseDateValue(value);
+  if (!date) return '—';
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffInDays = Math.floor(
+    (today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  if (diffInDays <= 0) return '1 nap';
+  if (diffInDays === 1) return '2 nap';
+
+  return `${diffInDays.toLocaleString(locale)} nap`;
 };
 
 export const formatArrivalTime = (
