@@ -9,7 +9,7 @@ import Section from '../ui/section';
 export default function RentDeliveryDetails({ booking }: { booking: Booking }) {
   const { delivery } = getRentDetails(booking);
   return (
-    <Section title='Átvétel'>
+    <Section title='Átvétel' cols={4}>
       <Detail
         label='Átvétel helye'
         value={formatPlaceType(delivery?.placeType)}

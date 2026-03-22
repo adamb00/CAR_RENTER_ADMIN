@@ -13,9 +13,37 @@ import {
   BookingAdminEditFormProps,
   BookingAdminInitialData,
   BookingDeliveryDetailsForm,
+  BookingDriverForm,
   BookingPricingSnapshotForm,
   HandoverCostTypeValue,
 } from './types';
+
+const createEmptyDriver = (): BookingDriverForm => ({
+  firstName_1: '',
+  firstName_2: '',
+  lastName_1: '',
+  lastName_2: '',
+  phoneNumber: '',
+  email: '',
+  dateOfBirth: '',
+  placeOfBirth: '',
+  nameOfMother: '',
+  locationCountry: '',
+  locationPostalCode: '',
+  locationCity: '',
+  locationStreet: '',
+  locationStreetType: '',
+  locationDoorNumber: '',
+  documentType: '',
+  documentNumber: '',
+  validFrom: '',
+  validUntil: '',
+  drivingLicenceNumber: '',
+  drivingLicenceCategory: '',
+  drivingLicenceValidFrom: '',
+  drivingLicenceValidUntil: '',
+  drivingLicenceIsOlderThan_3: '',
+});
 
 export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
   const [isPending, startTransition] = useTransition();
@@ -60,6 +88,33 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
     setForm((prev) => ({
       ...prev,
       deliveryDetails: { ...prev.deliveryDetails, [key]: value },
+    }));
+  };
+
+  const updateDriverField = <K extends keyof BookingDriverForm>(
+    index: number,
+    key: K,
+    value: BookingDriverForm[K],
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      drivers: prev.drivers.map((driver, driverIndex) =>
+        driverIndex === index ? { ...driver, [key]: value } : driver,
+      ),
+    }));
+  };
+
+  const addDriver = () => {
+    setForm((prev) => ({
+      ...prev,
+      drivers: [...prev.drivers, createEmptyDriver()],
+    }));
+  };
+
+  const removeDriver = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      drivers: prev.drivers.filter((_, driverIndex) => driverIndex !== index),
     }));
   };
 
@@ -176,6 +231,7 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
         status: form.status,
         updatedNote: form.updatedNote,
         payloadJson: form.payloadJson,
+        driversJson: JSON.stringify(form.drivers),
         pricingSnapshotJson:
           form.hasPricingSnapshot || hasPricingValues
             ? JSON.stringify(form.pricingSnapshot)
@@ -304,10 +360,13 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
       <div className='rounded-lg border p-4 space-y-4'>
         <div className='flex items-center justify-between'>
           <h2 className='text-base font-semibold'>Sofőr adatok </h2>
+          <Button type='button' variant='outline' size='sm' onClick={addDriver}>
+            Sofőr hozzáadása
+          </Button>
         </div>
         {form.drivers.length === 0 ? (
           <p className='text-sm text-muted-foreground'>
-            A payload nem tartalmaz sofőr adatot.
+            Nincs felvett sofőr ehhez a foglaláshoz.
           </p>
         ) : (
           <div className='space-y-4'>
@@ -316,80 +375,204 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
                 key={`${driver.email}-${driver.documentNumber}-${index}`}
                 className='rounded-md border p-3 space-y-3'
               >
-                <p className='text-sm font-medium'>Sofőr #{index + 1}</p>
-                <div className='grid gap-3 md:grid-cols-3'>
+                <div className='flex items-center justify-between gap-3'>
+                  <p className='text-sm font-medium'>Sofőr #{index + 1}</p>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    onClick={() => removeDriver(index)}
+                  >
+                    Törlés
+                  </Button>
+                </div>
+                <div className='grid gap-4 md:grid-cols-5'>
                   <Input
-                    label='Keresztnév '
+                    label='Keresztnév'
                     value={driver.firstName_1}
-                    readOnly
+                    onChange={(event) =>
+                      updateDriverField(
+                        index,
+                        'firstName_1',
+                        event.target.value,
+                      )
+                    }
                   />
 
                   <Input
                     label='Vezetéknév'
                     value={driver.lastName_1}
-                    readOnly
+                    onChange={(event) =>
+                      updateDriverField(index, 'lastName_1', event.target.value)
+                    }
                   />
-                  <Input label='Telefon' value={driver.phoneNumber} readOnly />
-                  <Input label='E-mail' value={driver.email} readOnly />
+
+                  <Input
+                    label='Telefon'
+                    value={driver.phoneNumber}
+                    onChange={(event) =>
+                      updateDriverField(
+                        index,
+                        'phoneNumber',
+                        event.target.value,
+                      )
+                    }
+                  />
+                  <Input
+                    label='E-mail'
+                    value={driver.email}
+                    onChange={(event) =>
+                      updateDriverField(index, 'email', event.target.value)
+                    }
+                  />
                   <Input
                     label='Születési dátum'
+                    type='date'
                     value={driver.dateOfBirth}
-                    readOnly
+                    onChange={(event) =>
+                      updateDriverField(
+                        index,
+                        'dateOfBirth',
+                        event.target.value,
+                      )
+                    }
                   />
-                  <Input
-                    label='Születési hely'
-                    value={driver.placeOfBirth}
-                    readOnly
-                  />
+
                   <Input
                     label='Lakcím ország'
                     value={driver.locationCountry}
-                    readOnly
+                    onChange={(event) =>
+                      updateDriverField(
+                        index,
+                        'locationCountry',
+                        event.target.value,
+                      )
+                    }
                   />
                   <Input
                     label='Lakcím irányítószám'
                     value={driver.locationPostalCode}
-                    readOnly
+                    onChange={(event) =>
+                      updateDriverField(
+                        index,
+                        'locationPostalCode',
+                        event.target.value,
+                      )
+                    }
                   />
                   <Input
                     label='Lakcím város'
                     value={driver.locationCity}
-                    readOnly
+                    onChange={(event) =>
+                      updateDriverField(
+                        index,
+                        'locationCity',
+                        event.target.value,
+                      )
+                    }
                   />
                   <Input
                     label='Lakcím utca'
                     value={driver.locationStreet}
-                    readOnly
+                    onChange={(event) =>
+                      updateDriverField(
+                        index,
+                        'locationStreet',
+                        event.target.value,
+                      )
+                    }
                   />
                   <Input
                     label='Lakcím közterület típusa'
                     value={driver.locationStreetType}
-                    readOnly
+                    onChange={(event) =>
+                      updateDriverField(
+                        index,
+                        'locationStreetType',
+                        event.target.value,
+                      )
+                    }
                   />
                   <Input
                     label='Lakcím házszám / ajtó'
                     value={driver.locationDoorNumber}
-                    readOnly
+                    onChange={(event) =>
+                      updateDriverField(
+                        index,
+                        'locationDoorNumber',
+                        event.target.value,
+                      )
+                    }
                   />
-                  <Input
+                  <FloatingSelect
                     label='Dokumentum típus'
                     value={driver.documentType}
-                    readOnly
-                  />
+                    onChange={(event) =>
+                      updateDriverField(
+                        index,
+                        'documentType',
+                        event.target.value,
+                      )
+                    }
+                  >
+                    <option value=''>Nincs megadva</option>
+                    <option value='passport'>Útlevél</option>
+                    <option value='id_card'>Személyi igazolvány</option>
+                  </FloatingSelect>
                   <Input
                     label='Dokumentum szám'
                     value={driver.documentNumber}
-                    readOnly
+                    onChange={(event) =>
+                      updateDriverField(
+                        index,
+                        'documentNumber',
+                        event.target.value,
+                      )
+                    }
+                  />
+
+                  <Input
+                    label='Okmány érvényes eddig'
+                    type='date'
+                    value={driver.validUntil}
+                    onChange={(event) =>
+                      updateDriverField(index, 'validUntil', event.target.value)
+                    }
                   />
                   <Input
                     label='Jogosítvány szám'
                     value={driver.drivingLicenceNumber}
-                    readOnly
+                    onChange={(event) =>
+                      updateDriverField(
+                        index,
+                        'drivingLicenceNumber',
+                        event.target.value,
+                      )
+                    }
                   />
                   <Input
                     label='Jogosítvány kategória'
                     value={driver.drivingLicenceCategory}
-                    readOnly
+                    onChange={(event) =>
+                      updateDriverField(
+                        index,
+                        'drivingLicenceCategory',
+                        event.target.value,
+                      )
+                    }
+                  />
+
+                  <Input
+                    label='Jogosítvány érvényes eddig'
+                    type='date'
+                    value={driver.drivingLicenceValidUntil}
+                    onChange={(event) =>
+                      updateDriverField(
+                        index,
+                        'drivingLicenceValidUntil',
+                        event.target.value,
+                      )
+                    }
                   />
                 </div>
               </div>

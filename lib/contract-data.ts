@@ -56,10 +56,7 @@ export const buildContractDataFromBooking = (
   const driver = booking.payload?.driver?.[0];
   const driverName = formatDriverName(driver);
   const renterName =
-    driverName ||
-    booking.payload?.contact?.name ||
-    booking.contactName ||
-    undefined;
+    driverName || booking.payload?.contact?.name || booking.contactName || undefined;
   const renterAddress = pickFirstValue(
     formatAddress(driver?.location),
     formatAddress(booking.payload?.invoice?.location),

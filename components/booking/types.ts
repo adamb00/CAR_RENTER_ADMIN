@@ -37,6 +37,7 @@ export type BookingDriverForm = {
   email: string;
   dateOfBirth: string;
   placeOfBirth: string;
+  nameOfMother: string;
   locationCountry: string;
   locationPostalCode: string;
   locationCity: string;
@@ -45,8 +46,13 @@ export type BookingDriverForm = {
   locationDoorNumber: string;
   documentType: string;
   documentNumber: string;
+  validFrom: string;
+  validUntil: string;
   drivingLicenceNumber: string;
   drivingLicenceCategory: string;
+  drivingLicenceValidFrom: string;
+  drivingLicenceValidUntil: string;
+  drivingLicenceIsOlderThan_3: '' | 'true' | 'false';
 };
 
 export type BookingHandoverCostForm = {

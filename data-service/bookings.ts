@@ -590,7 +590,7 @@ type BookingDeliveryDetailsRow = {
 
 type BookingHandoverCostRow = {
   bookingId: string;
-  direction: 'out' | 'in';
+  direction: 'out' | 'in' | null;
   costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
   amount: unknown;
 };
@@ -707,8 +707,22 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
             "direction",
             "costType",
             "amount"
-          FROM "BookingHandoverCosts"
-          WHERE "bookingId" IN (${bookingIdsSql})
+          FROM (
+            SELECT DISTINCT ON ("bookingId", "direction", "costType")
+              "bookingId",
+              "direction",
+              "costType",
+              "amount"
+            FROM "BookingHandoverCosts"
+            WHERE "bookingId" IN (${bookingIdsSql})
+            ORDER BY
+              "bookingId" ASC,
+              "direction" ASC,
+              "costType" ASC,
+              "updatedAt" DESC,
+              "createdAt" DESC,
+              "id" DESC
+          ) latest_costs
         `,
         )
         .catch(() => []),
@@ -767,6 +781,10 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
 
   for (const row of handoverCostRows) {
     const previous = handoverByBookingId.get(row.bookingId) ?? {};
+    if (!row.direction) {
+      handoverByBookingId.set(row.bookingId, previous);
+      continue;
+    }
 
     if (row.costType === 'tip') {
       if (row.direction === 'out') {

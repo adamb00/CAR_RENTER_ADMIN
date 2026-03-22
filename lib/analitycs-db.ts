@@ -17,7 +17,7 @@ type BookingPricingSnapshotRow = {
 
 type BookingHandoverCostRow = {
   bookingId: string;
-  direction: 'out' | 'in';
+  direction: 'out' | 'in' | null;
   costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
   amount: unknown;
 };
@@ -575,10 +575,24 @@ export async function getCurrentMonthAnalitycs(
               "direction",
               "costType",
               "amount"
-            FROM "BookingHandoverCosts"
-            WHERE "bookingId" IN (${Prisma.join(
-              bookingIds.map((id) => Prisma.sql`${id}::uuid`),
-            )})
+            FROM (
+              SELECT DISTINCT ON ("bookingId", "direction", "costType")
+                "bookingId",
+                "direction",
+                "costType",
+                "amount"
+              FROM "BookingHandoverCosts"
+              WHERE "bookingId" IN (${Prisma.join(
+                bookingIds.map((id) => Prisma.sql`${id}::uuid`),
+              )})
+              ORDER BY
+                "bookingId" ASC,
+                "direction" ASC,
+                "costType" ASC,
+                "updatedAt" DESC,
+                "createdAt" DESC,
+                "id" DESC
+            ) latest_costs
           `,
         ).catch(() => [])
       : Promise.resolve([]),
@@ -667,10 +681,17 @@ export async function getCurrentMonthAnalitycs(
         handoverCostsByBookingId.get(booking.id) ?? [];
       const handoverCostsMap = new Map<string, number>();
       for (const handoverCost of bookingHandoverCosts) {
-        const key = `${handoverCost.direction}:${handoverCost.costType}`;
+        const directionKey = handoverCost.direction ?? 'none';
+        const key = `${directionKey}:${handoverCost.costType}`;
         handoverCostsMap.set(key, parseAmount(handoverCost.amount));
       }
       const hasHandoverCostRows = handoverCostsMap.size > 0;
+      const getHandoverCostTotal = (
+        costType: BookingHandoverCostRow['costType'],
+      ) =>
+        (handoverCostsMap.get(`out:${costType}`) ?? 0) +
+        (handoverCostsMap.get(`in:${costType}`) ?? 0) +
+        (handoverCostsMap.get(`none:${costType}`) ?? 0);
 
       const quotePricing = selectQuotePricing(
         booking.ContactQuotes?.bookingRequestData,
@@ -700,8 +721,11 @@ export async function getCurrentMonthAnalitycs(
           : Boolean(normalizedInsurance);
 
       const insurance = hasInsurance ? parseAmount(normalizedInsurance) : 0;
-      const hasTipCostRow = handoverCostsMap.has('out:tip');
-      const tipFromCosts = handoverCostsMap.get('out:tip') ?? 0;
+      const hasTipCostRow =
+        handoverCostsMap.has('out:tip') || handoverCostsMap.has('none:tip');
+      const tipFromCosts =
+        (handoverCostsMap.get('out:tip') ?? 0) +
+        (handoverCostsMap.get('none:tip') ?? 0);
 
       const tip = parseAmount(
         hasTipCostRow
@@ -713,18 +737,15 @@ export async function getCurrentMonthAnalitycs(
               quotePricing?.discount,
       );
       const fuelCost = hasHandoverCostRows
-        ? (handoverCostsMap.get('out:fuel') ?? 0) +
-          (handoverCostsMap.get('in:fuel') ?? 0)
+        ? getHandoverCostTotal('fuel')
         : parseAmount(payloadOutCosts?.fuelCost) +
           parseAmount(payloadInCosts?.fuelCost);
       const ferryCost = hasHandoverCostRows
-        ? (handoverCostsMap.get('out:ferry') ?? 0) +
-          (handoverCostsMap.get('in:ferry') ?? 0)
+        ? getHandoverCostTotal('ferry')
         : parseAmount(payloadOutCosts?.ferryCost) +
           parseAmount(payloadInCosts?.ferryCost);
       const cleaningCost = hasHandoverCostRows
-        ? (handoverCostsMap.get('out:cleaning') ?? 0) +
-          (handoverCostsMap.get('in:cleaning') ?? 0)
+        ? getHandoverCostTotal('cleaning')
         : parseAmount(payloadOutCosts?.cleaningCost) +
           parseAmount(payloadInCosts?.cleaningCost);
 

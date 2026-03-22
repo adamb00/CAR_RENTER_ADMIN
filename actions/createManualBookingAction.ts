@@ -339,7 +339,6 @@ export async function createManualBookingAction({
   selfServiceEventsJson,
 }: CreateManualBookingInput): Promise<CreateManualBookingResult> {
   const trimmedName = toOptionalString(contactName);
-  const effectiveContactName = trimmedName ?? 'Ismeretlen';
   const trimmedRenterId = toOptionalString(renterId);
   const trimmedEmail = toOptionalString(contactEmail);
   const trimmedPhone = toOptionalString(contactPhone);
@@ -361,6 +360,9 @@ export async function createManualBookingAction({
           select: { id: true },
         })
       : null;
+  const effectiveContactName = trimmedName ?? 'Ismeretlen';
+  const effectiveContactEmail = trimmedEmail ?? null;
+  const effectiveContactPhone = trimmedPhone ?? null;
 
   let linkedQuoteId: string | null = null;
   if (trimmedQuoteIdentifier) {
@@ -604,8 +606,8 @@ export async function createManualBookingAction({
   const primaryDriverJson = toPrimaryDriverJson(normalizedDrivers);
   const renterData = {
     name: effectiveContactName,
-    email: trimmedEmail ?? null,
-    phone: trimmedPhone ?? null,
+    email: effectiveContactEmail,
+    phone: effectiveContactPhone,
     taxId: normalizedTax.id ?? null,
     companyName: normalizedTax.companyName ?? null,
     paymentMethod: effectivePaymentMethod ?? null,
@@ -750,8 +752,8 @@ export async function createManualBookingAction({
               renterId: createdRenterId,
               quoteid: linkedQuoteId,
               contactname: effectiveContactName,
-              contactemail: trimmedEmail ?? '',
-              contactphone: trimmedPhone ?? null,
+              contactemail: effectiveContactEmail ?? '',
+              contactphone: effectiveContactPhone ?? null,
               rentalstart: parsedStart,
               rentalend: parsedEnd,
               rentaldays: effectiveRentalDays,

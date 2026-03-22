@@ -7,11 +7,10 @@ import Section from '../ui/section';
 import { getRentDetails } from '@/lib/rent-details';
 
 export default function RentContactDetails({ booking }: { booking: Booking }) {
-  const { invoice, contactName, consents, same } = getRentDetails(booking);
+  const { invoice, contactName, consents } = getRentDetails(booking);
   return (
-    <Section title='Kapcsolat / Számlázás'>
+    <Section title='Kapcsolat / Számlázás' cols={5}>
       <Detail label='Kapcsolattartó' value={contactName} />
-      <Detail label='Kapcsolattartó azonos?' value={booleanLabel(same)} />
       <Detail label='Számlázási név' value={invoice?.name} />
       <Detail label='Számlázási telefon' value={invoice?.phoneNumber} />
       <Detail label='Számlázási email' value={invoice?.email} />

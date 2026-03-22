@@ -36,6 +36,7 @@ type UpdateBookingAdminInput = {
   status?: string;
   updatedNote?: string;
   payloadJson?: string;
+  driversJson?: string;
   pricingSnapshotJson?: string;
   deliveryDetailsJson?: string;
   handoverCostsJson?: string;
@@ -159,6 +160,31 @@ const toRecordOrNull = <T extends Record<string, unknown>>(
   return value as T;
 };
 
+const toOptionalBoolean = (value: unknown): boolean | undefined => {
+  if (typeof value === 'boolean') return value;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return undefined;
+};
+
+const pruneUndefined = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    const normalized = value
+      .map((item) => pruneUndefined(item))
+      .filter((item) => item !== undefined);
+    return normalized.length > 0 ? normalized : undefined;
+  }
+
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .map(([key, nested]) => [key, pruneUndefined(nested)] as const)
+      .filter(([, nested]) => nested !== undefined);
+    return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+  }
+
+  return value === undefined ? undefined : value;
+};
+
 const extractPrimaryDriverJson = (
   payload: Prisma.InputJsonValue | null | undefined,
 ): string | null => {
@@ -250,6 +276,12 @@ export const updateBookingAdminAction = async (
     input.handoverCostsJson,
   );
   if (handoverCostsParsed.error) return { error: handoverCostsParsed.error };
+
+  const driversParsed = parseJson<Array<Record<string, unknown>> | null>(
+    'Drivers',
+    input.driversJson,
+  );
+  if (driversParsed.error) return { error: driversParsed.error };
 
   const vehicleHandoversParsed = parseJson<Array<
     Record<string, unknown>
@@ -405,13 +437,77 @@ export const updateBookingAdminAction = async (
   const contractData = toRecordOrNull<BookingContractInput>(
     bookingContractParsed.data,
   );
-  const payloadForStatus = payloadParsed.data;
-  const payloadForStorage = stripAssignedFleetFromPayload(payloadParsed.data);
+  const normalizedDrivers = (driversParsed.data ?? []).reduce<
+    Record<string, unknown>[]
+  >((acc, row) => {
+    const normalized = pruneUndefined({
+      firstName_1: toOptionalString(String(row.firstName_1 ?? '')),
+      firstName_2: toOptionalString(String(row.firstName_2 ?? '')),
+      lastName_1: toOptionalString(String(row.lastName_1 ?? '')),
+      lastName_2: toOptionalString(String(row.lastName_2 ?? '')),
+      phoneNumber: toOptionalString(String(row.phoneNumber ?? '')),
+      email: toOptionalString(String(row.email ?? '')),
+      dateOfBirth: toOptionalString(String(row.dateOfBirth ?? '')),
+      placeOfBirth: toOptionalString(String(row.placeOfBirth ?? '')),
+      nameOfMother: toOptionalString(String(row.nameOfMother ?? '')),
+      location: {
+        country: toOptionalString(String(row.locationCountry ?? '')),
+        postalCode: toOptionalString(String(row.locationPostalCode ?? '')),
+        city: toOptionalString(String(row.locationCity ?? '')),
+        street: toOptionalString(String(row.locationStreet ?? '')),
+        streetType: toOptionalString(String(row.locationStreetType ?? '')),
+        doorNumber: toOptionalString(String(row.locationDoorNumber ?? '')),
+      },
+      document: {
+        type: toOptionalString(String(row.documentType ?? '')),
+        number: toOptionalString(String(row.documentNumber ?? '')),
+        validFrom: toOptionalString(String(row.validFrom ?? '')),
+        validUntil: toOptionalString(String(row.validUntil ?? '')),
+        drivingLicenceNumber: toOptionalString(
+          String(row.drivingLicenceNumber ?? ''),
+        ),
+        drivingLicenceCategory: toOptionalString(
+          String(row.drivingLicenceCategory ?? ''),
+        ),
+        drivingLicenceValidFrom: toOptionalString(
+          String(row.drivingLicenceValidFrom ?? ''),
+        ),
+        drivingLicenceValidUntil: toOptionalString(
+          String(row.drivingLicenceValidUntil ?? ''),
+        ),
+        drivingLicenceIsOlderThan_3: toOptionalBoolean(
+          row.drivingLicenceIsOlderThan_3,
+        ),
+      },
+    });
+
+    if (normalized && typeof normalized === 'object' && !Array.isArray(normalized)) {
+      acc.push(normalized as Record<string, unknown>);
+    }
+    return acc;
+  }, []);
+
+  const payloadRecord = toRecordOrNull<Record<string, unknown>>(payloadParsed.data)
+    ? { ...(payloadParsed.data as Record<string, unknown>) }
+    : {};
+  if (normalizedDrivers.length > 0) {
+    payloadRecord.driver = normalizedDrivers;
+  } else {
+    delete payloadRecord.driver;
+  }
+
+  const mergedPayload =
+    Object.keys(payloadRecord).length > 0
+      ? (payloadRecord as Prisma.InputJsonValue)
+      : null;
+
+  const payloadForStatus = mergedPayload;
+  const payloadForStorage = stripAssignedFleetFromPayload(mergedPayload);
   const payloadAssignedFleetVehicleId = getAssignedFleetVehicleIdFromPayload(
-    payloadParsed.data,
+    mergedPayload,
   );
   const payloadAssignedFleetPlate = getAssignedFleetPlateFromPayload(
-    payloadParsed.data,
+    mergedPayload,
   );
   const payloadHasAssignedFleet =
     Boolean(payloadAssignedFleetVehicleId) &&
@@ -430,14 +526,18 @@ export const updateBookingAdminAction = async (
   })
     ? RENT_STATUS_REGISTERED
     : statusFromInput;
+  const effectiveContactName =
+    toOptionalString(input.contactName) ?? 'Ismeretlen';
+  const effectiveContactEmail = toOptionalString(input.contactEmail) ?? null;
+  const effectiveContactPhone = toOptionalString(input.contactPhone) ?? null;
   const renterData = {
-    name: toOptionalString(input.contactName) ?? 'Ismeretlen',
-    email: toOptionalString(input.contactEmail) ?? null,
-    phone: toOptionalString(input.contactPhone) ?? null,
+    name: effectiveContactName,
+    email: effectiveContactEmail,
+    phone: effectiveContactPhone,
     taxId: toOptionalString(input.renterTaxId) ?? null,
     companyName: toOptionalString(input.renterCompanyName) ?? null,
     paymentMethod: toOptionalString(input.renterPaymentMethod) ?? null,
-    primaryDriverJson: extractPrimaryDriverJson(payloadParsed.data),
+    primaryDriverJson: extractPrimaryDriverJson(mergedPayload),
   };
 
   try {
@@ -451,9 +551,9 @@ export const updateBookingAdminAction = async (
           assignedFleetVehicleId: effectiveAssignedFleetVehicleId,
           assignedFleetPlate: effectiveAssignedFleetPlate,
           quoteid: toOptionalString(input.quoteId) ?? null,
-          contactname: toOptionalString(input.contactName) ?? '',
-          contactemail: toOptionalString(input.contactEmail) ?? '',
-          contactphone: toOptionalString(input.contactPhone) ?? null,
+          contactname: effectiveContactName,
+          contactemail: effectiveContactEmail ?? '',
+          contactphone: effectiveContactPhone ?? null,
           rentalstart: rentalStart,
           rentalend: rentalEnd,
           rentaldays: rentalDays,
@@ -644,6 +744,7 @@ export const updateBookingAdminAction = async (
       await tx.$executeRaw`
         DELETE FROM "BookingHandoverCosts"
         WHERE "bookingId" = ${bookingId}::uuid
+          AND "direction" IS NOT NULL
       `;
       if (handoverCosts.length > 0) {
         for (const row of handoverCosts) {

@@ -22,7 +22,7 @@ export default function RentPricingDetails({
   if (!showPricingBreakdown) return null;
 
   return (
-    <Section title='Korábban ajánlott díjak'>
+    <Section title='Korábban ajánlott díjak' cols={4}>
       <Detail
         label='Foglalási díj'
         value={formatPriceValue(pricingData?.rentalFee)}

@@ -143,6 +143,8 @@ export function useManualBookingForm({
   };
 
   const applyRenter = (renter: RenterOption) => {
+    setPrimaryDriverMatchesContact(false);
+    setContactMatchesPrimaryDriver(false);
     setForm((previous) => {
       const nextDrivers = [...previous.drivers];
       const primaryDriver = renter.primaryDriver

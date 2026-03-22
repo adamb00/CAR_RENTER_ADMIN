@@ -195,10 +195,6 @@ export async function createVehicleHandoverAction(
             ${cost.amount},
             timezone('utc'::text, now())
           )
-          ON CONFLICT ("bookingId", "direction", "costType")
-          DO UPDATE SET
-            "amount" = EXCLUDED."amount",
-            "updatedAt" = timezone('utc'::text, now())
         `;
       }
 

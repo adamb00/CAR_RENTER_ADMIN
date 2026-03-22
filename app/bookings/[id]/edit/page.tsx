@@ -6,7 +6,6 @@ import { getBookingById } from '@/data-service/bookings';
 import { getArchivedBookingIdSet } from '@/lib/booking-archive';
 import { isCancelledBookingStatus } from '@/lib/booking-conflicts';
 import { db } from '@/lib/db';
-import { formatDocumentType } from '@/lib/format/format-document';
 import { formatPlaceType } from '@/lib/format/format-place';
 import { BookingAdminInitialData } from '@/components/booking/types';
 
@@ -113,6 +112,12 @@ const toDriverFormString = (value: unknown): string => {
   return normalized ?? '';
 };
 
+const toDriverTriState = (value: unknown): '' | 'true' | 'false' => {
+  if (value === true) return 'true';
+  if (value === false) return 'false';
+  return '';
+};
+
 const toAmountString = (value: unknown) => {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value.toString() : '';
@@ -148,7 +153,7 @@ type BookingDeliveryDetailsRow = {
 };
 
 type BookingHandoverCostRow = {
-  direction: 'out' | 'in';
+  direction: 'out' | 'in' | null;
   costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
   amount: unknown;
 };
@@ -231,8 +236,20 @@ export default async function BookingEditPage({
             "direction",
             "costType",
             "amount"
-          FROM "BookingHandoverCosts"
-          WHERE "bookingId" = ${booking.id}::uuid
+          FROM (
+            SELECT DISTINCT ON ("direction", "costType")
+              "direction",
+              "costType",
+              "amount"
+            FROM "BookingHandoverCosts"
+            WHERE "bookingId" = ${booking.id}::uuid
+            ORDER BY
+              "direction" ASC,
+              "costType" ASC,
+              "updatedAt" DESC,
+              "createdAt" DESC,
+              "id" DESC
+          ) latest_costs
           ORDER BY "direction" ASC, "costType" ASC
         `,
     ),
@@ -305,17 +322,29 @@ export default async function BookingEditPage({
       email: toDriverFormString(driver.email),
       dateOfBirth: toDriverFormString(driver.dateOfBirth),
       placeOfBirth: toDriverFormString(driver.placeOfBirth),
+      nameOfMother: toDriverFormString(driver.nameOfMother),
       locationCountry: toDriverFormString(location?.country),
       locationPostalCode: toDriverFormString(location?.postalCode),
       locationCity: toDriverFormString(location?.city),
       locationStreet: toDriverFormString(location?.street),
       locationStreetType: toDriverFormString(location?.streetType),
       locationDoorNumber: toDriverFormString(location?.doorNumber),
-      documentType: formatDocumentType(toDriverFormString(document?.type)),
+      documentType: toDriverFormString(document?.type),
       documentNumber: toDriverFormString(document?.number),
+      validFrom: toDriverFormString(document?.validFrom),
+      validUntil: toDriverFormString(document?.validUntil),
       drivingLicenceNumber: toDriverFormString(document?.drivingLicenceNumber),
       drivingLicenceCategory: toDriverFormString(
         document?.drivingLicenceCategory,
+      ),
+      drivingLicenceValidFrom: toDriverFormString(
+        document?.drivingLicenceValidFrom,
+      ),
+      drivingLicenceValidUntil: toDriverFormString(
+        document?.drivingLicenceValidUntil,
+      ),
+      drivingLicenceIsOlderThan_3: toDriverTriState(
+        document?.drivingLicenceIsOlderThan_3,
       ),
     };
     if (Object.values(mapped).some((value) => value.trim().length > 0)) {
@@ -371,6 +400,7 @@ export default async function BookingEditPage({
 
   const handoverCostsMap = new Map<string, string>();
   for (const row of handoverCostRows) {
+    if (!row.direction) continue;
     const amount = toAmountString(row.amount).trim();
     if (!amount) continue;
     handoverCostsMap.set(`${row.direction}:${row.costType}`, amount);

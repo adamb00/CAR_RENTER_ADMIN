@@ -355,9 +355,6 @@ export const BookingRequestButton = ({
 
             <div className='flex flex-col gap-6'>
               {fields.map((field, index) => {
-                const selectedWeekly = getWeeklyPrice(
-                  offersWatch?.[index]?.carId,
-                );
                 return (
                   <div
                     key={field.id}
@@ -419,7 +416,7 @@ export const BookingRequestButton = ({
                             <Input
                               type='number'
                               inputMode='numeric'
-                              step='0.01'
+                              step='1'
                               min='0'
                               label='Bérleti díj (EUR)'
                               placeholder='pl. 300'
@@ -440,7 +437,7 @@ export const BookingRequestButton = ({
                             <Input
                               type='number'
                               inputMode='numeric'
-                              step='0.01'
+                              step='1'
                               min='0'
                               label='Kaució (EUR)'
                               placeholder='pl. 500'
@@ -461,7 +458,7 @@ export const BookingRequestButton = ({
                             <Input
                               type='number'
                               inputMode='numeric'
-                              step='0.01'
+                              step='1'
                               min='0'
                               label='Teljes körű biztosítás díja (EUR)'
                               placeholder='pl. 370 (opcionális)'
@@ -482,7 +479,7 @@ export const BookingRequestButton = ({
                             <Input
                               type='number'
                               inputMode='numeric'
-                              step='0.01'
+                              step='1'
                               min='0'
                               label='Átvétel díja (EUR)'
                               placeholder='pl. 50'
@@ -529,7 +526,7 @@ export const BookingRequestButton = ({
                             <Input
                               type='number'
                               inputMode='numeric'
-                              step='0.01'
+                              step='1'
                               min='0'
                               label='Extrák díja (EUR)'
                               placeholder='pl. 30'

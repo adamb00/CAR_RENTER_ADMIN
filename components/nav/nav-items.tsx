@@ -6,6 +6,7 @@ import {
   CalendarClock,
   Car,
   Inbox,
+  UserIcon,
 } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -49,6 +50,7 @@ export const navItems = (unreadBadgeCount: number) =>
         url: '/costs',
         icon: BadgeDollarSign,
       },
+      { title: 'Bérlők', url: '/renters', icon: UserIcon },
       {
         title: 'Autók',
         url: '#',
