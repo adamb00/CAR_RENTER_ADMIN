@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache';
 
 import { getBookingById } from '@/data-service/bookings';
 import { db } from '@/lib/db';
-import { BOOKING_EMAIL_FROM } from '@/lib/constants';
+import { BOOKING_EMAIL_FROM, TAKE_OPTION_VALUES } from '@/lib/constants';
 import {
   BOOKING_FROM_ADDRESS,
   MAIL_USER,
@@ -43,6 +43,7 @@ type ContractDispatchEmailCopy = {
 type FinalizeBookingContractInput = {
   bookingId: string;
   signerName: string;
+  lessorSignerName: string;
   renterSignatureData: string;
   lessorSignatureData: string;
   recipientEmail?: string | null;
@@ -252,6 +253,7 @@ export const buildBookingContractPdf = async ({
 export const finalizeBookingContract = async ({
   bookingId,
   signerName,
+  lessorSignerName,
   renterSignatureData,
   lessorSignatureData,
   recipientEmail,
@@ -261,6 +263,15 @@ export const finalizeBookingContract = async ({
 }: FinalizeBookingContractInput): Promise<FinalizeBookingContractResult> => {
   const trimmedBookingId = bookingId.trim();
   const trimmedSignerName = signerName.trim();
+  const trimmedLessorSignerName = lessorSignerName.trim();
+
+  if (
+    !TAKE_OPTION_VALUES.includes(
+      trimmedLessorSignerName as (typeof TAKE_OPTION_VALUES)[number],
+    )
+  ) {
+    return { error: 'A bérbeadó kiválasztása kötelező.' };
+  }
 
   if (!renterSignatureData.startsWith('data:image/')) {
     return { error: 'A bérlő aláírásának formátuma nem megfelelő.' };
@@ -336,7 +347,7 @@ export const finalizeBookingContract = async ({
     const bookingCode = booking.humanId ?? booking.id;
     const subject = `${emailCopy.subjectPrefix} (${bookingCode})`;
     const signatureData = resolveEmailSignatureData({
-      signerName: trimmedSignerName,
+      signerName: trimmedLessorSignerName,
       locale: resolvedLocale,
     });
     const { createElement } = await import('react');

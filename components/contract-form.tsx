@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation';
 import { createBookingContractAction } from '@/actions/createBookingContractAction';
 import { sendBookingContractInviteAction } from '@/actions/sendBookingContractInviteAction';
 import type { ContractTemplate } from '@/lib/contract-template';
+import { TAKE_OPTIONS, type TakeOptionValue } from '@/lib/constants';
 import { formatDateTimeDetail } from '@/lib/format/format-date';
 import { Button } from '@/components/ui/button';
+import { FloatingSelect } from '@/components/ui/floating-select';
 import { Input } from '@/components/ui/input';
 import SignaturePad, {
   type SignaturePadHandle,
@@ -46,6 +48,7 @@ export default function ContractForm({
   const lessorSignatureRef = useRef<SignaturePadHandle>(null);
   const [form, setForm] = useState({
     signerName: renterName ?? '',
+    lessorSignerName: '' as TakeOptionValue | '',
     renterSignatureData: '',
     lessorSignatureData: '',
   });
@@ -159,6 +162,15 @@ export default function ContractForm({
       return;
     }
 
+    if (!form.lessorSignerName.trim()) {
+      setStatus({
+        type: 'error',
+        message: 'A bérbeadó kiválasztása kötelező.',
+      });
+      return;
+    }
+    const lessorSignerName = form.lessorSignerName as TakeOptionValue;
+
     const renterSignatureData =
       form.renterSignatureData || signatureRef.current?.getDataUrl() || '';
     if (!renterSignatureData || signatureRef.current?.isEmpty()) {
@@ -183,6 +195,7 @@ export default function ContractForm({
       const result = await createBookingContractAction({
         bookingId,
         signerName: form.signerName,
+        lessorSignerName,
         renterSignatureData,
         lessorSignatureData,
       });
@@ -212,12 +225,22 @@ export default function ContractForm({
       return;
     }
 
+    if (!form.lessorSignerName.trim()) {
+      setStatus({
+        type: 'error',
+        message: 'A bérbeadó kiválasztása kötelező.',
+      });
+      return;
+    }
+    const lessorSignerName = form.lessorSignerName as TakeOptionValue;
+
     const lessorSignatureData = getCurrentLessorSignature();
 
     startInviteTransition(async () => {
       const result = await sendBookingContractInviteAction({
         bookingId,
         signerName: form.signerName,
+        lessorSignerName,
         lessorSignatureData: lessorSignatureData || undefined,
       });
 
@@ -272,6 +295,31 @@ export default function ContractForm({
           }
         />
         <Input label='E-mail cím' value={renterEmail ?? '—'} disabled />
+        <div className='md:col-span-2'>
+          <FloatingSelect
+            label='Bérbeadó'
+            value={form.lessorSignerName}
+            required
+            onChange={(event) => {
+              const selected = TAKE_OPTIONS.find(
+                (option) => option.value === event.target.value,
+              );
+              setForm((prev) => ({
+                ...prev,
+                lessorSignerName: selected?.value ?? '',
+              }));
+            }}
+          >
+            <option value='' disabled>
+              Kérlek válassz ki valakit!
+            </option>
+            {TAKE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </FloatingSelect>
+        </div>
         <div className='md:col-span-2 grid gap-4 md:grid-cols-2'>
           <div className='space-y-2'>
             <div className='flex items-center justify-between'>

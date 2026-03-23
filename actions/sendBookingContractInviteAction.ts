@@ -9,7 +9,7 @@ import {
 } from '@/components/emails/email-signature';
 import { getBookingById } from '@/data-service/bookings';
 import { db } from '@/lib/db';
-import { BOOKING_EMAIL_FROM } from '@/lib/constants';
+import { BOOKING_EMAIL_FROM, TAKE_OPTION_VALUES } from '@/lib/constants';
 import {
   BOOKING_FROM_ADDRESS,
   MAIL_USER,
@@ -41,6 +41,7 @@ import { revalidatePath } from 'next/cache';
 const sendBookingContractInviteSchema = z.object({
   bookingId: z.string().min(1),
   signerName: z.string().min(1),
+  lessorSignerName: z.enum(TAKE_OPTION_VALUES),
   lessorSignatureData: z.string().optional(),
 });
 
@@ -103,7 +104,8 @@ const CONTRACT_INVITE_EMAIL_COPY: Record<
   ro: {
     subject: 'Contract de închiriere pentru semnare',
     greetingPrefix: 'Bună',
-    intro: 'Contractul tău de închiriere este pregătit pentru verificare și semnare.',
+    intro:
+      'Contractul tău de închiriere este pregătit pentru verificare și semnare.',
     description:
       'Deschide linkul de mai jos pentru a citi contractul, a-l descărca, semna și trimite înapoi.',
     cta: 'Deschide contractul',
@@ -139,7 +141,8 @@ const CONTRACT_INVITE_EMAIL_COPY: Record<
   it: {
     subject: 'Contratto di noleggio da firmare',
     greetingPrefix: 'Buongiorno',
-    intro: 'Il tuo contratto di noleggio è pronto per essere visionato e firmato.',
+    intro:
+      'Il tuo contratto di noleggio è pronto per essere visionato e firmato.',
     description:
       'Apri il link qui sotto per leggere il contratto, scaricarlo, firmarlo e rimandarcelo.',
     cta: 'Apri contratto',
@@ -290,6 +293,7 @@ export const sendBookingContractInviteAction = async (
   const tokenHash = hashContractInviteToken(token);
   const inviteUrl = buildLocalizedContractInviteUrl(token, locale);
   const signerName = data.signerName.trim();
+  const lessorSignerName = data.lessorSignerName.trim();
 
   let inviteId: string | null = null;
   try {
@@ -314,7 +318,9 @@ export const sendBookingContractInviteAction = async (
           locale,
           contractVersion: CONTRACT_VERSION,
           contractText,
-          lessorSignatureData,
+          ...(lessorSignatureData
+            ? { lessorSignatureData }
+            : {}),
           expiresAt: resolveContractInviteExpiry(),
         },
         select: { id: true },
@@ -323,7 +329,7 @@ export const sendBookingContractInviteAction = async (
     inviteId = created.id;
 
     const signatureData = resolveEmailSignatureData({
-      signerName,
+      signerName: lessorSignerName,
       locale,
     });
     const { createElement } = await import('react');
