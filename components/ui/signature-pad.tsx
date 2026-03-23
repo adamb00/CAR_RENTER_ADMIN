@@ -1,6 +1,6 @@
 'use client';
 
-import React, { forwardRef, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useImperativeHandle, useRef } from 'react';
 import SignatureCanvas, {
   type SignatureCanvasProps,
 } from 'react-signature-canvas';
@@ -45,7 +45,9 @@ const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(
       return !pad || pad.isEmpty();
     };
 
-    useImperativeHandle(ref, () => ({ clear, getDataUrl, isEmpty }), [onChange]);
+    useImperativeHandle(ref, () => ({ clear, getDataUrl, isEmpty }), [
+      onChange,
+    ]);
 
     const signatureOptions: SignatureCanvasProps = {
       penColor: '#0f172a',
@@ -59,7 +61,12 @@ const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(
     };
 
     return (
-      <div className={cn('rounded-md border border-input bg-background', className)}>
+      <div
+        className={cn(
+          'rounded-md border border-input bg-background',
+          className,
+        )}
+      >
         <SignatureCanvas ref={padRef} {...signatureOptions} />
       </div>
     );

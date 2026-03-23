@@ -54,6 +54,18 @@ export default async function BookingContractPage({
       lessorSignatureData: true,
     },
   });
+  const latestInvite = await db.bookingContractInvite.findFirst({
+    where: {
+      bookingId: booking.id,
+      revokedAt: null,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+    select: {
+      id: true,
+    },
+  });
 
   const contractData = buildContractDataFromBooking(booking, vehicle);
   const signedAt = new Date();
@@ -95,6 +107,11 @@ export default async function BookingContractPage({
         contractText={contractText}
         renterName={contractData.renterName}
         renterEmail={contractData.renterEmail}
+        downloadHref={
+          existingContract || latestInvite
+            ? `/api/bookings/${booking.id}/contract/pdf`
+            : null
+        }
         existingContract={
           existingContract
             ? {

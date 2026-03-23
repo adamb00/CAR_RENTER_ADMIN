@@ -14,10 +14,10 @@ import type { ContractTemplate } from '@/lib/contract-template';
 type ContractPdfInput = {
   template: ContractTemplate;
   contractText: string;
-  signerName: string;
-  signedAt: Date;
-  renterSignatureDataUrl: string;
-  lessorSignatureDataUrl: string;
+  signerName?: string | null;
+  signedAt?: Date | null;
+  renterSignatureDataUrl?: string | null;
+  lessorSignatureDataUrl?: string | null;
   locale?: string | null;
 };
 
@@ -28,6 +28,8 @@ type PdfSignatureCopy = {
   missingSignature: string;
   signedBy: string;
   signedAt: string;
+  status: string;
+  pendingStatus: string;
 };
 
 const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
@@ -38,6 +40,8 @@ const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
     missingSignature: 'No signature provided.',
     signedBy: 'Signed by',
     signedAt: 'Signed at',
+    status: 'Status',
+    pendingStatus: 'Waiting for renter signature',
   },
   hu: {
     signaturesHeading: 'Aláírások',
@@ -46,6 +50,8 @@ const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
     missingSignature: 'Nincs aláírás.',
     signedBy: 'Aláírta',
     signedAt: 'Aláírás ideje',
+    status: 'Állapot',
+    pendingStatus: 'Bérlői aláírásra vár',
   },
   de: {
     signaturesHeading: 'Unterschriften',
@@ -54,6 +60,8 @@ const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
     missingSignature: 'Keine Unterschrift vorhanden.',
     signedBy: 'Unterzeichnet von',
     signedAt: 'Unterzeichnet am',
+    status: 'Status',
+    pendingStatus: 'Wartet auf Unterschrift des Mieters',
   },
   ro: {
     signaturesHeading: 'Semnături',
@@ -62,6 +70,8 @@ const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
     missingSignature: 'Nicio semnătură disponibilă.',
     signedBy: 'Semnat de',
     signedAt: 'Semnat la',
+    status: 'Stare',
+    pendingStatus: 'În așteptarea semnăturii chiriașului',
   },
   fr: {
     signaturesHeading: 'Signatures',
@@ -70,6 +80,8 @@ const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
     missingSignature: 'Aucune signature disponible.',
     signedBy: 'Signé par',
     signedAt: 'Signé le',
+    status: 'Statut',
+    pendingStatus: 'En attente de la signature du locataire',
   },
   es: {
     signaturesHeading: 'Firmas',
@@ -78,6 +90,8 @@ const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
     missingSignature: 'No hay firma disponible.',
     signedBy: 'Firmado por',
     signedAt: 'Firmado el',
+    status: 'Estado',
+    pendingStatus: 'Pendiente de firma del arrendatario',
   },
   it: {
     signaturesHeading: 'Firme',
@@ -86,6 +100,8 @@ const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
     missingSignature: 'Nessuna firma disponibile.',
     signedBy: 'Firmato da',
     signedAt: 'Firmato il',
+    status: 'Stato',
+    pendingStatus: 'In attesa della firma del cliente',
   },
   sk: {
     signaturesHeading: 'Podpisy',
@@ -94,6 +110,8 @@ const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
     missingSignature: 'Podpis nie je k dispozícii.',
     signedBy: 'Podpísal',
     signedAt: 'Podpísané dňa',
+    status: 'Stav',
+    pendingStatus: 'Čaká sa na podpis nájomcu',
   },
   cz: {
     signaturesHeading: 'Podpisy',
@@ -102,6 +120,8 @@ const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
     missingSignature: 'Podpis není k dispozici.',
     signedBy: 'Podepsal',
     signedAt: 'Podepsáno dne',
+    status: 'Stav',
+    pendingStatus: 'Čeká na podpis nájemce',
   },
   se: {
     signaturesHeading: 'Signaturer',
@@ -110,6 +130,8 @@ const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
     missingSignature: 'Ingen signatur tillgänglig.',
     signedBy: 'Undertecknat av',
     signedAt: 'Undertecknat den',
+    status: 'Status',
+    pendingStatus: 'Väntar på hyrestagarens signatur',
   },
   no: {
     signaturesHeading: 'Signaturer',
@@ -118,6 +140,8 @@ const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
     missingSignature: 'Ingen signatur tilgjengelig.',
     signedBy: 'Signert av',
     signedAt: 'Signert den',
+    status: 'Status',
+    pendingStatus: 'Venter på leietakers signatur',
   },
   dk: {
     signaturesHeading: 'Signaturer',
@@ -126,6 +150,8 @@ const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
     missingSignature: 'Ingen signatur tilgaengelig.',
     signedBy: 'Underskrevet af',
     signedAt: 'Underskrevet den',
+    status: 'Status',
+    pendingStatus: 'Afventer lejers underskrift',
   },
   pl: {
     signaturesHeading: 'Podpisy',
@@ -134,6 +160,8 @@ const PDF_SIGNATURE_COPY: Record<ContractLocale, PdfSignatureCopy> = {
     missingSignature: 'Brak podpisu.',
     signedBy: 'Podpisano przez',
     signedAt: 'Data podpisu',
+    status: 'Status',
+    pendingStatus: 'Oczekuje na podpis najemcy',
   },
 };
 
@@ -232,7 +260,7 @@ export const buildContractPdf = async ({
   const requiresUnicode =
     hasNonAnsiChars(template.title) ||
     hasNonAnsiChars(contractText) ||
-    hasNonAnsiChars(signerName);
+    hasNonAnsiChars(signerName ?? '');
 
   if (!regularFontBytes && requiresUnicode) {
     throw new Error(
@@ -373,7 +401,7 @@ export const buildContractPdf = async ({
       PDF_SIGNATURE_COPY.en.renterSignature,
       localizedCopy.renterSignature,
     ),
-    renterSignatureDataUrl,
+    renterSignatureDataUrl ?? '',
   );
   await drawSignatureBlock(
     bilingualLabel(
@@ -381,59 +409,80 @@ export const buildContractPdf = async ({
       PDF_SIGNATURE_COPY.en.lessorSignature,
       localizedCopy.lessorSignature,
     ),
-    lessorSignatureDataUrl,
+    lessorSignatureDataUrl ?? '',
   );
 
-  const signedAtEnglish = signedAt.toLocaleString('en-GB', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  const signedAtLocalized = signedAt.toLocaleString(
-    DATE_LOCALE_MAP[resolvedLocale],
-    {
+  ensureSpace(lineHeight * 3);
+  if (signerName && signedAt) {
+    const signedAtEnglish = signedAt.toLocaleString('en-GB', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    },
-  );
-  const signedAtValue =
-    resolvedLocale === 'en'
-      ? signedAtEnglish
-      : `${signedAtEnglish} / ${signedAtLocalized}`;
-  ensureSpace(lineHeight * 3);
-  page.drawText(
-    `${bilingualLabel(
-      resolvedLocale,
-      PDF_SIGNATURE_COPY.en.signedBy,
-      localizedCopy.signedBy,
-    )}: ${signerName}`,
-    {
-      x: margin,
-      y: cursorY - lineHeight,
-      size: fontSize,
-      font,
-      color: rgb(0.1, 0.1, 0.1),
-    },
-  );
-  page.drawText(
-    `${bilingualLabel(
-      resolvedLocale,
-      PDF_SIGNATURE_COPY.en.signedAt,
-      localizedCopy.signedAt,
-    )}: ${signedAtValue}`,
-    {
-      x: margin,
-      y: cursorY - lineHeight * 2,
-      size: fontSize,
-      font,
-      color: rgb(0.1, 0.1, 0.1),
-    },
-  );
+    });
+    const signedAtLocalized = signedAt.toLocaleString(
+      DATE_LOCALE_MAP[resolvedLocale],
+      {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      },
+    );
+    const signedAtValue =
+      resolvedLocale === 'en'
+        ? signedAtEnglish
+        : `${signedAtEnglish} / ${signedAtLocalized}`;
+    page.drawText(
+      `${bilingualLabel(
+        resolvedLocale,
+        PDF_SIGNATURE_COPY.en.signedBy,
+        localizedCopy.signedBy,
+      )}: ${signerName}`,
+      {
+        x: margin,
+        y: cursorY - lineHeight,
+        size: fontSize,
+        font,
+        color: rgb(0.1, 0.1, 0.1),
+      },
+    );
+    page.drawText(
+      `${bilingualLabel(
+        resolvedLocale,
+        PDF_SIGNATURE_COPY.en.signedAt,
+        localizedCopy.signedAt,
+      )}: ${signedAtValue}`,
+      {
+        x: margin,
+        y: cursorY - lineHeight * 2,
+        size: fontSize,
+        font,
+        color: rgb(0.1, 0.1, 0.1),
+      },
+    );
+  } else {
+    page.drawText(
+      `${bilingualLabel(
+        resolvedLocale,
+        PDF_SIGNATURE_COPY.en.status,
+        localizedCopy.status,
+      )}: ${bilingualLabel(
+        resolvedLocale,
+        PDF_SIGNATURE_COPY.en.pendingStatus,
+        localizedCopy.pendingStatus,
+      )}`,
+      {
+        x: margin,
+        y: cursorY - lineHeight,
+        size: fontSize,
+        font,
+        color: rgb(0.1, 0.1, 0.1),
+      },
+    );
+  }
 
   const bytes = await pdfDoc.save();
   return Buffer.from(bytes);

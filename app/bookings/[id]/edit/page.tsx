@@ -2,12 +2,19 @@ import { Prisma } from '@prisma/client';
 import { notFound } from 'next/navigation';
 
 import { BookingAdminEditForm } from '@/components/booking/booking-admin-edit-form';
+import { BookingAdminInitialData } from '@/components/booking/types';
 import { getBookingById } from '@/data-service/bookings';
+import { getVehicleById } from '@/data-service/cars';
 import { getArchivedBookingIdSet } from '@/lib/booking-archive';
 import { isCancelledBookingStatus } from '@/lib/booking-conflicts';
+import { buildContractDataFromBooking } from '@/lib/contract-data';
+import {
+  buildContractTemplate,
+  formatContractText,
+} from '@/lib/contract-template';
 import { db } from '@/lib/db';
 import { formatPlaceType } from '@/lib/format/format-place';
-import { BookingAdminInitialData } from '@/components/booking/types';
+import Link from 'next/link';
 
 const stringifyJson = (value: unknown) =>
   JSON.stringify(value ?? null, null, 2);
@@ -198,6 +205,7 @@ export default async function BookingEditPage({
     handoverCostRows,
     vehicleHandovers,
     bookingContract,
+    bookingContractInvite,
     renterRows,
   ] = await Promise.all([
     db.$queryRaw<BookingPricingSnapshotRow[]>(
@@ -258,6 +266,13 @@ export default async function BookingEditPage({
       orderBy: { handoverAt: 'asc' },
     }),
     db.bookingContract.findUnique({ where: { bookingId: booking.id } }),
+    db.bookingContractInvite.findFirst({
+      where: {
+        bookingId: booking.id,
+        revokedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
     db.$queryRaw<BookingRenterRow[]>(
       Prisma.sql`
         SELECT
@@ -479,9 +494,11 @@ export default async function BookingEditPage({
     carId: effectiveCarId,
     quoteId: firstString(booking.quoteid, payload?.quoteId) ?? '',
     contactName:
-      firstString(booking.contactname, renter?.name, payloadContact?.name) ?? '',
+      firstString(booking.contactname, renter?.name, payloadContact?.name) ??
+      '',
     contactEmail:
-      firstString(booking.contactemail, renter?.email, payloadContact?.email) ?? '',
+      firstString(booking.contactemail, renter?.email, payloadContact?.email) ??
+      '',
     contactPhone:
       firstString(
         booking.contactphone,
@@ -489,8 +506,7 @@ export default async function BookingEditPage({
         payloadContact?.phoneNumber,
         payload?.contactPhone,
       ) ?? '',
-    renterTaxId:
-      firstString(renter?.taxId, payloadTax?.id) ?? '',
+    renterTaxId: firstString(renter?.taxId, payloadTax?.id) ?? '',
     renterCompanyName:
       firstString(renter?.companyName, payloadTax?.companyName) ?? '',
     renterPaymentMethod:
@@ -598,15 +614,43 @@ export default async function BookingEditPage({
     },
   };
 
+  const vehicle = await getVehicleById(
+    normalized.assignedFleetVehicleId ??
+      normalized.payload?.assignedFleetVehicleId ??
+      '',
+  );
+  const contractData = buildContractDataFromBooking(normalized, vehicle);
+  const contractTemplate = buildContractTemplate(contractData, {
+    signedAt: new Date(),
+    locale: normalized.locale ?? normalized.payload?.locale ?? null,
+  });
+  const contractText = formatContractText(contractTemplate);
+
   return (
     <div className='flex h-full flex-col gap-6 p-6'>
-      <div className='space-y-1'>
+      <div className='space-y-1 flex justify-between'>
         <h1 className='text-2xl font-semibold tracking-tight'>
           Foglalás módosítása
         </h1>
-        <p className='text-muted-foreground'>
-          Teljes admin szerkesztés: foglalás, payload és kapcsolt táblák.
-        </p>
+
+        <div className='flex flex-wrap gap-3'>
+          {booking?.id && (bookingContract || bookingContractInvite) ? (
+            <a
+              className='inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-accent'
+              href={`/api/bookings/${booking.id}/contract/pdf`}
+            >
+              Szerződés letöltése
+            </a>
+          ) : null}
+          {booking?.id && (
+            <Link
+              className='inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-accent'
+              href={`/bookings/${booking.id}/contract`}
+            >
+              Digitális szerződés
+            </Link>
+          )}
+        </div>
       </div>
       <div className='rounded-xl border bg-card p-4 shadow-sm'>
         <BookingAdminEditForm initial={initial} />

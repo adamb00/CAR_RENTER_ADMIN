@@ -42,6 +42,10 @@ export const LOGO_URL =
 
 export const PUBLIC_SITE_BASE_URL =
   process.env.PUBLIC_SITE_BASE_URL || 'https://zodiacsrentacar.com';
+export const PUBLIC_CONTRACT_BASE_URL =
+  process.env.PUBLIC_CONTRACT_BASE_URL ??
+  process.env.NEXTAUTH_URL ??
+  PUBLIC_SITE_BASE_URL;
 export const WHATSAPP_API_TOKEN = process.env.WHATSAPP_API_TOKEN;
 export const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 export const WHATSAPP_GRAPH_API_VERSION =

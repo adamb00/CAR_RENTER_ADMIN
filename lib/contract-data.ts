@@ -1,8 +1,6 @@
-import type { Booking } from '@/data-service/bookings';
+import type { Booking, BookingDriver } from '@/data-service/bookings';
 import type { ContractData } from '@/lib/contract-template';
 import { ADMIN_SIGNATURE } from '@/lib/constants';
-
-import type { BookingDriver } from '@/data-service/bookings';
 
 type VehicleSummary = {
   plate?: string | null;
@@ -42,21 +40,33 @@ const formatDriverName = (driver?: BookingDriver) => {
 const pickFirstValue = (...values: Array<string | null | undefined>) =>
   values.find((value) => value && value.trim().length > 0);
 
+export const getPrimaryDriverFromBooking = (booking: Booking) =>
+  booking.renter?.primaryDriver ?? booking.payload?.driver?.[0];
+
+export const getContractRecipientFromBooking = (booking: Booking) =>
+  pickFirstValue(
+    getPrimaryDriverFromBooking(booking)?.email,
+    booking.renter?.email ?? undefined,
+    booking.contactEmail ?? undefined,
+    booking.payload?.contact?.email,
+    booking.payload?.invoice?.email,
+  ) ?? null;
+
 export const buildContractDataFromBooking = (
   booking: Booking,
   vehicle?: VehicleSummary | null,
 ): ContractData => {
   const pricing = booking.pricing;
   const delivery = booking.delivery;
-  const recipient =
-    booking.contactEmail ??
-    booking.payload?.contact?.email ??
-    booking.payload?.invoice?.email ??
-    null;
-  const driver = booking.payload?.driver?.[0];
+  const recipient = getContractRecipientFromBooking(booking);
+  const driver = getPrimaryDriverFromBooking(booking);
   const driverName = formatDriverName(driver);
-  const renterName =
-    driverName || booking.payload?.contact?.name || booking.contactName || undefined;
+  const renterName = pickFirstValue(
+    driverName,
+    booking.renter?.name ?? undefined,
+    booking.payload?.contact?.name,
+    booking.contactName,
+  );
   const renterAddress = pickFirstValue(
     formatAddress(driver?.location),
     formatAddress(booking.payload?.invoice?.location),
@@ -64,6 +74,7 @@ export const buildContractDataFromBooking = (
   );
   const renterPhone = pickFirstValue(
     driver?.phoneNumber,
+    booking.renter?.phone ?? undefined,
     booking.contactPhone ?? undefined,
     booking.payload?.invoice?.phoneNumber,
   );

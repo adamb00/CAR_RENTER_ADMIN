@@ -124,6 +124,7 @@ model RentRequests {
   renter                 Renter?                 @relation(fields: [renterId], references: [id], onDelete: SetNull)
   vehicleHandovers       VehicleHandover[]
   bookingContract        BookingContract?
+  bookingContractInvites BookingContractInvite[]
   bookingPricingSnapshot BookingPricingSnapshot?
   bookingDeliveryDetails BookingDeliveryDetails?
   bookingHandoverCosts   BookingHandoverCost[]
@@ -222,6 +223,30 @@ model BookingContract {
 
   @@index([bookingId])
   @@map("BookingContracts")
+}
+
+model BookingContractInvite {
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId           String       @db.Uuid
+  tokenHash           String       @unique
+  recipientEmail      String
+  signerName          String?
+  locale              String?
+  contractVersion     String       @default("v1")
+  contractText        String
+  lessorSignatureData String?
+  expiresAt           DateTime
+  sentAt              DateTime     @default(now())
+  openedAt            DateTime?
+  completedAt         DateTime?
+  revokedAt           DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  booking             RentRequests @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([bookingId, completedAt, revokedAt, expiresAt])
+  @@map("BookingContractInvites")
 }
 
 model Notification {
