@@ -9,7 +9,7 @@ import {
 } from '@/components/emails/email-signature';
 import { getBookingById } from '@/data-service/bookings';
 import { db } from '@/lib/db';
-import { BOOKING_EMAIL_FROM, TAKE_OPTION_VALUES } from '@/lib/constants';
+import { BOOKING_EMAIL_FROM } from '@/lib/constants';
 import {
   BOOKING_FROM_ADDRESS,
   MAIL_USER,
@@ -41,7 +41,7 @@ import { revalidatePath } from 'next/cache';
 const sendBookingContractInviteSchema = z.object({
   bookingId: z.string().min(1),
   signerName: z.string().min(1),
-  lessorSignerName: z.enum(TAKE_OPTION_VALUES),
+  lessorSignerName: z.string().min(1),
   lessorSignatureData: z.string().optional(),
 });
 

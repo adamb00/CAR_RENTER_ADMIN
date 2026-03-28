@@ -84,6 +84,7 @@ export function RenterNameAutocomplete({
       <Input
         label='Név'
         value={value}
+        required
         onChange={(event) => {
           setIsOpen(true);
           onChange(event.target.value);

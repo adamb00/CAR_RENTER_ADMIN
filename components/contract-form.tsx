@@ -2,11 +2,11 @@
 
 import React, { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import type { User } from '@prisma/client';
 
 import { createBookingContractAction } from '@/actions/createBookingContractAction';
 import { sendBookingContractInviteAction } from '@/actions/sendBookingContractInviteAction';
 import type { ContractTemplate } from '@/lib/contract-template';
-import { TAKE_OPTIONS, type TakeOptionValue } from '@/lib/constants';
 import { formatDateTimeDetail } from '@/lib/format/format-date';
 import { Button } from '@/components/ui/button';
 import { FloatingSelect } from '@/components/ui/floating-select';
@@ -26,6 +26,7 @@ type ContractFormProps = {
   bookingId: string;
   template: ContractTemplate;
   contractText: string;
+  admins: Pick<User, 'id' | 'name' | 'signatureData'>[];
   renterName?: string | null;
   renterEmail?: string | null;
   existingContract?: ExistingContract | null;
@@ -42,13 +43,33 @@ export default function ContractForm({
   existingContract,
   successRedirectPath,
   downloadHref,
+  admins,
 }: ContractFormProps) {
   const router = useRouter();
   const signatureRef = useRef<SignaturePadHandle>(null);
   const lessorSignatureRef = useRef<SignaturePadHandle>(null);
+  const adminOptions = useMemo(
+    () =>
+      admins
+        .filter(
+          (
+            admin,
+          ): admin is Pick<User, 'id' | 'name' | 'signatureData'> & {
+            name: string;
+          } =>
+            Boolean(admin.name?.trim()),
+        )
+        .map((admin) => ({
+          id: admin.id,
+          value: admin.name,
+          label: admin.name,
+          signatureData: admin.signatureData ?? '',
+        })),
+    [admins],
+  );
   const [form, setForm] = useState({
     signerName: renterName ?? '',
-    lessorSignerName: '' as TakeOptionValue | '',
+    lessorSignerName: '',
     renterSignatureData: '',
     lessorSignatureData: '',
   });
@@ -87,7 +108,9 @@ export default function ContractForm({
               ))}
             </ul>
           </div>
-          <p className='mt-4 text-sm text-muted-foreground'>{template.footer}</p>
+          <p className='mt-4 text-sm text-muted-foreground'>
+            {template.footer}
+          </p>
         </div>
 
         <div className='rounded-xl border bg-card p-4 shadow-sm'>
@@ -169,7 +192,7 @@ export default function ContractForm({
       });
       return;
     }
-    const lessorSignerName = form.lessorSignerName as TakeOptionValue;
+    const lessorSignerName = form.lessorSignerName.trim();
 
     const renterSignatureData =
       form.renterSignatureData || signatureRef.current?.getDataUrl() || '';
@@ -181,8 +204,7 @@ export default function ContractForm({
       return;
     }
 
-    const lessorSignatureData =
-      getCurrentLessorSignature();
+    const lessorSignatureData = getCurrentLessorSignature();
     if (!lessorSignatureData || lessorSignatureRef.current?.isEmpty()) {
       setStatus({
         type: 'error',
@@ -232,7 +254,7 @@ export default function ContractForm({
       });
       return;
     }
-    const lessorSignerName = form.lessorSignerName as TakeOptionValue;
+    const lessorSignerName = form.lessorSignerName.trim();
 
     const lessorSignatureData = getCurrentLessorSignature();
 
@@ -301,20 +323,23 @@ export default function ContractForm({
             value={form.lessorSignerName}
             required
             onChange={(event) => {
-              const selected = TAKE_OPTIONS.find(
+              const selected = adminOptions.find(
                 (option) => option.value === event.target.value,
               );
+              const lessorSignatureData = selected?.signatureData ?? '';
+              lessorSignatureRef.current?.setDataUrl(lessorSignatureData);
               setForm((prev) => ({
                 ...prev,
                 lessorSignerName: selected?.value ?? '',
+                lessorSignatureData,
               }));
             }}
           >
             <option value='' disabled>
               Kérlek válassz ki valakit!
             </option>
-            {TAKE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
+            {adminOptions.map((option) => (
+              <option key={option.id} value={option.value}>
                 {option.label}
               </option>
             ))}

@@ -1,11 +1,11 @@
 'use client';
 import React, { useMemo, useState, useTransition } from 'react';
+import type { FleetVehicle, User } from '@prisma/client';
 import { FloatingSelect } from './ui/floating-select';
 import { Input } from './ui/input';
 import { FloatingTextarea } from './ui/textarea';
 
 import { Booking } from '@/data-service/bookings';
-import { FleetVehicle } from '@prisma/client';
 import CarDamages from './car/car-damages';
 import { Detail } from './ui/detail';
 import { Button } from './ui/button';
@@ -17,7 +17,6 @@ import {
   getFleetPlaceValue,
 } from '@/lib/fleet-places';
 import { formatAddress } from '@/lib/format/format-address';
-import { TAKE_OPTIONS } from '@/lib/constants';
 import { formatArrivalTime } from '@/lib/format/format-date';
 
 const emptyForm = {
@@ -40,6 +39,7 @@ const emptyForm = {
 type CaroutFormProps = {
   booking: Booking | null;
   vehicle: FleetVehicle | null;
+  users: Pick<User, 'id' | 'name'>[];
   handoverOut?: {
     handoverAt: string;
     handoverBy: string | null;
@@ -78,9 +78,23 @@ const toTimeInputValue = (value?: string | null) => {
 export default function CaroutForm({
   booking,
   vehicle,
+  users,
   handoverOut,
 }: CaroutFormProps) {
   const normalizedInitialValues = useMemo(() => emptyForm, []);
+  const userOptions = useMemo(
+    () =>
+      users
+        .filter((user): user is Pick<User, 'id' | 'name'> & { name: string } =>
+          Boolean(user.name?.trim()),
+        )
+        .map((user) => ({
+          id: user.id,
+          value: user.name,
+          label: user.name,
+        })),
+    [users],
+  );
   const [form, setForm] = useState<CaroutFormValues>(normalizedInitialValues);
   const [status, setStatus] = useState<{
     type: 'success' | 'error';
@@ -439,7 +453,7 @@ export default function CaroutForm({
           alwaysFloatLabel
           value={form.take}
           onChange={(e) => {
-            const selected = TAKE_OPTIONS.find(
+            const selected = userOptions.find(
               (opt) => opt.value === e.target.value,
             );
             setForm((prev) => ({
@@ -452,8 +466,8 @@ export default function CaroutForm({
           <option value='' disabled>
             Kérlek válassz ki valakit!
           </option>
-          {TAKE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
+          {userOptions.map((option) => (
+            <option key={option.id} value={option.value}>
               {option.label}
             </option>
           ))}

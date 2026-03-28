@@ -1,14 +1,13 @@
 'use client';
 import React, { useMemo, useState, useTransition } from 'react';
+import type { FleetVehicle, User } from '@prisma/client';
 import { FloatingSelect } from './ui/floating-select';
 import { Input } from './ui/input';
 import { FloatingTextarea } from './ui/textarea';
 
 import { createVehicleHandoverAction } from '@/actions/createVehicleHandoverAction';
 import { Booking } from '@/data-service/bookings';
-import { TAKE_OPTIONS } from '@/lib/constants';
 import { formatAddress } from '@/lib/format/format-address';
-import { FleetVehicle } from '@prisma/client';
 import CarDamages from './car/car-damages';
 import { Button } from './ui/button';
 import { Detail } from './ui/detail';
@@ -34,6 +33,7 @@ type CarinFormProps = {
   booking: Booking | null;
   vehicle: FleetVehicle | null;
   handoverOutMileage?: number | null;
+  users: Pick<User, 'id' | 'name'>[];
 };
 
 type CarinFormValues = typeof emptyForm;
@@ -41,8 +41,22 @@ export default function CarinForm({
   booking,
   vehicle,
   handoverOutMileage,
+  users,
 }: CarinFormProps) {
   const normalizedInitialValues = useMemo(() => emptyForm, []);
+  const userOptions = useMemo(
+    () =>
+      users
+        .filter((user): user is Pick<User, 'id' | 'name'> & { name: string } =>
+          Boolean(user.name?.trim()),
+        )
+        .map((user) => ({
+          id: user.id,
+          value: user.name,
+          label: user.name,
+        })),
+    [users],
+  );
   const [form, setForm] = useState<CarinFormValues>(normalizedInitialValues);
   const [status, setStatus] = useState<{
     type: 'success' | 'error';
@@ -392,7 +406,7 @@ export default function CarinForm({
           alwaysFloatLabel
           value={form.take}
           onChange={(e) => {
-            const selected = TAKE_OPTIONS.find(
+            const selected = userOptions.find(
               (opt) => opt.value === e.target.value,
             );
             setForm((prev) => ({
@@ -405,8 +419,8 @@ export default function CarinForm({
           <option value='' disabled>
             Kérlek válassz ki valakit!
           </option>
-          {TAKE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
+          {userOptions.map((option) => (
+            <option key={option.id} value={option.value}>
               {option.label}
             </option>
           ))}

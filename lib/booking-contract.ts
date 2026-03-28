@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache';
 
 import { getBookingById } from '@/data-service/bookings';
 import { db } from '@/lib/db';
-import { BOOKING_EMAIL_FROM, TAKE_OPTION_VALUES } from '@/lib/constants';
+import { BOOKING_EMAIL_FROM } from '@/lib/constants';
 import {
   BOOKING_FROM_ADDRESS,
   MAIL_USER,
@@ -265,11 +265,7 @@ export const finalizeBookingContract = async ({
   const trimmedSignerName = signerName.trim();
   const trimmedLessorSignerName = lessorSignerName.trim();
 
-  if (
-    !TAKE_OPTION_VALUES.includes(
-      trimmedLessorSignerName as (typeof TAKE_OPTION_VALUES)[number],
-    )
-  ) {
+  if (!trimmedLessorSignerName) {
     return { error: 'A bérbeadó kiválasztása kötelező.' };
   }
 

@@ -1,6 +1,7 @@
 import CarinForm from '@/components/carin-form';
 import { getBookingById } from '@/data-service/bookings';
 import { getVehicleById } from '@/data-service/cars';
+import { getAllUser } from '@/data-service/user';
 import { formatDate } from '@/lib/format/format-date';
 import { db } from '@/lib/db';
 
@@ -12,6 +13,7 @@ export default async function BookingReturnPage({
   const { id } = await params;
 
   const booking = await getBookingById(id);
+  const users = await getAllUser();
   const vehicle = await getVehicleById(booking?.assignedFleetVehicleId ?? '');
   const handoverOut =
     booking?.id && vehicle?.id
@@ -30,9 +32,7 @@ export default async function BookingReturnPage({
     <div className='flex h-full flex-col gap-6 p-6'>
       <div className='space-y-1'>
         <h1 className='text-2xl font-semibold tracking-tight'>Visszavétel</h1>
-        <p className='text-muted-foreground'>
-          Itt lesznek a visszavételhez kapcsolódó teendők és adatok.
-        </p>
+        <p className='text-muted-foreground'>{vehicle?.plate}</p>
       </div>
       <div className='rounded-xl border bg-card p-4 shadow-sm'>
         <p className='text-sm text-muted-foreground'>
@@ -55,6 +55,7 @@ export default async function BookingReturnPage({
         booking={booking}
         vehicle={vehicle}
         handoverOutMileage={handoverOut?.mileage ?? null}
+        users={users}
       />
     </div>
   );

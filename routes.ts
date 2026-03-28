@@ -17,11 +17,12 @@ export const publicApiRoutes = ['/api/user'];
  * @type {string[]}
  */
 export const authRoutes = [
-   '/auth/login',
-   '/auth/register',
-   '/auth/new-verification',
-   '/auth/reset',
-   '/auth/new-password',
+  '/auth/login',
+  '/auth/register',
+  '/auth/new-verification',
+  '/auth/reset',
+  '/auth/new-password',
+  '/create-new-user',
 ];
 
 /**

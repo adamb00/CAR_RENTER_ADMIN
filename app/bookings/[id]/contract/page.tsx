@@ -9,6 +9,7 @@ import {
 import { buildContractDataFromBooking } from '@/lib/contract-data';
 import { formatDate } from '@/lib/format/format-date';
 import Link from 'next/link';
+import { getAllUser } from '@/data-service/user';
 
 export default async function BookingContractPage({
   params,
@@ -17,6 +18,7 @@ export default async function BookingContractPage({
 }) {
   const { id } = await params;
   const booking = await getBookingById(id);
+  const admins = await getAllUser();
 
   if (!booking) {
     return (
@@ -102,6 +104,7 @@ export default async function BookingContractPage({
         </p>
       </div>
       <ContractForm
+        admins={admins}
         bookingId={booking.id}
         template={template}
         contractText={contractText}

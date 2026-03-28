@@ -31,6 +31,7 @@ export function BookingDetailsSection({
         <Input
           label='E-mail'
           type='email'
+          required
           value={formModel.form.contactEmail}
           onChange={(event) =>
             formModel.updateField('contactEmail', event.target.value)
@@ -43,6 +44,7 @@ export function BookingDetailsSection({
         />
         <Input
           label='Telefon'
+          required
           value={formModel.form.contactPhone}
           onChange={(event) =>
             formModel.updateField('contactPhone', event.target.value)
@@ -139,6 +141,7 @@ export function BookingDetailsSection({
           label='Bérlés vége'
           type='date'
           value={formModel.form.rentalEnd}
+          required
           onChange={(event) =>
             formModel.updateField('rentalEnd', event.target.value)
           }

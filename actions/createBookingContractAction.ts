@@ -3,12 +3,11 @@
 import { z } from 'zod';
 
 import { finalizeBookingContract } from '@/lib/booking-contract';
-import { TAKE_OPTION_VALUES } from '@/lib/constants';
 
 const createBookingContractSchema = z.object({
   bookingId: z.string().min(1),
   signerName: z.string().min(1),
-  lessorSignerName: z.enum(TAKE_OPTION_VALUES),
+  lessorSignerName: z.string().min(1),
   renterSignatureData: z.string().min(1),
   lessorSignatureData: z.string().min(1),
 });

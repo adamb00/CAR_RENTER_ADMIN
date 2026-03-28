@@ -619,19 +619,16 @@ export default async function BookingEditPage({
       normalized.payload?.assignedFleetVehicleId ??
       '',
   );
-  const contractData = buildContractDataFromBooking(normalized, vehicle);
-  const contractTemplate = buildContractTemplate(contractData, {
-    signedAt: new Date(),
-    locale: normalized.locale ?? normalized.payload?.locale ?? null,
-  });
-  const contractText = formatContractText(contractTemplate);
 
   return (
     <div className='flex h-full flex-col gap-6 p-6'>
       <div className='space-y-1 flex justify-between'>
-        <h1 className='text-2xl font-semibold tracking-tight'>
-          Foglalás módosítása
-        </h1>
+        <div className='flex flex-col gap-2'>
+          <h1 className='text-2xl font-semibold tracking-tight'>
+            {normalized.humanId} Foglalás módosítása
+          </h1>
+          <h2>{vehicle?.plate}</h2>
+        </div>
 
         <div className='flex flex-wrap gap-3'>
           {booking?.id && (bookingContract || bookingContractInvite) ? (

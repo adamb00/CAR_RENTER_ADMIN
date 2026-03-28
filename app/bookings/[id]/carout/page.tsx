@@ -1,6 +1,7 @@
 import CaroutForm from '@/components/carout-form';
 import { getBookingById } from '@/data-service/bookings';
 import { getVehicleById } from '@/data-service/cars';
+import { getAllUser } from '@/data-service/user';
 import { db } from '@/lib/db';
 import { formatDate } from '@/lib/format/format-date';
 import Link from 'next/link';
@@ -13,6 +14,7 @@ export default async function BookingIssuePage({
   const { id } = await params;
 
   const booking = await getBookingById(id);
+  const users = await getAllUser();
   const vehicle = await getVehicleById(booking?.assignedFleetVehicleId ?? '');
   const handoverOutRecord =
     booking?.id && vehicle?.id
@@ -46,9 +48,7 @@ export default async function BookingIssuePage({
       <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between'>
         <div className='space-y-1'>
           <h1 className='text-2xl font-semibold tracking-tight'>Kiadás</h1>
-          <p className='text-muted-foreground'>
-            Itt lesznek a kiadáshoz kapcsolódó teendők és adatok.
-          </p>
+          <p className='text-muted-foreground'>{vehicle?.plate}</p>
         </div>
         {booking?.id && (
           <Link
@@ -75,7 +75,12 @@ export default async function BookingIssuePage({
           </span>
         </p>
       </div>
-      <CaroutForm booking={booking} vehicle={vehicle} handoverOut={handoverOut} />
+      <CaroutForm
+        booking={booking}
+        vehicle={vehicle}
+        users={users}
+        handoverOut={handoverOut}
+      />
     </div>
   );
 }

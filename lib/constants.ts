@@ -124,22 +124,3 @@ export const STATUS_LABELS: Record<FleetStatus, string> = {
   reserved: 'Foglalt',
   maintenance: 'Szerviz',
 };
-
-export const TAKE_OPTION_VALUES = [
-  'Kis Róbert',
-  'Hidas Andrea',
-  'Orosz Tamás',
-  'Veress Gabriella',
-  'Kis Viktória',
-  'Kis Patrícia',
-] as const;
-
-export type TakeOptionValue = (typeof TAKE_OPTION_VALUES)[number];
-
-export const TAKE_OPTIONS: ReadonlyArray<{
-  value: TakeOptionValue;
-  label: TakeOptionValue;
-}> = TAKE_OPTION_VALUES.map((value) => ({
-  value,
-  label: value,
-}));
