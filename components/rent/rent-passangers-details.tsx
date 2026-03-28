@@ -9,6 +9,7 @@ export default function RentPassangersDetails({
   booking: Booking;
 }) {
   const { adults, children } = getRentDetails(booking);
+
   return (
     <Section title='Utasok'>
       <Detail label='Felnőttek' value={adults} />
@@ -26,6 +27,7 @@ export default function RentPassangersDetails({
                 <span className='text-sm text-foreground'>
                   {child.age != null ? `${child.age} év` : 'Életkor: —'}
                   {child.height != null ? ` • ${child.height} cm` : ''}
+                  {child.weight != null ? ` • ${child.weight} kg` : ''}
                 </span>
               </li>
             ))}

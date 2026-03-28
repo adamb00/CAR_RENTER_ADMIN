@@ -40,10 +40,25 @@ const toOptionalTrimmedString = (value: unknown): string | undefined => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
+const toOptionalBoolean = (value: unknown): boolean | undefined => {
+  if (typeof value === 'boolean') return value;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return undefined;
+};
+
 const firstString = (...values: unknown[]): string | undefined => {
   for (const value of values) {
     const normalized = toOptionalTrimmedString(value);
     if (normalized) return normalized;
+  }
+  return undefined;
+};
+
+const firstBoolean = (...values: unknown[]): boolean | undefined => {
+  for (const value of values) {
+    const normalized = toOptionalBoolean(value);
+    if (normalized !== undefined) return normalized;
   }
   return undefined;
 };
@@ -157,6 +172,7 @@ type BookingDeliveryDetailsRow = {
   departureFlight: string | null;
   arrivalHour: string | null;
   arrivalMinute: string | null;
+  same: boolean | null;
 };
 
 type BookingHandoverCostRow = {
@@ -232,7 +248,8 @@ export default async function BookingEditPage({
             "arrivalFlight",
             "departureFlight",
             "arrivalHour",
-            "arrivalMinute"
+            "arrivalMinute",
+            "same"
           FROM "BookingDeliveryDetails"
           WHERE "bookingId" = ${booking.id}::uuid
           LIMIT 1
@@ -585,6 +602,7 @@ export default async function BookingEditPage({
           deliveryDetails?.arrivalMinute,
           payloadDelivery?.arrivalMinute,
         ) ?? '',
+      same: firstBoolean(deliveryDetails?.same, payloadDelivery?.same) ?? false,
     },
     handoverCosts: effectiveHandoverCosts,
     vehicleHandovers: vehicleHandovers.map((row) => ({

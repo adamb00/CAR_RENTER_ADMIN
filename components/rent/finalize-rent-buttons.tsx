@@ -15,17 +15,15 @@ export default function FinalizeRentButtons({
   quote,
 }: FinalizeRentButtonsProps) {
   return (
-    <div className='flex w-full flex-col gap-3 sm:max-w-sm sm:items-end'>
-      <div className='flex gap-4'>
-        <ArchiveBookingButton
-          bookingCode={booking.humanId ?? booking.id}
-          bookingId={booking.id}
-        />
-        <DeleteBookingButton
-          bookingCode={booking.humanId ?? booking.id}
-          bookingId={booking.id}
-        />
-      </div>
+    <div className='flex w-full flex-wrap justify-end gap-3 sm:w-auto'>
+      <ArchiveBookingButton
+        bookingCode={booking.humanId ?? booking.id}
+        bookingId={booking.id}
+      />
+      <DeleteBookingButton
+        bookingCode={booking.humanId ?? booking.id}
+        bookingId={booking.id}
+      />
       <SendRejectButton
         bookingCode={booking.humanId ?? booking.id}
         bookingId={booking.id}

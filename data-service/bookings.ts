@@ -40,6 +40,7 @@ export type BookingDriver = {
 export type BookingChild = {
   age?: number;
   height?: number;
+  weight?: number;
 };
 
 export type BookingPricing = {
@@ -108,6 +109,7 @@ export type BookingPayload = {
     arrivalHour?: string;
     arrivalMinute?: string;
     address?: BookingAddress;
+    same?: boolean;
   };
   tax?: {
     id?: string;
@@ -289,6 +291,7 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
     Array.isArray(payload.children) && payload.children.length > 0
       ? payload.children.reduce<BookingChild[]>((acc, item) => {
           if (!isRecord(item)) return acc;
+
           const age =
             typeof item.age === 'number'
               ? item.age
@@ -302,7 +305,15 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
                   !Number.isNaN(Number(item.height))
                 ? Number(item.height)
                 : undefined;
-          acc.push({ age, height });
+          const weight =
+            typeof item.weight === 'number'
+              ? item.weight
+              : typeof item.weight === 'string' &&
+                  !Number.isNaN(Number(item.weight))
+                ? Number(item.weight)
+                : undefined;
+
+          acc.push({ age, height, weight });
           return acc;
         }, [])
       : undefined;
@@ -335,6 +346,7 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
         arrivalHour: toOptionalString(payload.delivery.arrivalHour),
         arrivalMinute: toOptionalString(payload.delivery.arrivalMinute),
         address: normalizeAddress(payload.delivery.address),
+        same: toOptionalBoolean(payload.delivery.same),
       }
     : undefined;
 
@@ -375,7 +387,8 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
       ferryCost: toOptionalString(value.ferryCost),
       cleaningCost: toOptionalString(value.cleaningCost),
       commissionCost:
-        toOptionalString(value.commissionCost) ?? toOptionalString(value.commission),
+        toOptionalString(value.commissionCost) ??
+        toOptionalString(value.commission),
     };
   };
 
@@ -586,6 +599,7 @@ type BookingDeliveryDetailsRow = {
   departureFlight: string | null;
   arrivalHour: string | null;
   arrivalMinute: string | null;
+  same: boolean | null;
 };
 
 type BookingHandoverCostRow = {
@@ -693,7 +707,8 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
             "arrivalFlight",
             "departureFlight",
             "arrivalHour",
-            "arrivalMinute"
+            "arrivalMinute",
+            "same"
           FROM "BookingDeliveryDetails"
           WHERE "bookingId" IN (${bookingIdsSql})
         `,
@@ -762,6 +777,7 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
       departureFlight: row.departureFlight ?? undefined,
       arrivalHour: row.arrivalHour ?? undefined,
       arrivalMinute: row.arrivalMinute ?? undefined,
+      same: row.same ?? undefined,
       address: row.addressLine
         ? ({ street: row.addressLine } as BookingAddress)
         : undefined,
@@ -1002,7 +1018,8 @@ const applyNormalizedStructuredFieldsByBookingId = ({
   return {
     pricing: withDeliveryLocationFallback(pricing, delivery),
     delivery,
-    deliveryIsland: islandByBookingId.get(bookingId) ?? delivery?.island ?? null,
+    deliveryIsland:
+      islandByBookingId.get(bookingId) ?? delivery?.island ?? null,
   };
 };
 
@@ -1014,7 +1031,10 @@ const applyRenterByBookingId = ({
   booking: Booking;
   renterByBookingId: Map<string, Booking['renter']>;
   renterIdByBookingId: Map<string, string | null>;
-}): Pick<Booking, 'renterId' | 'renter' | 'contactName' | 'contactEmail' | 'contactPhone'> => {
+}): Pick<
+  Booking,
+  'renterId' | 'renter' | 'contactName' | 'contactEmail' | 'contactPhone'
+> => {
   const renter = renterByBookingId.get(booking.id) ?? null;
   const contactName = booking.contactName.trim();
   const contactEmail = booking.contactEmail?.trim() ?? null;
@@ -1155,6 +1175,7 @@ export const getBookingById = async (id: string): Promise<Booking | null> => {
     deliveryByBookingId: normalizedPayloadParts.deliveryByBookingId,
     islandByBookingId: normalizedPayloadParts.islandByBookingId,
   });
+
   const normalized = {
     ...normalizedBase,
     ...normalizedFields,

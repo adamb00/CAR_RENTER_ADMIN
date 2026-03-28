@@ -115,7 +115,7 @@ export default function RentDriversDetails({ booking }: { booking: Booking }) {
                     label='Érvényesség vége'
                     value={
                       driver.document?.validUntil ? (
-                        <span className='gap-1 flex items-start xl:items-center flex-col xl:flex-row'>
+                        <span className='gap-1 flex items-start 2xl:items-center flex-col 2xl:flex-row'>
                           {formatDate(driver.document.validUntil, 'short')}
                           {expiryBadge(driver.document.validUntil, 'Okmány')}
                         </span>
@@ -155,7 +155,7 @@ export default function RentDriversDetails({ booking }: { booking: Booking }) {
                     label='Érvényesség vége'
                     value={
                       driver.document?.drivingLicenceValidUntil ? (
-                        <span className='gap-1 flex items-start xl:items-center flex-col xl:flex-row'>
+                        <span className='gap-1 flex items-start 2xl:items-center flex-col 2xl:flex-row'>
                           {formatDate(
                             driver.document.drivingLicenceValidUntil,
                             'short',

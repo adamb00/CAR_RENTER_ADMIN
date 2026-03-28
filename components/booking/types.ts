@@ -26,6 +26,7 @@ export type BookingDeliveryDetailsForm = {
   departureFlight: string;
   arrivalHour: string;
   arrivalMinute: string;
+  same: boolean;
 };
 
 export type BookingDriverForm = {

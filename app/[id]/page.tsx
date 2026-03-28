@@ -10,6 +10,7 @@ import RentPassangersDetails from '@/components/rent/rent-passangers-details';
 import RentPricingDetails from '@/components/rent/rent-pricing-details';
 import { getBookingById } from '@/data-service/bookings';
 import { getQuoteById } from '@/data-service/quotes';
+import Link from 'next/link';
 
 export default async function BookingDetailPage({
   params,
@@ -19,21 +20,30 @@ export default async function BookingDetailPage({
   const { id } = await params;
   const booking = await getBookingById(id);
   const quote = await getQuoteById(booking?.quoteId || '');
-
   if (!booking) {
     notFound();
   }
 
+  const hasExtra = booking.payload?.extras && booking.payload.extras.length > 0;
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
-      <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
-        <div className='space-y-1'>
-          <h1 className='text-2xl font-semibold tracking-tight'>Foglalás</h1>
-          <p className='text-muted-foreground'>
-            A foglalás részletes adatai és az esetleges ajánlatkérés kapcsolata.
-          </p>
+      <div className='flex flex-col gap-4'>
+        <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
+          <div className='space-y-1'>
+            <h1 className='text-2xl font-semibold tracking-tight'>Foglalás</h1>
+            <p className='text-muted-foreground'>
+              A foglalás részletes adatai és az esetleges ajánlatkérés
+              kapcsolata.
+            </p>
+            <Link
+              className='text-sm text-sky-700 hover:underline'
+              href={`/bookings/${booking.id}/edit`}
+            >
+              Tovabb a naptárhoz
+            </Link>
+          </div>
+          <FinalizeRentButtons booking={booking} quote={quote} />
         </div>
-        <FinalizeRentButtons booking={booking} quote={quote} />
       </div>
 
       <div className='space-y-4'>
@@ -49,7 +59,7 @@ export default async function BookingDetailPage({
 
         <RentDeliveryDetails booking={booking} />
 
-        <RentExtrasDetails booking={booking} />
+        {hasExtra && <RentExtrasDetails booking={booking} />}
       </div>
     </div>
   );

@@ -81,9 +81,9 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
     }));
   };
 
-  const updateDeliveryField = (
-    key: keyof BookingDeliveryDetailsForm,
-    value: string,
+  const updateDeliveryField = <K extends keyof BookingDeliveryDetailsForm>(
+    key: K,
+    value: BookingDeliveryDetailsForm[K],
   ) => {
     setForm((prev) => ({
       ...prev,
@@ -209,9 +209,17 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
       const hasPricingValues = Object.values(form.pricingSnapshot).some(
         (value) => value.trim().length > 0,
       );
-      const hasDeliveryValues = Object.values(form.deliveryDetails).some(
-        (value) => value.trim().length > 0,
-      );
+      const hasDeliveryValues =
+        [
+          form.deliveryDetails.placeType,
+          form.deliveryDetails.locationName,
+          form.deliveryDetails.addressLine,
+          form.deliveryDetails.island,
+          form.deliveryDetails.arrivalFlight,
+          form.deliveryDetails.departureFlight,
+          form.deliveryDetails.arrivalHour,
+          form.deliveryDetails.arrivalMinute,
+        ].some((value) => value.trim().length > 0) || form.deliveryDetails.same;
 
       const result = await updateBookingAdminAction({
         bookingId: form.id,
@@ -752,6 +760,16 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
               updateDeliveryField('arrivalMinute', event.target.value)
             }
           />
+          <FloatingSelect
+            label='Visszavétel helye megegyezik'
+            value={form.deliveryDetails.same ? 'true' : 'false'}
+            onChange={(event) =>
+              updateDeliveryField('same', event.target.value === 'true')
+            }
+          >
+            <option value='true'>Igen</option>
+            <option value='false'>Nem</option>
+          </FloatingSelect>
         </div>
       </div>
 
@@ -765,12 +783,12 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
         </p>
       )}
 
-      <div className='flex flex-wrap items-center gap-3'>
+      <div className='flex flex-wrap items-center justify-between gap-3'>
         <Button type='submit' disabled={isPending}>
           {isPending ? 'Mentés...' : 'Minden adat mentése'}
         </Button>
         <Button type='button' variant='outline' asChild disabled={isPending}>
-          <Link href={`/${form.id}`}>Vissza a foglaláshoz</Link>
+          <Link href={`/${form.id}`}>Tovább a foglalás részleteihez</Link>
         </Button>
       </div>
     </form>

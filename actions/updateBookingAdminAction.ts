@@ -75,6 +75,7 @@ type BookingDeliveryDetailsInput = {
   departureFlight?: unknown;
   arrivalHour?: unknown;
   arrivalMinute?: unknown;
+  same?: unknown;
 };
 
 type BookingContractInput = {
@@ -693,6 +694,7 @@ export const updateBookingAdminAction = async (
           toOptionalString(String(deliveryData.arrivalHour ?? '')) ?? null;
         const arrivalMinute =
           toOptionalString(String(deliveryData.arrivalMinute ?? '')) ?? null;
+        const same = toOptionalBoolean(deliveryData.same) ?? false;
         const island =
           normalizeDeliveryIsland(deliveryData.island) ??
           resolveDeliveryIsland({
@@ -713,6 +715,7 @@ export const updateBookingAdminAction = async (
             "departureFlight",
             "arrivalHour",
             "arrivalMinute",
+            "same",
             "updatedAt"
           )
           VALUES (
@@ -725,6 +728,7 @@ export const updateBookingAdminAction = async (
             ${departureFlight},
             ${arrivalHour},
             ${arrivalMinute},
+            ${same},
             timezone('utc'::text, now())
           )
           ON CONFLICT ("bookingId")
@@ -737,6 +741,7 @@ export const updateBookingAdminAction = async (
             "departureFlight" = EXCLUDED."departureFlight",
             "arrivalHour" = EXCLUDED."arrivalHour",
             "arrivalMinute" = EXCLUDED."arrivalMinute",
+            "same" = EXCLUDED."same",
             "updatedAt" = timezone('utc'::text, now())
         `;
       }

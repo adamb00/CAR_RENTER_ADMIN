@@ -1,13 +1,6 @@
 import type { BookingAddress } from '@/data-service/bookings';
 
-export const formatAddress = (address?: {
-  country?: string;
-  postalCode?: string;
-  city?: string;
-  street?: string;
-  streetType?: string;
-  doorNumber?: string;
-}) => {
+export const formatAddress = (address?: BookingAddress) => {
   if (!address) return '—';
   const parts = [
     address.country,
