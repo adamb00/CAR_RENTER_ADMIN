@@ -18,6 +18,7 @@ import {
 import { getStatusMeta } from '@/lib/status';
 import { cn } from '@/lib/utils';
 import { AlertTriangle } from 'lucide-react';
+import { CONTACT_STATUS_QUOTE_ACCEPTED } from '@/lib/constants';
 
 type QuoteRow = ContactQuote;
 
@@ -38,7 +39,7 @@ export default function QuotesTable({ data }: QuotesTableProps) {
         cell: ({ row }) => (
           <Link
             href={`/quotes/${row.original.id}`}
-            className='block'
+            className='block whitespace-nowrap'
             prefetch={false}
           >
             <div className='flex flex-col'>
@@ -57,7 +58,7 @@ export default function QuotesTable({ data }: QuotesTableProps) {
         cell: ({ row }) => (
           <Link
             href={`/quotes/${row.original.id}`}
-            className='block'
+            className='block text-xs'
             prefetch={false}
           >
             <div className='text-foreground'>{row.original.email || '—'}</div>
@@ -72,7 +73,7 @@ export default function QuotesTable({ data }: QuotesTableProps) {
         cell: ({ row }) => (
           <Link
             href={`/quotes/${row.original.id}`}
-            className='block whitespace-nowrap text-muted-foreground'
+            className='block text-xs whitespace-nowrap text-muted-foreground'
             prefetch={false}
           >
             {formatDatePeriod(row.original.rentalStart, row.original.rentalEnd)}
@@ -84,7 +85,7 @@ export default function QuotesTable({ data }: QuotesTableProps) {
         cell: ({ row }) => (
           <Link
             href={`/quotes/${row.original.id}`}
-            className='block text-muted-foreground'
+            className='block text-muted-foreground whitespace-nowrap'
             prefetch={false}
           >
             {(() => {
@@ -105,7 +106,7 @@ export default function QuotesTable({ data }: QuotesTableProps) {
         cell: ({ row }) => (
           <Link
             href={`/quotes/${row.original.id}`}
-            className='block text-muted-foreground'
+            className='block text-muted-foreground whitespace-nowrap text-xs'
             prefetch={false}
           >
             {row.original.carName
@@ -122,7 +123,7 @@ export default function QuotesTable({ data }: QuotesTableProps) {
         cell: ({ row }) => (
           <Link
             href={`/quotes/${row.original.id}`}
-            className='block whitespace-nowrap text-muted-foreground'
+            className='block whitespace-nowrap text-xs text-muted-foreground'
             prefetch={false}
           >
             {formatDate(row.original.createdAt, 'long')}
@@ -135,18 +136,19 @@ export default function QuotesTable({ data }: QuotesTableProps) {
         cell: ({ row }) => (
           <Link
             href={`/quotes/${row.original.id}`}
-            className='block whitespace-nowrap text-muted-foreground'
+            className='block whitespace-nowrap text-xs text-muted-foreground'
             prefetch={false}
           >
             {row.original.offerSent ? (
               <div className='flex flex-col gap-2'>
                 <div>{formatDate(row.original.offerSent, 'long')}</div>
-                <div className='text-xs'>
+                <div className='text-xs flex items-center gap-1'>
                   Eltelt idő:{' '}
                   {+formatElapsedSinceDate(row.original.offerSent).split(
                     ' ',
-                  )[0] >= 7 ? (
-                    <div>
+                  )[0] >= 7 &&
+                  row.original.status !== CONTACT_STATUS_QUOTE_ACCEPTED ? (
+                    <div className='flex items-center gap-1'>
                       <AlertTriangle className='h-3.5 w-3.5 text-rose-500' />
                       {formatElapsedSinceDate(row.original.offerSent)}
                     </div>
