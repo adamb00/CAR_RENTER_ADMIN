@@ -6,7 +6,10 @@ import { BookingAdminInitialData } from '@/components/booking/types';
 import { getBookingById } from '@/data-service/bookings';
 import { getVehicleById } from '@/data-service/cars';
 import { getArchivedBookingIdSet } from '@/lib/booking-archive';
-import { isCancelledBookingStatus } from '@/lib/booking-conflicts';
+import {
+  getAssignedFleetVehicleIdFromPayload,
+  isCancelledBookingStatus,
+} from '@/lib/booking-conflicts';
 import { buildContractDataFromBooking } from '@/lib/contract-data';
 import {
   buildContractTemplate,
@@ -388,12 +391,52 @@ export default async function BookingEditPage({
   const payloadRentalEnd = toPayloadDateInput(payloadRentalPeriod?.endDate);
 
   const effectiveCarId = firstString(booking.carid, payload?.carId) ?? '';
+  const effectiveAssignedFleetVehicleId =
+    booking.assignedFleetVehicleId ??
+    getAssignedFleetVehicleIdFromPayload(booking.payload);
   const effectiveRentalEnd =
     booking.rentalend ?? toUtcDateFromDateInput(payloadRentalEnd);
   let maxExtendableRentalEnd = '';
   let nextCarBookingCode = '';
 
-  if (effectiveCarId && effectiveRentalEnd) {
+  if (effectiveAssignedFleetVehicleId && effectiveRentalEnd) {
+    const nextFleetVehicleBookings = await db.rentRequests.findMany({
+      where: {
+        id: { not: booking.id },
+        rentalstart: {
+          not: null,
+          gt: effectiveRentalEnd,
+        },
+      },
+      select: {
+        id: true,
+        humanId: true,
+        rentalstart: true,
+        status: true,
+        assignedFleetVehicleId: true,
+        payload: true,
+      },
+      orderBy: { rentalstart: 'asc' },
+    });
+
+    const archivedIdSet = await getArchivedBookingIdSet(
+      nextFleetVehicleBookings.map((row) => row.id),
+    );
+    const nextBooking = nextFleetVehicleBookings.find(
+      (row) =>
+        !archivedIdSet.has(row.id) &&
+        !isCancelledBookingStatus(row.status) &&
+        (row.assignedFleetVehicleId ??
+          getAssignedFleetVehicleIdFromPayload(row.payload)) ===
+          effectiveAssignedFleetVehicleId &&
+        row.rentalstart,
+    );
+
+    if (nextBooking?.rentalstart) {
+      maxExtendableRentalEnd = toDateInputValue(nextBooking.rentalstart);
+      nextCarBookingCode = nextBooking.humanId ?? nextBooking.id;
+    }
+  } else if (effectiveCarId && effectiveRentalEnd) {
     const nextCarBookings = await db.rentRequests.findMany({
       where: {
         id: { not: booking.id },

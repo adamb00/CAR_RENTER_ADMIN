@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 import {
+  findFleetVehicleBookingConflict,
   findCarBookingConflict,
   formatDateForConflictMessage,
   getAssignedFleetPlateFromPayload,
@@ -250,6 +251,20 @@ export const updateBookingAdminAction = async (
       rentalend: true,
       assignedFleetVehicleId: true,
       assignedFleetPlate: true,
+      bookingDeliveryDetails: {
+        select: {
+          arrivalHour: true,
+          arrivalMinute: true,
+        },
+      },
+      vehicleHandovers: {
+        where: { direction: { in: ['out', 'in'] } },
+        select: {
+          direction: true,
+          handoverAt: true,
+        },
+        orderBy: { handoverAt: 'asc' },
+      },
     },
   });
   if (!booking) return { error: 'A foglalás nem található.' };
@@ -310,6 +325,7 @@ export const updateBookingAdminAction = async (
   const effectiveCarId = toOptionalString(input.carId) ?? booking.carid ?? null;
   const effectiveRentalStart = rentalStart ?? booking.rentalstart;
   const effectiveRentalEnd = rentalEnd ?? booking.rentalend;
+  const extensionFleetVehicleId = booking.assignedFleetVehicleId ?? null;
 
   if (booking.rentalend && !effectiveRentalEnd) {
     return { error: 'A bérlés vége nem törölhető.' };
@@ -321,21 +337,40 @@ export const updateBookingAdminAction = async (
     effectiveRentalEnd.getTime() > booking.rentalend.getTime(),
   );
 
-  if (isEndDateExtended && effectiveCarId && effectiveRentalEnd) {
-    const extensionConflictStart = booking.rentalend
-      ? addDays(booking.rentalend, 1)
-      : effectiveRentalStart;
-
-    if (!extensionConflictStart) {
+  if (isEndDateExtended && effectiveRentalEnd) {
+    if (!effectiveRentalStart) {
       return { error: 'A bérlés kezdő dátuma hiányzik.' };
     }
 
-    const conflictingBooking = await findCarBookingConflict({
-      bookingIdToExclude: bookingId,
-      carId: effectiveCarId,
-      rentalStart: extensionConflictStart,
-      rentalEnd: effectiveRentalEnd,
-    });
+    const handoverOutAt =
+      booking.vehicleHandovers.find((handover) => handover.direction === 'out')
+        ?.handoverAt ?? null;
+    const handoverInAt =
+      [...booking.vehicleHandovers]
+        .reverse()
+        .find((handover) => handover.direction === 'in')?.handoverAt ?? null;
+
+    const conflictingBooking = extensionFleetVehicleId
+      ? await findFleetVehicleBookingConflict({
+          bookingIdToExclude: bookingId,
+          fleetVehicleId: extensionFleetVehicleId,
+          rentalStart: effectiveRentalStart,
+          rentalEnd: effectiveRentalEnd,
+          arrivalHour: booking.bookingDeliveryDetails?.arrivalHour ?? null,
+          arrivalMinute: booking.bookingDeliveryDetails?.arrivalMinute ?? null,
+          handoverOutAt,
+          handoverInAt,
+        })
+      : effectiveCarId
+        ? await findCarBookingConflict({
+            bookingIdToExclude: bookingId,
+            carId: effectiveCarId,
+            rentalStart: booking.rentalend
+              ? addDays(booking.rentalend, 1)
+              : effectiveRentalStart,
+            rentalEnd: effectiveRentalEnd,
+          })
+        : null;
 
     if (conflictingBooking) {
       const conflictLabel = conflictingBooking.humanId ?? conflictingBooking.id;
