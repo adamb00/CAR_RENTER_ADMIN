@@ -389,7 +389,7 @@ export default function CaroutForm({
 
   return (
     <div>
-      <div className='grid md:grid-cols-3 w-full gap-4 mb-6'>
+      <div className='grid xl:grid-cols-3 w-full gap-4 mb-6'>
         <Detail label='Foglaló neve' value={booking?.contactName} />
         <Detail label='E-mail' value={booking?.contactEmail} />
         <Detail label='Telefonszám' value={booking?.contactPhone} />
