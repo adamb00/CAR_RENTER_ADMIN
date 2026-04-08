@@ -9,40 +9,28 @@ export const getSummaryRows = (
   monthData: Awaited<ReturnType<typeof getCurrentMonthAnalitycs>>,
 ) => [
   {
-    label: 'Átvitt napok',
-    value: `${formatNumber(monthData.totals.carriedDays)} nap`,
-    description:
-      "A foglalás sorok 'Átvitt' oszlopának összege. Az átnyúló hónaprészből származó napokat mutatja.",
-  },
-  {
-    label: 'Bérleti napok',
-    value: `${formatNumber(monthData.totals.totalRentalDays)} nap`,
-    description:
-      "A foglalás sorok 'Nap' oszlopának összege. Soronként: Nap = Aktuális + Átvitt.",
-  },
-  {
     label: 'Bérleti díj',
     value: formatMoney(monthData.totals.rentalFee),
     description:
-      'A foglalások bérleti díjainak összege (rentalFee), elsősorban a foglalás pricing adataiból.',
+      'A kiválasztott hónap pénzügyi bevétele: normál fizetésnél a hónapban induló foglalások bérleti díja, előre utalásnál a fizetés hónapjához kötve.',
   },
   {
     label: 'Biztosítás',
     value: formatMoney(monthData.totals.insurance),
     description:
-      'A biztosítási díjak összege a foglalások alapján (pricing/ajánlat adatokból).',
+      'Csak azoknak a foglalásoknak a biztosítási díja, amelyek pénzügyileg ebbe a hónapba tartoznak.',
   },
   {
     label: 'Kiszállítás',
     value: formatMoney(monthData.totals.delivery),
     description:
-      'A kiszállítási díjak összege a foglalások pricing vagy ajánlat adataiból.',
+      'Csak azoknak a foglalásoknak a kiszállítási díja, amelyek pénzügyileg ebbe a hónapba tartoznak.',
   },
   {
     label: 'Levonás / Jatt',
     value: formatMoney(monthData.totals.tip),
     description:
-      'Levonásként kezelt tétel: kiadáskor rögzített jatt (handoverTip), vagy tip/discount mezők összege.',
+      'A kiválasztott hónapban rögzített jatt és jutalék összege a BookingHandoverCosts tábla alapján, a /costs oldal havi szűrésével egyezően.',
   },
   {
     label: 'Szerviz',
@@ -54,19 +42,19 @@ export const getSummaryRows = (
     label: 'Tankolás',
     value: formatMoney(monthData.totals.fuelCost),
     description:
-      'Kiadás és visszavétel során rögzített tankolás költségek összege (handoverCosts.out/in.fuelCost).',
+      'A kiválasztott hónapban rögzített tankolás költségek összege a BookingHandoverCosts tábla alapján, a /costs oldal havi szűrésével egyezően.',
   },
   {
     label: 'Komp',
     value: formatMoney(monthData.totals.ferryCost),
     description:
-      'Kiadás és visszavétel során rögzített komp költségek összege (handoverCosts.out/in.ferryCost).',
+      'A kiválasztott hónapban rögzített komp költségek összege a BookingHandoverCosts tábla alapján, a /costs oldal havi szűrésével egyezően.',
   },
   {
     label: 'Takarítás',
     value: formatMoney(monthData.totals.cleaningCost),
     description:
-      'Kiadás és visszavétel során rögzített takarítás költségek összege (handoverCosts.out/in.cleaningCost).',
+      'A kiválasztott hónapban rögzített takarítás költségek összege a BookingHandoverCosts tábla alapján, a /costs oldal havi szűrésével egyezően.',
   },
   {
     label: 'Bevétel',
@@ -79,7 +67,7 @@ export const getSummaryRows = (
     label: 'Effektív napok',
     value: `${formatNumber(monthData.totals.effectiveDays)} nap`,
     description:
-      'Jelenleg a bérleti napokkal azonos mutató, a teljes kihasznált napmennyiséget jelzi.',
+      "A kiválasztott hónapra ténylegesen eső bérleti napok összege. Az átnyúló foglalások csak itt, a kihasználtság számításában jelennek meg.",
   },
   {
     label: 'Havi kapacitás',

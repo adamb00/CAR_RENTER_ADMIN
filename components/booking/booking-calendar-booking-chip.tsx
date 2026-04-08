@@ -177,6 +177,9 @@ export function BookingCalendarBookingChip({
             {booking.rentalEnd ?? '—'}
           </div>
           <div>
+            <strong>Bérelt napok:</strong> {booking.rentalDays ?? '—'}
+          </div>
+          <div>
             <strong>Érkezés:</strong> {booking.arrival ?? '—'}
           </div>
           <div>

@@ -19,12 +19,12 @@ type PageSearchParams = Record<string, string | string[] | undefined>;
 export default async function AnalyticsPage({
   searchParams,
 }: {
-  searchParams?: PageSearchParams | Promise<PageSearchParams>;
+  searchParams?: Promise<PageSearchParams>;
 }) {
   let monthData: Awaited<ReturnType<typeof getCurrentMonthAnalitycs>>;
 
   try {
-    const resolvedSearchParams = await Promise.resolve(searchParams);
+    const resolvedSearchParams = await searchParams;
     const monthParamRaw = resolvedSearchParams?.month;
     const monthParam = Array.isArray(monthParamRaw)
       ? monthParamRaw[0]

@@ -140,6 +140,7 @@ export type BookingCalendarBooking = {
   deliveryIsland?: string | null;
   pricing?: BookingPricing | null;
   arrival?: string;
+  rentalDays?: number;
 };
 
 export type BookingCalendarVehicle = {

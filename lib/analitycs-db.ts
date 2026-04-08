@@ -13,6 +13,7 @@ type BookingPricingSnapshotRow = {
   insurance: string | null;
   deliveryFee: string | null;
   tip: string | null;
+  createdAt: Date;
 };
 
 type BookingHandoverCostRow = {
@@ -20,6 +21,12 @@ type BookingHandoverCostRow = {
   direction: 'out' | 'in' | null;
   costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
   amount: unknown;
+  createdAt: Date;
+};
+
+type MonthHandoverCostTotalRow = {
+  costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
+  total: unknown;
 };
 
 export type AnalitycsBookingRow = {
@@ -167,7 +174,11 @@ const parseIsoDateUtc = (value: string): Date | null => {
   const year = Number.parseInt(yearText, 10);
   const month = Number.parseInt(monthText, 10);
   const day = Number.parseInt(dayText, 10);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day)
+  ) {
     return null;
   }
   return new Date(Date.UTC(year, month - 1, day));
@@ -192,7 +203,8 @@ const parseFleetServiceCostsFromNotes = (
         const rawServiceFee = entry.serviceFee;
         if (
           rawServiceFee == null ||
-          (typeof rawServiceFee === 'string' && rawServiceFee.trim().length === 0)
+          (typeof rawServiceFee === 'string' &&
+            rawServiceFee.trim().length === 0)
         ) {
           return null;
         }
@@ -246,25 +258,6 @@ const overlapDays = (
     rangeEnd.getTime() < monthEnd.getTime() ? rangeEnd : monthEnd;
 
   return daysInclusive(effectiveStart, effectiveEnd);
-};
-
-const daysBeforeMonth = (
-  rangeStart: Date,
-  rangeEnd: Date,
-  monthStart: Date,
-): number => {
-  const previousMonthEnd = new Date(
-    Date.UTC(
-      monthStart.getUTCFullYear(),
-      monthStart.getUTCMonth(),
-      monthStart.getUTCDate() - 1,
-    ),
-  );
-
-  const effectiveEnd =
-    rangeEnd.getTime() < previousMonthEnd.getTime() ? rangeEnd : previousMonthEnd;
-
-  return daysInclusive(rangeStart, effectiveEnd);
 };
 
 const daysAfterMonth = (
@@ -393,6 +386,9 @@ const resolvePlate = ({
 const toMonthKey = (value: Date) =>
   `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}`;
 
+const isDateWithinMonth = (value: Date, monthStart: Date, monthEnd: Date) =>
+  value.getTime() >= monthStart.getTime() && value.getTime() <= monthEnd.getTime();
+
 const resolveMonthReference = (
   reference: Date,
   monthKey?: string | null,
@@ -409,7 +405,10 @@ const resolveMonthReference = (
   return new Date(Date.UTC(year, month, 1));
 };
 
-const getMonthBoundsUtc = (reference = new Date(), monthKey?: string | null) => {
+const getMonthBoundsUtc = (
+  reference = new Date(),
+  monthKey?: string | null,
+) => {
   const resolvedReference = resolveMonthReference(reference, monthKey);
   const year = resolvedReference.getUTCFullYear();
   const month = resolvedReference.getUTCMonth();
@@ -433,8 +432,13 @@ const getMonthBoundsUtc = (reference = new Date(), monthKey?: string | null) => 
 export async function getCurrentMonthAnalitycs(
   monthKey?: string | null,
 ): Promise<AnalitycsMonthData> {
-  const { monthKey: resolvedMonthKey, monthStart, monthEnd, daysInMonth, monthLabel } =
-    getMonthBoundsUtc(new Date(), monthKey);
+  const {
+    monthKey: resolvedMonthKey,
+    monthStart,
+    monthEnd,
+    daysInMonth,
+    monthLabel,
+  } = getMonthBoundsUtc(new Date(), monthKey);
   const monthEndExclusive = new Date(
     Date.UTC(
       monthEnd.getUTCFullYear(),
@@ -446,8 +450,18 @@ export async function getCurrentMonthAnalitycs(
   const [bookings, monthQuotes] = await Promise.all([
     db.rentRequests.findMany({
       where: {
-        rentalstart: { lte: monthEnd },
-        rentalend: { gte: monthStart },
+        OR: [
+          {
+            rentalstart: { lte: monthEnd },
+            rentalend: { gte: monthStart },
+          },
+          {
+            createdAt: {
+              gte: monthStart,
+              lt: monthEndExclusive,
+            },
+          },
+        ],
       },
       select: {
         id: true,
@@ -459,6 +473,12 @@ export async function getCurrentMonthAnalitycs(
         payload: true,
         rentalstart: true,
         rentalend: true,
+        createdAt: true,
+        renter: {
+          select: {
+            paymentMethod: true,
+          },
+        },
         ContactQuotes: {
           select: {
             bookingRequestData: true,
@@ -515,9 +535,10 @@ export async function getCurrentMonthAnalitycs(
   const archivedBookings = bookings.filter((booking) =>
     archivedBookingIdSet.has(booking.id),
   );
-  const activeRegisteredBookingsFromOffers = registeredBookingsFromOffers.filter(
-    (booking) => !archivedBookingIdSet.has(booking.id),
-  );
+  const activeRegisteredBookingsFromOffers =
+    registeredBookingsFromOffers.filter(
+      (booking) => !archivedBookingIdSet.has(booking.id),
+    );
 
   const convertedQuoteIds = new Set(
     activeRegisteredBookingsFromOffers
@@ -539,8 +560,13 @@ export async function getCurrentMonthAnalitycs(
     ),
   );
 
-  const [cars, fleetVehicles, pricingSnapshots, handoverCostRows] =
-    await Promise.all([
+  const [
+    cars,
+    fleetVehicles,
+    pricingSnapshots,
+    handoverCostRows,
+    monthHandoverCostTotals,
+  ] = await Promise.all([
     carIds.length
       ? db.car.findMany({
           where: { id: { in: carIds } },
@@ -552,50 +578,57 @@ export async function getCurrentMonthAnalitycs(
       orderBy: { plate: 'asc' },
     }),
     bookingIds.length
-      ? db.$queryRaw<BookingPricingSnapshotRow[]>(
-          Prisma.sql`
+      ? db
+          .$queryRaw<BookingPricingSnapshotRow[]>(
+            Prisma.sql`
             SELECT
               "bookingId",
               "rentalFee",
               "insurance",
               "deliveryFee",
-              "tip"
+              "tip",
+              "createdAt"
             FROM "BookingPricingSnapshots"
             WHERE "bookingId" IN (${Prisma.join(
               bookingIds.map((id) => Prisma.sql`${id}::uuid`),
             )})
           `,
-        ).catch(() => [])
+          )
+          .catch(() => [])
       : Promise.resolve([]),
     bookingIds.length
-      ? db.$queryRaw<BookingHandoverCostRow[]>(
-          Prisma.sql`
+      ? db
+          .$queryRaw<BookingHandoverCostRow[]>(
+            Prisma.sql`
             SELECT
               "bookingId",
               "direction",
               "costType",
-              "amount"
-            FROM (
-              SELECT DISTINCT ON ("bookingId", "direction", "costType")
-                "bookingId",
-                "direction",
-                "costType",
-                "amount"
-              FROM "BookingHandoverCosts"
-              WHERE "bookingId" IN (${Prisma.join(
-                bookingIds.map((id) => Prisma.sql`${id}::uuid`),
-              )})
-              ORDER BY
-                "bookingId" ASC,
-                "direction" ASC,
-                "costType" ASC,
-                "updatedAt" DESC,
-                "createdAt" DESC,
-                "id" DESC
-            ) latest_costs
+              "amount",
+              "createdAt"
+            FROM "BookingHandoverCosts"
+            WHERE "bookingId" IN (${Prisma.join(
+              bookingIds.map((id) => Prisma.sql`${id}::uuid`),
+            )})
+              AND "createdAt" >= ${monthStart}
+              AND "createdAt" < ${monthEndExclusive}
           `,
-        ).catch(() => [])
+          )
+          .catch(() => [])
       : Promise.resolve([]),
+    db
+      .$queryRaw<MonthHandoverCostTotalRow[]>(
+        Prisma.sql`
+        SELECT
+          "costType",
+          SUM("amount") AS "total"
+        FROM "BookingHandoverCosts"
+        WHERE "createdAt" >= ${monthStart}
+          AND "createdAt" < ${monthEndExclusive}
+        GROUP BY "costType"
+      `,
+      )
+      .catch(() => []),
   ]);
 
   const pricingByBookingId = new Map(
@@ -642,19 +675,13 @@ export async function getCurrentMonthAnalitycs(
         monthEnd,
       );
 
-      if (currentMonthDays <= 0) {
-        return [];
-      }
-
-      const previousMonthDays = daysBeforeMonth(rentalStart, rentalEnd, monthStart);
-      const nextMonthDays = daysAfterMonth(rentalStart, rentalEnd, monthEnd);
-
-      // Ha előző hónapból csúszik át, akkor az "aktuális" az előző hónap része,
-      // az "átvitt" pedig a kiválasztott hónapba áthozott rész.
-      // Egyébként az "aktuális" a kiválasztott hónap része, az "átvitt" pedig a következő hónap.
-      const activeDays = previousMonthDays > 0 ? previousMonthDays : currentMonthDays;
-      const carriedDays = previousMonthDays > 0 ? currentMonthDays : nextMonthDays;
-      const totalRentalDays = activeDays + carriedDays;
+      const nextMonthDays =
+        currentMonthDays > 0
+          ? daysAfterMonth(rentalStart, rentalEnd, monthEnd)
+          : 0;
+      const carriedDays = nextMonthDays;
+      const totalRentalDays = currentMonthDays + carriedDays;
+      const fullRentalDays = daysInclusive(rentalStart, rentalEnd);
 
       const payloadPricing =
         isRecord(booking.payload) && isRecord(booking.payload.pricing)
@@ -662,6 +689,25 @@ export async function getCurrentMonthAnalitycs(
           : null;
       const snapshotPricing = pricingByBookingId.get(booking.id) ?? null;
       const pricingSource = snapshotPricing ?? payloadPricing;
+      const paymentMethod =
+        booking.renter?.paymentMethod ??
+        (isRecord(booking.payload) && isRecord(booking.payload.consents)
+          ? toTrimmedString(booking.payload.consents.paymentMethod)
+          : undefined);
+      const isAdvanceTransfer = paymentMethod === 'advance_transfer';
+      const financialReferenceDate = isAdvanceTransfer
+        ? (snapshotPricing?.createdAt ?? booking.createdAt)
+        : rentalStart;
+      const includeFinancialsInMonth = isDateWithinMonth(
+        toDateOnlyUtc(financialReferenceDate),
+        monthStart,
+        monthEnd,
+      );
+
+      if (currentMonthDays <= 0 && !includeFinancialsInMonth) {
+        return [];
+      }
+
       const payloadTip = isRecord(booking.payload)
         ? booking.payload.handoverTip
         : null;
@@ -677,15 +723,24 @@ export async function getCurrentMonthAnalitycs(
         payloadHandoverCosts && isRecord(payloadHandoverCosts.in)
           ? payloadHandoverCosts.in
           : null;
+      const payloadCommission =
+        parseAmount(payloadOutCosts?.commissionCost) +
+        parseAmount(payloadOutCosts?.commission) +
+        parseAmount(payloadInCosts?.commissionCost) +
+        parseAmount(payloadInCosts?.commission);
       const bookingHandoverCosts =
         handoverCostsByBookingId.get(booking.id) ?? [];
       const handoverCostsMap = new Map<string, number>();
       for (const handoverCost of bookingHandoverCosts) {
         const directionKey = handoverCost.direction ?? 'none';
         const key = `${directionKey}:${handoverCost.costType}`;
-        handoverCostsMap.set(key, parseAmount(handoverCost.amount));
+        const previousAmount = handoverCostsMap.get(key) ?? 0;
+        handoverCostsMap.set(
+          key,
+          previousAmount + parseAmount(handoverCost.amount),
+        );
       }
-      const hasHandoverCostRows = handoverCostsMap.size > 0;
+      const hasMonthHandoverCostRows = handoverCostsMap.size > 0;
       const getHandoverCostTotal = (
         costType: BookingHandoverCostRow['costType'],
       ) =>
@@ -721,35 +776,46 @@ export async function getCurrentMonthAnalitycs(
           : Boolean(normalizedInsurance);
 
       const insurance = hasInsurance ? parseAmount(normalizedInsurance) : 0;
-      const hasTipCostRow =
-        handoverCostsMap.has('out:tip') || handoverCostsMap.has('none:tip');
-      const tipFromCosts =
-        (handoverCostsMap.get('out:tip') ?? 0) +
-        (handoverCostsMap.get('none:tip') ?? 0);
+      const deductionFromCosts =
+        getHandoverCostTotal('tip') + getHandoverCostTotal('commission');
+
+      const hasDeductionCostRow =
+        handoverCostsMap.has('out:tip') ||
+        handoverCostsMap.has('in:tip') ||
+        handoverCostsMap.has('none:tip') ||
+        handoverCostsMap.has('out:commission') ||
+        handoverCostsMap.has('in:commission') ||
+        handoverCostsMap.has('none:commission');
 
       const tip = parseAmount(
-        hasTipCostRow
-          ? tipFromCosts
-          : payloadTip ??
+        hasDeductionCostRow
+          ? deductionFromCosts
+          : (payloadTip ??
               pricingSource?.tip ??
               quotePricing?.tip ??
+              (payloadCommission > 0 ? payloadCommission : null) ??
               payloadPricing?.discount ??
-              quotePricing?.discount,
+              quotePricing?.discount),
       );
-      const fuelCost = hasHandoverCostRows
+      const fuelCost = hasMonthHandoverCostRows
         ? getHandoverCostTotal('fuel')
         : parseAmount(payloadOutCosts?.fuelCost) +
           parseAmount(payloadInCosts?.fuelCost);
-      const ferryCost = hasHandoverCostRows
+      const ferryCost = hasMonthHandoverCostRows
         ? getHandoverCostTotal('ferry')
         : parseAmount(payloadOutCosts?.ferryCost) +
           parseAmount(payloadInCosts?.ferryCost);
-      const cleaningCost = hasHandoverCostRows
+      const cleaningCost = hasMonthHandoverCostRows
         ? getHandoverCostTotal('cleaning')
         : parseAmount(payloadOutCosts?.cleaningCost) +
           parseAmount(payloadInCosts?.cleaningCost);
 
-      const revenue = rentalFee + insurance + delivery - tip;
+      const financialRentalFee = includeFinancialsInMonth ? rentalFee : 0;
+      const financialInsurance = includeFinancialsInMonth ? insurance : 0;
+      const financialDelivery = includeFinancialsInMonth ? delivery : 0;
+      const financialTip = includeFinancialsInMonth ? tip : 0;
+      const revenue =
+        financialRentalFee + financialInsurance + financialDelivery - financialTip;
 
       const assignedFleetVehicleId =
         toTrimmedString(booking.assignedFleetVehicleId) ??
@@ -775,7 +841,7 @@ export async function getCurrentMonthAnalitycs(
       });
 
       const dailyFee: NumericCellValue =
-        totalRentalDays > 0 ? rentalFee / totalRentalDays : '#DIV/0!';
+        fullRentalDays > 0 ? rentalFee / fullRentalDays : '#DIV/0!';
 
       return [
         {
@@ -788,12 +854,12 @@ export async function getCurrentMonthAnalitycs(
           rentalEnd: toIsoDate(rentalEnd),
           rentalDays: totalRentalDays,
           carriedDays,
-          currentMonthDays: activeDays,
+          currentMonthDays,
           dailyFee,
-          rentalFee,
-          insurance,
-          delivery,
-          tip,
+          rentalFee: financialRentalFee,
+          insurance: financialInsurance,
+          delivery: financialDelivery,
+          tip: financialTip,
           fuelCost,
           ferryCost,
           cleaningCost,
@@ -813,6 +879,7 @@ export async function getCurrentMonthAnalitycs(
   const totals = rows.reduce(
     (acc, row) => {
       acc.carriedDays += row.carriedDays;
+      acc.currentMonthDays += row.currentMonthDays;
       acc.totalRentalDays += row.rentalDays;
       acc.rentalFee += row.rentalFee;
       acc.insurance += row.insurance;
@@ -826,6 +893,7 @@ export async function getCurrentMonthAnalitycs(
     },
     {
       carriedDays: 0,
+      currentMonthDays: 0,
       totalRentalDays: 0,
       rentalFee: 0,
       insurance: 0,
@@ -838,14 +906,33 @@ export async function getCurrentMonthAnalitycs(
     },
   );
 
-  const effectiveDays = totals.totalRentalDays;
+  const effectiveDays = totals.currentMonthDays;
   const daysPerCar = daysInMonth;
   const monthCapacity = fleetCars * daysPerCar - fleetCars * 4;
+  const monthHandoverTotals = monthHandoverCostTotals.reduce(
+    (acc, row) => {
+      acc[row.costType] += parseAmount(row.total);
+      return acc;
+    },
+    {
+      tip: 0,
+      fuel: 0,
+      ferry: 0,
+      cleaning: 0,
+      commission: 0,
+    },
+  );
+  const tipTotal = monthHandoverTotals.tip + monthHandoverTotals.commission;
+  const fuelCostTotal = monthHandoverTotals.fuel;
+  const ferryCostTotal = monthHandoverTotals.ferry;
+  const cleaningCostTotal = monthHandoverTotals.cleaning;
+  const revenue =
+    totals.rentalFee + totals.insurance + totals.delivery - tipTotal;
   const utilization =
     monthCapacity > 0 ? effectiveDays / (monthCapacity / 100) : 0;
   const service = monthServiceCosts;
-  const expense = service + totals.fuelCost + totals.ferryCost + totals.cleaningCost;
-  const result = totals.revenue - expense;
+  const expense = service + fuelCostTotal + ferryCostTotal + cleaningCostTotal;
+  const result = revenue - expense;
   const activeCount = rowsWithoutIndex.length;
   const archivedCount = archivedRowsWithoutIndex.length;
   const totalBookings = activeCount + archivedCount;
@@ -922,7 +1009,7 @@ export async function getCurrentMonthAnalitycs(
       totalBookings,
       activeCount,
       archivedCount,
-      activeRevenue: totals.revenue,
+      activeRevenue: revenue,
       archivedRevenue,
       archivedShare,
     },
@@ -935,6 +1022,11 @@ export async function getCurrentMonthAnalitycs(
     },
     totals: {
       ...totals,
+      tip: tipTotal,
+      fuelCost: fuelCostTotal,
+      ferryCost: ferryCostTotal,
+      cleaningCost: cleaningCostTotal,
+      revenue,
       effectiveDays,
       fleetCars,
       daysPerCar,
