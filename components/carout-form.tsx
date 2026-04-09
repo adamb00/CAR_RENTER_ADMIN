@@ -18,6 +18,7 @@ import {
 } from '@/lib/fleet-places';
 import { formatAddress } from '@/lib/format/format-address';
 import { formatArrivalTime } from '@/lib/format/format-date';
+import { PricingBreakdown } from '@/hooks/use-rental-pricing';
 
 const emptyForm = {
   take: '',
@@ -38,6 +39,7 @@ const emptyForm = {
 
 type CaroutFormProps = {
   booking: Booking | null;
+  pricing?: PricingBreakdown | null;
   vehicle: FleetVehicle | null;
   users: Pick<User, 'id' | 'name'>[];
   handoverOut?: {
@@ -77,6 +79,7 @@ const toTimeInputValue = (value?: string | null) => {
 
 export default function CaroutForm({
   booking,
+  pricing,
   vehicle,
   users,
   handoverOut,
@@ -397,33 +400,25 @@ export default function CaroutForm({
       <div className='grid md:grid-cols-4 w-full gap-4 mb-6'>
         <Detail
           label='Bérlési díj'
-          value={
-            booking?.pricing?.rentalFee
-              ? `${booking.pricing.rentalFee} €`
-              : null
-          }
+          value={pricing?.rentalFee ? `${pricing.rentalFee} €` : null}
         />
         <Detail
           label='Biztosítás'
-          value={
-            booking?.pricing?.insurance
-              ? `${booking.pricing.insurance} €`
-              : 'Nem kértek'
-          }
+          value={pricing?.insurance ? `${pricing.insurance} €` : 'Nem kértek'}
         />
         <Detail
           label='Kaució'
           value={
-            booking?.pricing?.deposit ? `${booking.pricing.deposit} €` : '0 €'
+            pricing?.insurance
+              ? '0 €'
+              : pricing?.deposit
+                ? `${pricing.deposit} €`
+                : '0 €'
           }
         />
         <Detail
           label='Kiszállási díj'
-          value={
-            booking?.pricing?.deliveryFee
-              ? `${booking.pricing.deliveryFee} €`
-              : '0 €'
-          }
+          value={pricing?.deliveryFee ? `${pricing.deliveryFee} €` : '0 €'}
         />
       </div>
       <div className='grid gap-4 mb-6 md:grid-cols-3'>

@@ -136,6 +136,47 @@ export default async function AnalyticsPage({
 
           <div>
             <h2 className='mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
+              Havi költségbontás
+            </h2>
+            <div className='overflow-x-auto rounded-lg border'>
+              <table className='min-w-full text-sm'>
+                <thead className='bg-muted/40 text-left'>
+                  <tr>
+                    <th className='px-3 py-2 font-medium'>Típus</th>
+                    <th className='px-3 py-2 font-medium'>Kategória</th>
+                    <th className='px-3 py-2 text-right font-medium'>Összeg</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthData.totals.costBreakdown.length === 0 ? (
+                    <tr>
+                      <td
+                        className='px-3 py-4 text-muted-foreground'
+                        colSpan={3}
+                      >
+                        Nincs rögzített költség erre a hónapra.
+                      </td>
+                    </tr>
+                  ) : (
+                    monthData.totals.costBreakdown.map((item) => (
+                      <tr key={`${item.category}:${item.slug}`} className='border-t'>
+                        <td className='px-3 py-2 font-medium'>{item.label}</td>
+                        <td className='px-3 py-2 text-muted-foreground'>
+                          {item.category === 'deduction' ? 'Levonás' : 'Költség'}
+                        </td>
+                        <td className='px-3 py-2 text-right'>
+                          {formatMoney(item.total)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h2 className='mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
               Autónkénti bontás
             </h2>
             <div className='overflow-x-auto rounded-lg border'>
@@ -227,8 +268,6 @@ export default async function AnalyticsPage({
                   <tr>
                     <th className='px-3 py-2 font-medium'>#</th>
                     <th className='px-3 py-2 font-medium'>Foglalás</th>
-                    <th className='px-3 py-2 font-medium'>Státusz</th>
-                    <th className='px-3 py-2 font-medium'>Autó</th>
                     <th className='px-3 py-2 font-medium'>Rendszám</th>
                     <th className='px-3 py-2 font-medium'>Kezdés</th>
                     <th className='px-3 py-2 font-medium'>Vége</th>
@@ -252,6 +291,7 @@ export default async function AnalyticsPage({
                     <th className='px-3 py-2 font-medium text-right'>
                       Levonás
                     </th>
+                    <th className='px-3 py-2 font-medium'>Költségek</th>
                     <th className='px-3 py-2 font-medium text-right'>
                       Bevétel
                     </th>
@@ -262,7 +302,7 @@ export default async function AnalyticsPage({
                     <tr>
                       <td
                         className='px-3 py-4 text-muted-foreground'
-                        colSpan={16}
+                        colSpan={15}
                       >
                         Nincs foglalás az aktuális hónapban.
                       </td>
@@ -274,15 +314,11 @@ export default async function AnalyticsPage({
                         <td className='px-3 py-2 font-medium'>
                           {row.bookingCode}
                         </td>
-                        <td className='px-3 py-2'>
-                          {getStatusMeta(row.status).label}
-                        </td>
-                        <td className='px-3 py-2'>{row.carLabel}</td>
                         <td className='px-3 py-2'>{row.plate}</td>
                         <td className='px-3 py-2'>{row.rentalStart}</td>
                         <td className='px-3 py-2'>{row.rentalEnd}</td>
                         <td className='px-3 py-2 text-right'>
-                          {formatNumber(row.rentalDays)}
+                          {formatNumber(row.fullRentalDays)}
                         </td>
                         <td className='px-3 py-2 text-right'>
                           {formatNumber(row.currentMonthDays)}
@@ -304,6 +340,25 @@ export default async function AnalyticsPage({
                         </td>
                         <td className='px-3 py-2 text-right'>
                           {formatMoney(row.tip)}
+                        </td>
+                        <td className='px-3 py-2'>
+                          {row.costBreakdown.length === 0 ? (
+                            <span className='text-muted-foreground'>-</span>
+                          ) : (
+                            <div className='space-y-1'>
+                              {row.costBreakdown.map((item) => (
+                                <div
+                                  key={`${row.bookingId}:${item.category}:${item.slug}`}
+                                  className='flex items-center justify-between gap-3 whitespace-nowrap'
+                                >
+                                  <span className='text-muted-foreground'>
+                                    {item.label}
+                                  </span>
+                                  <span>{formatMoney(item.total)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </td>
                         <td className='px-3 py-2 text-right font-semibold'>
                           {formatMoney(row.revenue)}

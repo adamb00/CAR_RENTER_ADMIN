@@ -33,10 +33,11 @@ const normalizePricing = (
   input?: PricingInput
 ): BookingPayload['pricing'] | undefined => {
   if (!input) return undefined;
+  const insurance = sanitizeValue(input.insurance);
   const normalized = {
     rentalFee: sanitizeValue(input.rentalFee),
-    insurance: sanitizeValue(input.insurance),
-    deposit: sanitizeValue(input.deposit),
+    insurance,
+    deposit: insurance ? '0' : sanitizeValue(input.deposit),
     deliveryFee: sanitizeValue(input.deliveryFee),
     extrasFee: sanitizeValue(input.extrasFee),
   };

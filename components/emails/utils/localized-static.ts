@@ -2,6 +2,8 @@ export const LOCALIZED_STATIC: Record<
   string,
   {
     rentalFeeLabel: string;
+    originalPriceLabel: string;
+    discountedPriceLabel: string;
     depositLabel: string;
     insuranceLabel: string;
     insuranceNote: string;
@@ -17,10 +19,13 @@ export const LOCALIZED_STATIC: Record<
     deliveryNote: string;
     carImagesLabel: string;
     offerLabel: string;
+    priceAppliesToCarsText: (count: number) => string;
   }
 > = {
   en: {
     rentalFeeLabel: 'Rental fee',
+    originalPriceLabel: 'Original price',
+    discountedPriceLabel: 'Discounted price',
     depositLabel: 'Deposit',
     insuranceLabel: 'Full coverage insurance',
     insuranceNote: 'If you choose full coverage, no deposit is required.',
@@ -37,9 +42,13 @@ export const LOCALIZED_STATIC: Record<
       'You can request delivery to your preferred location (e.g. airport or hotel).',
     carImagesLabel: 'Car photos',
     offerLabel: 'Offer',
+    priceAppliesToCarsText: (count) =>
+      `The displayed price applies to ${count} ${count === 1 ? 'car' : 'cars'}.`,
   },
   hu: {
     rentalFeeLabel: 'Bérleti díj',
+    originalPriceLabel: 'Eredeti ár',
+    discountedPriceLabel: 'Kedvezményes ár',
     depositLabel: 'Kaució',
     insuranceLabel: 'Teljes körű biztosítás',
     insuranceNote:
@@ -57,9 +66,13 @@ export const LOCALIZED_STATIC: Record<
       'Kérheted az autó kiszállítását a választott helyszínre (pl. reptérre vagy szállásra).',
     carImagesLabel: 'Autó fotói',
     offerLabel: 'Ajánlat',
+    priceAppliesToCarsText: (count) =>
+      `A feltüntetett ár ${count} autóra vonatkozik.`,
   },
   de: {
     rentalFeeLabel: 'Mietpreis',
+    originalPriceLabel: 'Originalpreis',
+    discountedPriceLabel: 'Aktionspreis',
     depositLabel: 'Kaution',
     insuranceLabel: 'Vollkaskoversicherung',
     insuranceNote: 'Wenn Sie Vollkasko wählen, ist keine Kaution nötig.',
@@ -78,9 +91,13 @@ export const LOCALIZED_STATIC: Record<
       'Du kannst das Auto an deinen Wunschort liefern lassen (z. B. Flughafen oder Unterkunft).',
     carImagesLabel: 'Fahrzeugfotos',
     offerLabel: 'Angebot',
+    priceAppliesToCarsText: (count) =>
+      `Der angezeigte Preis gilt für ${count} ${count === 1 ? 'Auto' : 'Autos'}.`,
   },
   ro: {
     rentalFeeLabel: 'Taxă de închiriere',
+    originalPriceLabel: 'Preț original',
+    discountedPriceLabel: 'Preț redus',
     depositLabel: 'Depozit',
     insuranceLabel: 'Asigurare completă',
     insuranceNote:
@@ -99,9 +116,13 @@ export const LOCALIZED_STATIC: Record<
       'Poți solicita livrarea mașinii la locația dorită (de ex. aeroport sau cazare).',
     carImagesLabel: 'Fotografii ale mașinii',
     offerLabel: 'Ofertă',
+    priceAppliesToCarsText: (count) =>
+      `Prețul afișat se aplică pentru ${count} ${count === 1 ? 'mașină' : 'mașini'}.`,
   },
   fr: {
     rentalFeeLabel: 'Frais de location',
+    originalPriceLabel: 'Prix original',
+    discountedPriceLabel: 'Prix remisé',
     depositLabel: 'Caution',
     insuranceLabel: 'Assurance tous risques',
     insuranceNote:
@@ -120,9 +141,13 @@ export const LOCALIZED_STATIC: Record<
       "Vous pouvez demander la livraison de la voiture à l'endroit de votre choix (ex. aéroport ou hébergement).",
     carImagesLabel: 'Photos du véhicule',
     offerLabel: 'Offre',
+    priceAppliesToCarsText: (count) =>
+      `Le prix indiqué s'applique à ${count} ${count === 1 ? 'voiture' : 'voitures'}.`,
   },
   es: {
     rentalFeeLabel: 'Tarifa de alquiler',
+    originalPriceLabel: 'Precio original',
+    discountedPriceLabel: 'Precio con descuento',
     depositLabel: 'Depósito',
     insuranceLabel: 'Seguro a todo riesgo',
     insuranceNote: 'Si eliges cobertura total, no se requiere depósito.',
@@ -139,9 +164,13 @@ export const LOCALIZED_STATIC: Record<
       'Puedes solicitar la entrega del coche en el lugar que prefieras (p. ej., aeropuerto o alojamiento).',
     carImagesLabel: 'Fotos del vehículo',
     offerLabel: 'Oferta',
+    priceAppliesToCarsText: (count) =>
+      `El precio mostrado corresponde a ${count} ${count === 1 ? 'coche' : 'coches'}.`,
   },
   it: {
     rentalFeeLabel: 'Tariffa di noleggio',
+    originalPriceLabel: 'Prezzo originale',
+    discountedPriceLabel: 'Prezzo scontato',
     depositLabel: 'Deposito',
     insuranceLabel: 'Assicurazione completa',
     insuranceNote: 'Se scegli la copertura completa, non è richiesto deposito.',
@@ -158,9 +187,13 @@ export const LOCALIZED_STATIC: Record<
       "Puoi richiedere la consegna dell'auto nel luogo che preferisci (es. aeroporto o alloggio).",
     carImagesLabel: "Foto dell'auto",
     offerLabel: 'Offerta',
+    priceAppliesToCarsText: (count) =>
+      `Il prezzo indicato si riferisce a ${count} ${count === 1 ? 'auto' : 'auto'}.`,
   },
   sk: {
     rentalFeeLabel: 'Prenájomné',
+    originalPriceLabel: 'Pôvodná cena',
+    discountedPriceLabel: 'Zľavnená cena',
     depositLabel: 'Kaucia',
     insuranceLabel: 'Komplexné poistenie',
     insuranceNote: 'Ak zvolíte komplexné poistenie, kaucia nie je potrebná.',
@@ -177,9 +210,13 @@ export const LOCALIZED_STATIC: Record<
       'Môžeš si vyžiadať doručenie auta na zvolené miesto (napr. letisko alebo ubytovanie).',
     carImagesLabel: 'Fotky vozidla',
     offerLabel: 'Ponuka',
+    priceAppliesToCarsText: (count) =>
+      `Uvedená cena platí pre ${count} ${count === 1 ? 'auto' : 'autá'}.`,
   },
   cz: {
     rentalFeeLabel: 'Nájemné',
+    originalPriceLabel: 'Původní cena',
+    discountedPriceLabel: 'Zvýhodněná cena',
     depositLabel: 'Kauce',
     insuranceLabel: 'Komplexní pojištění',
     insuranceNote: 'Pokud zvolíte plné pojištění, kauce není potřeba.',
@@ -196,9 +233,13 @@ export const LOCALIZED_STATIC: Record<
       'Auto si můžete nechat doručit na vámi zvolené místo (např. letiště nebo ubytování).',
     carImagesLabel: 'Fotografie vozu',
     offerLabel: 'Nabídka',
+    priceAppliesToCarsText: (count) =>
+      `Uvedená cena platí pro ${count} ${count === 1 ? 'auto' : 'auta'}.`,
   },
   se: {
     rentalFeeLabel: 'Hyresavgift',
+    originalPriceLabel: 'Ordinarie pris',
+    discountedPriceLabel: 'Rabatterat pris',
     depositLabel: 'Deposition',
     insuranceLabel: 'Heltäckande försäkring',
     insuranceNote: 'Väljer du heltäckande försäkring behövs ingen deposition.',
@@ -215,9 +256,13 @@ export const LOCALIZED_STATIC: Record<
       'Du kan be om leverans till valfri plats (t.ex. flygplats eller boende).',
     carImagesLabel: 'Bilfoton',
     offerLabel: 'Erbjudande',
+    priceAppliesToCarsText: (count) =>
+      `Det angivna priset gäller för ${count} ${count === 1 ? 'bil' : 'bilar'}.`,
   },
   no: {
     rentalFeeLabel: 'Leiepris',
+    originalPriceLabel: 'Opprinnelig pris',
+    discountedPriceLabel: 'Rabattert pris',
     depositLabel: 'Depositum',
     insuranceLabel: 'Full kaskoforsikring',
     insuranceNote: 'Velger du full dekning, trengs ikke depositum.',
@@ -234,9 +279,13 @@ export const LOCALIZED_STATIC: Record<
       'Du kan be om levering til ønsket sted (f.eks. flyplass eller overnatting).',
     carImagesLabel: 'Bilbilder',
     offerLabel: 'Tilbud',
+    priceAppliesToCarsText: (count) =>
+      `Prisen som er oppgitt gjelder for ${count} ${count === 1 ? 'bil' : 'biler'}.`,
   },
   dk: {
     rentalFeeLabel: 'Lejepris',
+    originalPriceLabel: 'Oprindelig pris',
+    discountedPriceLabel: 'Rabatpris',
     depositLabel: 'Depositum',
     insuranceLabel: 'Fuld kaskoforsikring',
     insuranceNote:
@@ -254,9 +303,13 @@ export const LOCALIZED_STATIC: Record<
       'Du kan bede om levering til det ønskede sted (f.eks. lufthavn eller overnatning).',
     carImagesLabel: 'Bilfotos',
     offerLabel: 'Tilbud',
+    priceAppliesToCarsText: (count) =>
+      `Den viste pris gælder for ${count} ${count === 1 ? 'bil' : 'biler'}.`,
   },
   pl: {
     rentalFeeLabel: 'Opłata za wynajem',
+    originalPriceLabel: 'Cena pierwotna',
+    discountedPriceLabel: 'Cena promocyjna',
     depositLabel: 'Kaucja',
     insuranceLabel: 'Pełne ubezpieczenie',
     insuranceNote:
@@ -274,5 +327,7 @@ export const LOCALIZED_STATIC: Record<
       'Możesz poprosić o dostawę auta pod wskazany adres (np. lotnisko lub nocleg).',
     carImagesLabel: 'Zdjęcia samochodu',
     offerLabel: 'Oferta',
+    priceAppliesToCarsText: (count) =>
+      `Podana cena dotyczy ${count} ${count === 1 ? 'samochodu' : 'samochodów'}.`,
   },
 };

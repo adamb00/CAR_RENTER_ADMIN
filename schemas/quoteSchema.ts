@@ -5,6 +5,7 @@ import z from 'zod';
 const offerSchema = z.object({
   carId: z.string().min(1, 'Autó kiválasztása kötelező'),
   rentalFee: optionalPrice,
+  discountedRentalFee: optionalPrice,
   deposit: optionalPrice,
   insurance: optionalPrice,
   deliveryFee: optionalPrice,
@@ -27,6 +28,7 @@ export const quoteSendSchema = z
     newPhone: z.string().default(''),
     newRentalStart: z.string().default(''),
     newRentalEnd: z.string().default(''),
+    newCars: z.string().default('1'),
     newCarId: z.string().default(''),
     offers: z.array(offerSchema).min(1, 'Legalább egy ajánlat szükséges'),
   })
@@ -51,6 +53,7 @@ export const quoteSendSchema = z
 
     const newEmail = values.newEmail.trim();
     const newPhone = values.newPhone.trim();
+    const newCars = values.newCars.trim();
 
     if (!values.newName.trim()) {
       ctx.addIssue({
@@ -80,6 +83,23 @@ export const quoteSendSchema = z
         message: 'Telefonszám kötelező',
         path: ['newPhone'],
       });
+    }
+
+    if (!newCars) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Autók száma kötelező',
+        path: ['newCars'],
+      });
+    } else {
+      const parsedCars = Number(newCars);
+      if (!Number.isInteger(parsedCars) || parsedCars <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Pozitív egész autószám szükséges',
+          path: ['newCars'],
+        });
+      }
     }
 
     if (

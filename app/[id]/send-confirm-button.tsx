@@ -20,13 +20,16 @@ import {
 import type { Booking } from '@/data-service/bookings';
 import type { ContactQuote } from '@/data-service/quotes';
 import { useSendConfirmState } from '@/hooks/use-send-confirm-state';
+import type { UserOptionSource } from '@/lib/user-options';
 
 type SendConfirmButtonProps = {
+  users: UserOptionSource[];
   booking: Booking;
   quote: ContactQuote | null;
 };
 
 export const SendConfirmButton = ({
+  users,
   booking,
   quote,
 }: SendConfirmButtonProps) => {
@@ -97,6 +100,7 @@ export const SendConfirmButton = ({
             saved={saved}
             deliveryDetailsRequired={deliveryDetailsRequired}
             deliverySaved={deliverySaved}
+            users={users}
           />
         </div>
       </SheetContent>

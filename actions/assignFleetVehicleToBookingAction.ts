@@ -20,14 +20,30 @@ import {
 type AssignFleetVehicleInput = {
   bookingId: string;
   fleetVehicleId: string | null;
+  slotIndex?: number | null;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+const toRequiredCars = (payload: unknown) => {
+  if (!isRecord(payload)) return 1;
+  const rawValue = payload.cars;
+  const parsed =
+    typeof rawValue === 'number'
+      ? rawValue
+      : typeof rawValue === 'string'
+        ? Number(rawValue)
+        : NaN;
+
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.max(1, Math.floor(parsed));
+};
+
 export async function assignFleetVehicleToBookingAction({
   bookingId,
   fleetVehicleId,
+  slotIndex,
 }: AssignFleetVehicleInput) {
   const trimmedBookingId = bookingId?.trim();
   if (!trimmedBookingId) {
@@ -57,6 +73,24 @@ export async function assignFleetVehicleToBookingAction({
         },
         orderBy: { handoverAt: 'asc' },
       },
+      bookingFleetAssignments: {
+        select: {
+          id: true,
+          slotIndex: true,
+          fleetVehicleId: true,
+          fleetVehicle: {
+            select: {
+              id: true,
+              carId: true,
+              plate: true,
+              notes: true,
+            },
+          },
+        },
+        orderBy: {
+          slotIndex: 'asc',
+        },
+      },
     },
   });
 
@@ -68,29 +102,70 @@ export async function assignFleetVehicleToBookingAction({
   if (isRecord(booking.payload)) {
     payload = { ...booking.payload };
   }
+  const requiredCars = toRequiredCars(booking.payload);
+  const normalizedSlotIndex =
+    slotIndex == null ? 0 : Math.max(0, Math.floor(slotIndex));
+
+  if (normalizedSlotIndex >= requiredCars) {
+    return { error: 'A kiválasztott autóigény slot érvénytelen.' };
+  }
 
   if (!fleetVehicleId) {
-    delete payload.assignedFleetVehicleId;
-    delete payload.assignedFleetPlate;
+    await db.$transaction(async (tx) => {
+      await tx.bookingFleetAssignment.deleteMany({
+        where: {
+          bookingId: trimmedBookingId,
+          slotIndex: normalizedSlotIndex,
+        },
+      });
 
-    const data: Prisma.RentRequestsUpdateInput = {
-      carid: null,
-      assignedFleetVehicleId: null,
-      assignedFleetPlate: null,
-      payload: payload as Prisma.InputJsonValue,
-    };
+      const remainingAssignments = await tx.bookingFleetAssignment.findMany({
+        where: {
+          bookingId: trimmedBookingId,
+        },
+        include: {
+          fleetVehicle: {
+            select: {
+              carId: true,
+              plate: true,
+            },
+          },
+        },
+        orderBy: {
+          slotIndex: 'asc',
+        },
+      });
 
-    if (booking.status === RENT_STATUS_REGISTERED) {
-      data.status = RENT_STATUS_ACCEPTED;
-      data.updatedAt = new Date();
-    }
+      const primaryAssignment = remainingAssignments[0] ?? null;
+      if (primaryAssignment) {
+        payload.assignedFleetVehicleId = primaryAssignment.fleetVehicleId;
+        payload.assignedFleetPlate = primaryAssignment.fleetVehicle.plate;
+        payload.carId = primaryAssignment.fleetVehicle.carId;
+      } else {
+        delete payload.assignedFleetVehicleId;
+        delete payload.assignedFleetPlate;
+        delete payload.carId;
+      }
 
-    await db.rentRequests.update({
-      where: { id: trimmedBookingId },
-      data,
+      const data: Prisma.RentRequestsUpdateInput = {
+        carid: primaryAssignment?.fleetVehicle.carId ?? null,
+        assignedFleetVehicleId: primaryAssignment?.fleetVehicleId ?? null,
+        assignedFleetPlate: primaryAssignment?.fleetVehicle.plate ?? null,
+        payload: payload as Prisma.InputJsonValue,
+      };
+
+      if (!primaryAssignment && booking.status === RENT_STATUS_REGISTERED) {
+        data.status = RENT_STATUS_ACCEPTED;
+        data.updatedAt = new Date();
+      }
+
+      await tx.rentRequests.update({
+        where: { id: trimmedBookingId },
+        data,
+      });
     });
     revalidatePath('/calendar');
-    return { success: 'Flotta autó törölve a foglalásból.' };
+    return { success: 'Flotta autó törölve a foglalás slotból.' };
   }
 
   const fleetVehicle = await db.fleetVehicle.findUnique({
@@ -100,6 +175,18 @@ export async function assignFleetVehicleToBookingAction({
 
   if (!fleetVehicle) {
     return { error: 'A választott flotta autó nem található.' };
+  }
+
+  if (
+    booking.bookingFleetAssignments.some(
+      (assignment) =>
+        assignment.slotIndex !== normalizedSlotIndex &&
+        assignment.fleetVehicleId === fleetVehicleId,
+    )
+  ) {
+    return {
+      error: 'Ez a flotta autó már hozzá van rendelve a foglalás egy másik slotjához.',
+    };
   }
 
   if (booking.rentalstart && booking.rentalend) {
@@ -149,30 +236,68 @@ export async function assignFleetVehicleToBookingAction({
     }
   }
 
-  payload = {
-    ...payload,
-    carId: fleetVehicle.carId,
-    assignedFleetVehicleId: fleetVehicle.id,
-    assignedFleetPlate: fleetVehicle.plate,
-  };
+  await db.$transaction(async (tx) => {
+    await tx.bookingFleetAssignment.upsert({
+      where: {
+        bookingId_slotIndex: {
+          bookingId: trimmedBookingId,
+          slotIndex: normalizedSlotIndex,
+        },
+      },
+      update: {
+        fleetVehicleId: fleetVehicle.id,
+        updatedAt: new Date(),
+      },
+      create: {
+        bookingId: trimmedBookingId,
+        slotIndex: normalizedSlotIndex,
+        fleetVehicleId: fleetVehicle.id,
+      },
+    });
 
-  const data: Prisma.RentRequestsUpdateInput = {
-    carid: fleetVehicle.carId,
-    assignedFleetVehicleId: fleetVehicle.id,
-    assignedFleetPlate: fleetVehicle.plate,
-    payload: payload as Prisma.InputJsonValue,
-  };
+    const allAssignments = await tx.bookingFleetAssignment.findMany({
+      where: {
+        bookingId: trimmedBookingId,
+      },
+      include: {
+        fleetVehicle: {
+          select: {
+            carId: true,
+            plate: true,
+          },
+        },
+      },
+      orderBy: {
+        slotIndex: 'asc',
+      },
+    });
 
-  if (booking.status !== RENT_STATUS_REGISTERED) {
-    data.status = RENT_STATUS_REGISTERED;
-    data.updatedAt = new Date();
-  }
+    const primaryAssignment = allAssignments[0];
+    payload = {
+      ...payload,
+      carId: primaryAssignment?.fleetVehicle.carId,
+      assignedFleetVehicleId: primaryAssignment?.fleetVehicleId,
+      assignedFleetPlate: primaryAssignment?.fleetVehicle.plate,
+    };
 
-  await db.rentRequests.update({
-    where: { id: trimmedBookingId },
-    data,
+    const data: Prisma.RentRequestsUpdateInput = {
+      carid: primaryAssignment?.fleetVehicle.carId ?? null,
+      assignedFleetVehicleId: primaryAssignment?.fleetVehicleId ?? null,
+      assignedFleetPlate: primaryAssignment?.fleetVehicle.plate ?? null,
+      payload: payload as Prisma.InputJsonValue,
+    };
+
+    if (booking.status !== RENT_STATUS_REGISTERED) {
+      data.status = RENT_STATUS_REGISTERED;
+      data.updatedAt = new Date();
+    }
+
+    await tx.rentRequests.update({
+      where: { id: trimmedBookingId },
+      data,
+    });
   });
 
   revalidatePath('/calendar');
-  return { success: 'Flotta autó hozzárendelve a foglaláshoz.' };
+  return { success: 'Flotta autó hozzárendelve a foglalás slotjához.' };
 }

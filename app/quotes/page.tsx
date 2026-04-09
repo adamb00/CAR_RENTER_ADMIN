@@ -2,8 +2,10 @@ import { getQuotes } from '@/data-service/quotes';
 import { db } from '@/lib/db';
 import { SendQuoteButton } from './send-quote-button';
 import QuotesTable from './quotes-table';
+import { getAllUser } from '@/data-service/user';
 
 export default async function QuotesPage() {
+  const users = await getAllUser();
   const [quotes, cars] = await Promise.all([
     getQuotes(),
     db.car.findMany({
@@ -29,6 +31,7 @@ export default async function QuotesPage() {
     rentalStart: quote.rentalStart ?? null,
     rentalEnd: quote.rentalEnd ?? null,
     carId: quote.carId ?? null,
+    cars: quote.cars ?? null,
   }));
 
   const carOptions = cars.map((car) => ({
@@ -50,7 +53,11 @@ export default async function QuotesPage() {
               Itt jelennek meg az érkező megkeresések.
             </p>
           </div>
-          <SendQuoteButton quotes={quoteOptions} carOptions={carOptions} />
+          <SendQuoteButton
+            quotes={quoteOptions}
+            carOptions={carOptions}
+            users={users}
+          />
         </div>
         <div className='flex flex-1 items-center justify-center rounded-lg border border-dashed p-12 text-muted-foreground'>
           Még nincs beérkezett ajánlatkérés.
@@ -70,7 +77,11 @@ export default async function QuotesPage() {
             Ajánlat küldése e-mailen vagy WhatsAppon.
           </p>
         </div>
-        <SendQuoteButton quotes={quoteOptions} carOptions={carOptions} />
+        <SendQuoteButton
+          quotes={quoteOptions}
+          carOptions={carOptions}
+          users={users}
+        />
       </div>
 
       <QuotesTable data={quotes} />

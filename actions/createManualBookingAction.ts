@@ -16,6 +16,7 @@ import {
   DELIVERY_ISLAND_LANZAROTE,
   resolveDeliveryIsland,
 } from '@/lib/delivery-island';
+import { DefaultHandoverCostTypeSlug } from '@/lib/handover-cost-types';
 import { getNextHumanId } from '@/lib/human-id';
 
 type OptionalBooleanInput = boolean | 'true' | 'false' | '' | null | undefined;
@@ -508,7 +509,7 @@ export async function createManualBookingAction({
 
   const handoverCostRows: Array<{
     direction: 'out';
-    costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
+    costType: DefaultHandoverCostTypeSlug;
     amount: number;
   }> = [
     ...(handoverCostsData.tip != null
@@ -785,6 +786,7 @@ export async function createManualBookingAction({
                 "bookingId",
                 "direction",
                 "costType",
+                "customCostTypeSlug",
                 "amount",
                 "updatedAt"
               )
@@ -792,6 +794,7 @@ export async function createManualBookingAction({
                 ${createdBooking.id}::uuid,
                 CAST(${row.direction} AS "HandoverDirection"),
                 CAST(${row.costType} AS "HandoverCostType"),
+                NULL,
                 ${row.amount},
                 timezone('utc'::text, now())
               )

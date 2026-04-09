@@ -28,15 +28,27 @@ import {
 } from '@/components/ui/sheet';
 import { LOCALE_LABELS, SUPPORTED_LOCALE_CODES } from '@/lib/constants';
 import {
+  formatAdminOfferCarsScope,
+  resolveOfferCarsCount,
+} from '@/lib/offer-car-count';
+import {
   isSupportedLocale,
   QuoteSendFormInputs,
   QuoteSendFormValues,
   quoteSendSchema,
 } from '@/schemas/quoteSchema';
+import { resolveOfferRentalPricing } from '@/lib/quote-offer-pricing';
 import { useRouter } from 'next/navigation';
 import { SendQuoteButtonProps } from './types';
+import { FloatingSelect } from '@/components/ui/floating-select';
+import { getAllUser } from '@/data-service/user';
+import { getUserOptions } from '@/lib/user-options';
 
-export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
+export function SendQuoteButton({
+  quotes,
+  carOptions,
+  users,
+}: SendQuoteButtonProps) {
   const [status, setStatus] = useState<{
     type: 'success' | 'error';
     message: string;
@@ -45,6 +57,8 @@ export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const monthIndex = new Date().getMonth();
+
+  const userOptions = getUserOptions(users);
 
   const form = useForm<QuoteSendFormInputs, any, QuoteSendFormValues>({
     resolver: zodResolver(quoteSendSchema),
@@ -63,11 +77,13 @@ export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
       newPhone: '',
       newRentalStart: '',
       newRentalEnd: '',
+      newCars: '1',
       newCarId: '',
       offers: [
         {
           carId: quotes[0]?.carId ?? '',
           rentalFee: '',
+          discountedRentalFee: '',
           deposit: '',
           insurance: '',
           deliveryFee: '',
@@ -98,10 +114,17 @@ export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
   const selectedSendLocale = form.watch('sendLocale');
   const newEmail = form.watch('newEmail');
   const newPhone = form.watch('newPhone');
+  const newCars = form.watch('newCars');
   const newCarId = form.watch('newCarId');
   const selectedQuote = selectedQuoteId
     ? quotesById.get(selectedQuoteId)
     : null;
+  const selectedQuoteCarsCount = resolveOfferCarsCount(selectedQuote?.cars);
+  const newQuoteCarsCount = resolveOfferCarsCount(newCars);
+  const effectiveCarsCount =
+    selectedQuoteMode === 'existing'
+      ? selectedQuoteCarsCount ?? 1
+      : newQuoteCarsCount ?? 1;
 
   useEffect(() => {
     if (selectedQuoteMode !== 'existing' || !selectedQuote?.carId) return;
@@ -206,11 +229,14 @@ export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
     startTransition(async () => {
       const offers = values.offers.map((offer) => {
         const car = carsById.get(offer.carId);
+        const pricing = resolveOfferRentalPricing(offer);
         return {
           carId: offer.carId,
           carName: car?.label ?? null,
           carImages: car?.images ?? [],
+          appliesToCars: effectiveCarsCount,
           rentalFee: offer.rentalFee ?? undefined,
+          discountedRentalFee: pricing.discountedRentalFee ?? undefined,
           deposit: offer.deposit ?? undefined,
           insurance: offer.insurance ?? undefined,
           deliveryFee: offer.deliveryFee ?? undefined,
@@ -232,6 +258,7 @@ export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
         locale: string;
         rentalStart?: string;
         rentalEnd?: string;
+        cars?: string;
       } | null =
         values.quoteMode === 'existing'
           ? {
@@ -242,6 +269,7 @@ export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
               locale: normalizedLocale,
               rentalStart: existingQuote!.rentalStart ?? undefined,
               rentalEnd: existingQuote!.rentalEnd ?? undefined,
+              cars: existingQuote!.cars ?? undefined,
             }
           : null;
 
@@ -253,6 +281,7 @@ export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
           locale: normalizedLocale,
           rentalStart: values.newRentalStart,
           rentalEnd: values.newRentalEnd,
+          cars: values.newCars,
           preferredChannel: effectiveChannel,
           carId: values.newCarId || offers[0]?.carId || undefined,
         });
@@ -274,6 +303,7 @@ export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
           locale: created.quote.locale ?? normalizedLocale,
           rentalStart: created.quote.rentalStart ?? undefined,
           rentalEnd: created.quote.rentalEnd ?? undefined,
+          cars: created.quote.cars ?? values.newCars,
         };
       }
 
@@ -528,6 +558,7 @@ export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
                   Időszak: {selectedQuote.rentalStart ?? '—'} →{' '}
                   {selectedQuote.rentalEnd ?? '—'}
                 </div>
+                <div>Autók száma: {selectedQuoteCarsCount ?? 1}</div>
               </div>
             )}
 
@@ -612,6 +643,27 @@ export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={form.control}
+                  name='newCars'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input
+                          type='number'
+                          inputMode='numeric'
+                          min='1'
+                          step='1'
+                          label='Autók száma'
+                          placeholder='pl. 2'
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
             )}
 
@@ -636,12 +688,23 @@ export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <Input
-                      type='text'
+                    <FloatingSelect
                       label='Aláíró neve'
-                      placeholder='pl. Kiss Péter'
-                      {...field}
-                    />
+                      alwaysFloatLabel
+                      required
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                    >
+                      <option value='' disabled>
+                        Kérlek válassz ki valakit!
+                      </option>
+                      {userOptions.map((option) => (
+                        <option key={option.id} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </FloatingSelect>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -746,6 +809,10 @@ export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
                         </p>
                       )}
 
+                      <p className='text-xs font-medium text-muted-foreground'>
+                        {formatAdminOfferCarsScope(effectiveCarsCount)}
+                      </p>
+
                       <div className='grid gap-4 sm:grid-cols-2'>
                         <FormField
                           control={form.control}
@@ -758,8 +825,29 @@ export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
                                   inputMode='numeric'
                                   step='0.01'
                                   min='0'
-                                  label='Bérleti díj (EUR)'
+                                  label='Eredeti ár (EUR)'
                                   placeholder='pl. 300'
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name={`offers.${index}.discountedRentalFee`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input
+                                  type='number'
+                                  inputMode='numeric'
+                                  step='0.01'
+                                  min='0'
+                                  label='Kedvezményes ár (EUR)'
+                                  placeholder='pl. 260'
                                   {...field}
                                 />
                               </FormControl>
@@ -849,6 +937,7 @@ export function SendQuoteButton({ quotes, carOptions }: SendQuoteButtonProps) {
                         form.getValues('offers.0.carId')
                       : (selectedQuote?.carId ?? ''),
                   rentalFee: '',
+                  discountedRentalFee: '',
                   deposit: '',
                   insurance: '',
                   deliveryFee: '',

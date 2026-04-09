@@ -1,7 +1,9 @@
 import { formatDatePeriod, rentalDays } from '@/lib/format/format-date';
 import { normalizeConfirmationLocale } from '@/lib/format/format-locale';
 import { formatPriceValue } from '@/lib/format/format-price';
+import { resolveOfferCarsCount } from '@/lib/offer-car-count';
 import { sanitizeName } from '@/lib/sanitize-name';
+import { resolveOfferRentalPricing } from '@/lib/quote-offer-pricing';
 import { EmailCopy, SendBookingRequestEmailResolvedInput } from '../types';
 import { getStaticTexts } from './get-static-text';
 import {
@@ -33,32 +35,57 @@ export const buildTextBody = (
   const offers = Array.isArray(input.offers) ? input.offers : [];
   const offersText = offers
     .map((offer, index) => {
-      const rentalFee = formatPriceValue(offer.rentalFee);
-      const deposit = formatPriceValue(offer.deposit);
-      const insurancePrice = formatPriceValue(offer.insurance);
-      const deliveryFee = formatPriceValue(offer.deliveryFee);
+      const hasValue = (value?: string | null) =>
+        Boolean(value && value.trim().length > 0);
+      const pricing = resolveOfferRentalPricing(offer);
+      const rentalFee = pricing.effectiveRentalFee
+        ? formatPriceValue(pricing.effectiveRentalFee)
+        : null;
+      const originalRentalFee = pricing.originalRentalFee
+        ? formatPriceValue(pricing.originalRentalFee)
+        : null;
+      const discountedRentalFee = pricing.discountedRentalFee
+        ? formatPriceValue(pricing.discountedRentalFee)
+        : null;
+      const appliesToCars = resolveOfferCarsCount(offer.appliesToCars);
+      const deposit = hasValue(offer.deposit) ? formatPriceValue(offer.deposit) : null;
+      const insurancePrice = hasValue(offer.insurance)
+        ? formatPriceValue(offer.insurance)
+        : null;
+      const deliveryFee = hasValue(offer.deliveryFee)
+        ? formatPriceValue(offer.deliveryFee)
+        : null;
       const deliveryLocation = offer.deliveryLocation?.trim();
-      const extrasFee = formatPriceValue(offer.extrasFee);
+      const extrasFee = hasValue(offer.extrasFee)
+        ? formatPriceValue(offer.extrasFee)
+        : null;
       const carLabel = offer.carName || offer.carId || '';
       const insuranceNote =
         insurancePrice && deposit ? staticText.insuranceNote : null;
-      return `\n${staticText.offerLabel} ${index + 1}:\n${
-        carLabel ? `${carLabel}` : ''
-      }\n${
-        rentalFee ? `${staticText.rentalFeeLabel}: ${rentalFee}` : ''
-      }\n${deposit ? `${staticText.depositLabel}: ${deposit}` : ''}\n${
-        insurancePrice ? `${insuranceNote ?? ''}` : ''
-      }\n${
-        insurancePrice ? `${staticText.insuranceLabel}: ${insurancePrice}` : ''
-      }\n${
-        deliveryFee ? `${staticText.deliveryFeeLabel}: ${deliveryFee}` : ''
-      }\n${
+      const lines = [
+        `${staticText.offerLabel} ${index + 1}:`,
+        carLabel || null,
+        appliesToCars ? staticText.priceAppliesToCarsText(appliesToCars) : null,
+        pricing.hasDiscount && originalRentalFee
+          ? `${staticText.originalPriceLabel}: ${originalRentalFee}`
+          : null,
+        pricing.hasDiscount && discountedRentalFee
+          ? `${staticText.discountedPriceLabel}: ${discountedRentalFee}`
+          : rentalFee
+            ? `${staticText.rentalFeeLabel}: ${rentalFee}`
+            : null,
+        deposit ? `${staticText.depositLabel}: ${deposit}` : null,
+        insuranceNote ?? null,
+        insurancePrice ? `${staticText.insuranceLabel}: ${insurancePrice}` : null,
+        deliveryFee ? `${staticText.deliveryFeeLabel}: ${deliveryFee}` : null,
         deliveryLocation
           ? `${staticText.deliveryLocationLabel}: ${deliveryLocation}`
-          : ''
-      }\n${
-        extrasFee ? `${staticText.extrasFeeLabel}: ${extrasFee}` : ''
-      }\n${copy.cta}: ${offer.bookingLink}\n`;
+          : null,
+        extrasFee ? `${staticText.extrasFeeLabel}: ${extrasFee}` : null,
+        `${copy.cta}: ${offer.bookingLink}`,
+      ].filter((line): line is string => Boolean(line));
+
+      return `\n${lines.join('\n')}\n`;
     })
     .join('\n');
 

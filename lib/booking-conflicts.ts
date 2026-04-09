@@ -12,6 +12,9 @@ type BookingConflictCandidate = {
   status?: string | null;
   assignedFleetVehicleId?: string | null;
   payload: unknown;
+  bookingFleetAssignments?: {
+    fleetVehicleId: string;
+  }[];
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -43,6 +46,32 @@ export const hasAssignedFleetInPayload = (payload: unknown): boolean =>
 
 const toTrimmedString = (value: unknown): string | null =>
   typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+
+const getAssignedFleetVehicleIds = (candidate: {
+  assignedFleetVehicleId?: unknown;
+  payload?: unknown;
+  bookingFleetAssignments?: { fleetVehicleId: string }[];
+}) => {
+  const ids = new Set<string>();
+  const directAssigned = toTrimmedString(candidate.assignedFleetVehicleId);
+  const payloadAssigned = getAssignedFleetVehicleIdFromPayload(candidate.payload);
+
+  if (directAssigned) {
+    ids.add(directAssigned);
+  }
+  if (payloadAssigned) {
+    ids.add(payloadAssigned);
+  }
+
+  candidate.bookingFleetAssignments?.forEach((assignment) => {
+    const fleetVehicleId = toTrimmedString(assignment.fleetVehicleId);
+    if (fleetVehicleId) {
+      ids.add(fleetVehicleId);
+    }
+  });
+
+  return ids;
+};
 
 export const isCancelledBookingStatus = (value: unknown): boolean => {
   if (typeof value !== 'string') return false;
@@ -141,6 +170,11 @@ export const findFleetVehicleBookingConflict = async ({
       status: true,
       assignedFleetVehicleId: true,
       payload: true,
+      bookingFleetAssignments: {
+        select: {
+          fleetVehicleId: true,
+        },
+      },
       bookingDeliveryDetails: {
         select: {
           arrivalHour: true,
@@ -168,10 +202,7 @@ export const findFleetVehicleBookingConflict = async ({
         !archivedIdSet.has(candidate.id) &&
         !isCancelledBookingStatus(candidate.status) &&
         (() => {
-          const assignedFleetVehicleId =
-            toTrimmedString(candidate.assignedFleetVehicleId) ??
-            getAssignedFleetVehicleIdFromPayload(candidate.payload);
-          if (assignedFleetVehicleId !== fleetVehicleId) {
+          if (!getAssignedFleetVehicleIds(candidate).has(fleetVehicleId)) {
             return false;
           }
 

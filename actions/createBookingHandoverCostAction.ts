@@ -3,18 +3,11 @@
 import { revalidatePath } from 'next/cache';
 
 import { db } from '@/lib/db';
+import { isDefaultHandoverCostTypeSlug } from '@/lib/handover-cost-types';
 
 const HANDOVER_DIRECTIONS = ['out', 'in'] as const;
-const HANDOVER_COST_TYPES = [
-  'tip',
-  'fuel',
-  'ferry',
-  'cleaning',
-  'commission',
-] as const;
 
 type HandoverDirectionValue = (typeof HANDOVER_DIRECTIONS)[number];
-type HandoverCostTypeValue = (typeof HANDOVER_COST_TYPES)[number];
 
 type CreateBookingHandoverCostInput = {
   bookingId?: string;
@@ -59,11 +52,8 @@ export const createBookingHandoverCostAction = async (
     return { error: 'Az irány érvénytelen.' };
   }
 
-  if (
-    !costType ||
-    !HANDOVER_COST_TYPES.includes(costType as HandoverCostTypeValue)
-  ) {
-    return { error: 'A költségtípus érvénytelen.' };
+  if (!costType) {
+    return { error: 'A költségtípus kiválasztása kötelező.' };
   }
 
   if (input.amount?.trim() && amount == null) {
@@ -83,18 +73,32 @@ export const createBookingHandoverCostAction = async (
     return { error: 'A kiválasztott foglalás nem található.' };
   }
 
+  const isDefaultType = isDefaultHandoverCostTypeSlug(costType);
+  const customCostType = !isDefaultType
+    ? await db.handoverCustomCostType.findUnique({
+        where: { slug: costType },
+        select: { slug: true },
+      })
+    : null;
+
+  if (!isDefaultType && !customCostType) {
+    return { error: 'A kiválasztott költségtípus nem található.' };
+  }
+
   try {
     await db.$executeRaw`
       INSERT INTO "BookingHandoverCosts" (
         "bookingId",
         "direction",
         "costType",
+        "customCostTypeSlug",
         "amount"
       )
       VALUES (
         ${bookingId}::uuid,
         ${normalizedDirection}::"HandoverDirection",
-        CAST(${costType} AS "HandoverCostType"),
+        CAST(${isDefaultType ? costType : 'custom'} AS "HandoverCostType"),
+        ${isDefaultType ? null : costType},
         ${amount}
       )
     `;

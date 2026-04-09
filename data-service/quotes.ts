@@ -4,6 +4,8 @@ import type {
   BookingRequestData,
   BookingRequestDataPayload,
 } from '@/types/booking-request';
+import { resolveOfferCarsCount } from '@/lib/offer-car-count';
+import { resolveOfferRentalPricing } from '@/lib/quote-offer-pricing';
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -34,6 +36,8 @@ export type ContactQuotePayload = {
   children?: string;
   rentalDays?: number;
   carId?: string;
+  cars?: string;
+  residenceCard?: string[];
   offerAccepted?: number;
   delivery?: {
     placeType?: string;
@@ -75,17 +79,68 @@ const toNullableString = (value: unknown) => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
+const normalizeResidenceCardEntry = (value: unknown): string | null => {
+  if (!value) return null;
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    if (
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('data:')
+    ) {
+      return trimmed;
+    }
+
+    try {
+      return normalizeResidenceCardEntry(JSON.parse(trimmed));
+    } catch {
+      return null;
+    }
+  }
+
+  if (!isRecord(value)) return null;
+
+  const type = toNullableString(value.type);
+  const content = toNullableString(value.content);
+  const url = toNullableString(value.url);
+
+  if (url) return url;
+  if (!content) return null;
+  if (content.startsWith('data:')) return content;
+
+  return `data:${type ?? 'image/png'};base64,${content}`;
+};
+
+const normalizeResidenceCard = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((entry) => normalizeResidenceCardEntry(entry))
+    .filter((entry): entry is string => Boolean(entry));
+};
+
 const normalizeBookingRequestEntry = (
   raw: unknown,
 ): BookingRequestData | undefined => {
   if (!isRecord(raw)) return undefined;
+  const pricing = resolveOfferRentalPricing({
+    rentalFee: toNullableString(raw.rentalFee),
+    originalRentalFee: toNullableString(raw.originalRentalFee),
+    discountedRentalFee: toNullableString(raw.discountedRentalFee),
+  });
   const normalized: BookingRequestData = {
     adminName: toNullableString(raw.adminName),
     carId: toNullableString(raw.carId),
     carName: toNullableString(raw.carName),
+    appliesToCars: resolveOfferCarsCount(raw.appliesToCars),
     rentalStart: toNullableString(raw.rentalStart),
     rentalEnd: toNullableString(raw.rentalEnd),
-    rentalFee: toNullableString(raw.rentalFee),
+    rentalFee: pricing.effectiveRentalFee,
+    originalRentalFee: pricing.originalRentalFee,
+    discountedRentalFee: pricing.discountedRentalFee,
     deposit: toNullableString(raw.deposit),
     insurance: toNullableString(raw.insurance),
     deliveryFee: toNullableString(raw.deliveryFee),
@@ -115,15 +170,17 @@ const normalizeBookingRequestData = (
 };
 
 const normalizeQuote = (quote: ContactQuotes): ContactQuote => {
-  const signerName =
-    (quote as ContactQuotes & { signerName?: string | null }).signerName ??
-    null;
+  const extendedQuote = quote as ContactQuotes & {
+    signerName?: string | null;
+    rentaldays?: number | null;
+    cars?: string | null;
+    residenceCard?: string[] | null;
+  };
+  const signerName = extendedQuote.signerName ?? null;
   const delivery =
     (quote.delivery as ContactQuote['delivery'] | undefined) ?? {};
   const address = delivery.address ?? {};
-  const rentalDays =
-    (quote as ContactQuotes & { rentaldays?: number | null }).rentaldays ??
-    undefined;
+  const rentalDays = extendedQuote.rentaldays ?? undefined;
   return {
     id: quote.id,
     humanId: quote.humanId ?? null,
@@ -141,9 +198,11 @@ const normalizeQuote = (quote: ContactQuotes): ContactQuote => {
     arrivalFlight: quote.arrivalflight ?? '',
     departureFlight: quote.departureflight ?? '',
     partySize: quote.partysize ?? undefined,
+    cars: extendedQuote.cars ?? undefined,
     children: quote.children ?? undefined,
     carId: quote.carid ?? undefined,
     carName: quote.carname ?? undefined,
+    residenceCard: normalizeResidenceCard(extendedQuote.residenceCard),
     rentalDays,
     offerAccepted: quote.offerAccepted ?? undefined,
     offerSent: quote.offerSent ?? null,

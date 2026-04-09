@@ -1,3 +1,5 @@
+import { User } from '@prisma/client';
+
 export type QuoteOption = {
   id: string;
   humanId?: string | null;
@@ -9,6 +11,7 @@ export type QuoteOption = {
   rentalStart?: string | null;
   rentalEnd?: string | null;
   carId?: string | null;
+  cars?: string | null;
 };
 
 export type CarOption = {
@@ -21,4 +24,5 @@ export type CarOption = {
 export type SendQuoteButtonProps = {
   quotes: QuoteOption[];
   carOptions: CarOption[];
+  users: Pick<User, 'id' | 'name'>[];
 };

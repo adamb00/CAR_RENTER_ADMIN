@@ -180,7 +180,7 @@ type BookingDeliveryDetailsRow = {
 
 type BookingHandoverCostRow = {
   direction: 'out' | 'in' | null;
-  costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
+  costType: string;
   amount: unknown;
 };
 
@@ -195,12 +195,7 @@ type BookingRenterRow = {
 };
 
 type HandoverDirectionValue = 'out' | 'in';
-type HandoverCostTypeValue =
-  | 'tip'
-  | 'fuel'
-  | 'ferry'
-  | 'cleaning'
-  | 'commission';
+type HandoverCostTypeValue = string;
 
 export default async function BookingEditPage({
   params,
@@ -262,15 +257,16 @@ export default async function BookingEditPage({
       Prisma.sql`
           SELECT
             "direction",
-            "costType",
+            "costType"::text AS "costType",
             "amount"
           FROM (
             SELECT DISTINCT ON ("direction", "costType")
               "direction",
-              "costType",
+              "costType"::text AS "costType",
               "amount"
             FROM "BookingHandoverCosts"
             WHERE "bookingId" = ${booking.id}::uuid
+              AND "costType" <> 'custom'::"HandoverCostType"
             ORDER BY
               "direction" ASC,
               "costType" ASC,

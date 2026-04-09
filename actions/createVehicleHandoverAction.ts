@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import type { z } from 'zod';
 
 import { db } from '@/lib/db';
+import { DefaultHandoverCostTypeSlug } from '@/lib/handover-cost-types';
 import { vehicleHandoverSchema } from '@/schemas/vehicle-handover-schema';
 
 export async function createVehicleHandoverAction(
@@ -73,7 +74,7 @@ export async function createVehicleHandoverAction(
   const shouldUpdateLocation = Boolean(locationValue);
   const costUpdates: Array<{
     direction: 'out' | 'in';
-    costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
+    costType: DefaultHandoverCostTypeSlug;
     amount: number;
   }> = [
     ...(direction === 'out' && data.tip != null
@@ -185,6 +186,7 @@ export async function createVehicleHandoverAction(
             "bookingId",
             "direction",
             "costType",
+            "customCostTypeSlug",
             "amount",
             "updatedAt"
           )
@@ -192,6 +194,7 @@ export async function createVehicleHandoverAction(
             ${data.bookingId}::uuid,
             CAST(${cost.direction} AS "HandoverDirection"),
             CAST(${cost.costType} AS "HandoverCostType"),
+            NULL,
             ${cost.amount},
             timezone('utc'::text, now())
           )

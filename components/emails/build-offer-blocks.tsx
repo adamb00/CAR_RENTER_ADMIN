@@ -3,6 +3,8 @@ import { BookingRequestOffer, EmailCopy } from './types';
 import { formatPriceValue } from '@/lib/format/format-price';
 import { BRAND } from '@/lib/constants';
 import { getStaticTexts } from './utils/get-static-text';
+import { resolveOfferCarsCount } from '@/lib/offer-car-count';
+import { resolveOfferRentalPricing } from '@/lib/quote-offer-pricing';
 
 export const buildOfferBlocks = (
   offers: BookingRequestOffer[],
@@ -10,14 +12,32 @@ export const buildOfferBlocks = (
   copy: EmailCopy,
 ) => {
   return offers.map((offer, index) => {
+    const hasValue = (value?: string | null) =>
+      Boolean(value && value.trim().length > 0);
     const rawCarLabel = offer.carName || offer.carId || '';
     const carLabel = rawCarLabel ? escapeHtml(rawCarLabel) : '';
-    const rentalFee = formatPriceValue(offer.rentalFee);
-    const deposit = formatPriceValue(offer.deposit);
-    const insurancePrice = formatPriceValue(offer.insurance);
-    const deliveryFee = formatPriceValue(offer.deliveryFee);
+    const pricing = resolveOfferRentalPricing(offer);
+    const rentalFee = pricing.effectiveRentalFee
+      ? formatPriceValue(pricing.effectiveRentalFee)
+      : null;
+    const originalRentalFee = pricing.originalRentalFee
+      ? formatPriceValue(pricing.originalRentalFee)
+      : null;
+    const appliesToCars = resolveOfferCarsCount(offer.appliesToCars);
+    const carsScopeText = appliesToCars
+      ? staticText.priceAppliesToCarsText(appliesToCars)
+      : null;
+    const deposit = hasValue(offer.deposit) ? formatPriceValue(offer.deposit) : null;
+    const insurancePrice = hasValue(offer.insurance)
+      ? formatPriceValue(offer.insurance)
+      : null;
+    const deliveryFee = hasValue(offer.deliveryFee)
+      ? formatPriceValue(offer.deliveryFee)
+      : null;
     const deliveryLocation = offer.deliveryLocation?.trim();
-    const extrasFee = formatPriceValue(offer.extrasFee);
+    const extrasFee = hasValue(offer.extrasFee)
+      ? formatPriceValue(offer.extrasFee)
+      : null;
     const insuranceNote = insurancePrice ? staticText.insuranceNote : null;
     const carImages = Array.isArray(offer.carImages)
       ? offer.carImages
@@ -65,6 +85,19 @@ export const buildOfferBlocks = (
             }}
           >
             {carLabel}
+          </div>
+        )}
+
+        {carsScopeText && (
+          <div
+            style={{
+              fontSize: 13,
+              lineHeight: 1.5,
+              color: BRAND.navyLight,
+              marginBottom: 12,
+            }}
+          >
+            {escapeHtml(carsScopeText)}
           </div>
         )}
 
@@ -152,6 +185,45 @@ export const buildOfferBlocks = (
                   background: `linear-gradient(135deg, ${BRAND.sky}15 0%, ${BRAND.amber}12 100%)`,
                   margin: '0 12px 12px 0',
                 }}
+                >
+                  <div
+                    style={{
+                    fontSize: 13,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    color: BRAND.navyLight,
+                    marginBottom: 6,
+                    }}
+                  >
+                    {escapeHtml(
+                      pricing.hasDiscount
+                        ? staticText.discountedPriceLabel
+                        : staticText.rentalFeeLabel,
+                    )}
+                  </div>
+                  <div
+                    style={{
+                    fontSize: 18,
+                    fontWeight: 800,
+                    color: BRAND.navy,
+                  }}
+                >
+                  {escapeHtml(rentalFee)}
+                </div>
+              </div>
+            )}
+
+            {originalRentalFee && (
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: 150,
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  border: '1px solid rgba(2,48,71,0.08)',
+                  background: '#f8fafc',
+                  margin: '0 12px 12px 0',
+                }}
               >
                 <div
                   style={{
@@ -162,16 +234,17 @@ export const buildOfferBlocks = (
                     marginBottom: 6,
                   }}
                 >
-                  {escapeHtml(staticText.rentalFeeLabel)}
+                  {escapeHtml(staticText.originalPriceLabel)}
                 </div>
                 <div
                   style={{
                     fontSize: 18,
                     fontWeight: 800,
-                    color: BRAND.navy,
+                    color: BRAND.navyLight,
+                    textDecoration: 'line-through',
                   }}
                 >
-                  {escapeHtml(rentalFee)}
+                  {escapeHtml(originalRentalFee)}
                 </div>
               </div>
             )}
@@ -276,7 +349,7 @@ export const buildOfferBlocks = (
                   lineHeight: 1.5,
                 }}
               >
-                {(deliveryFee || extrasFee) && (
+                {(deliveryFee || extrasFee || deliveryLocation) && (
                   <div
                     style={{
                       marginTop: 10,

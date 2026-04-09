@@ -11,11 +11,11 @@ export const formatPercent = (value: number) =>
   `${numberFormatter.format(value)}%`;
 export const formatNumber = (value: number) => numberFormatter.format(value);
 export const formatMoney = (value: number) =>
-  `${numberFormatter.format(value)} EUR`;
+  `${numberFormatter.format(value)} €`;
 
 export const formatDailyFee = (value: number | string) => {
   if (typeof value === 'number') {
-    return `${numberFormatter.format(value)} EUR/nap`;
+    return `${numberFormatter.format(value)} €/nap`;
   }
 
   return value;

@@ -4,13 +4,19 @@ import type React from 'react';
 
 import { getBookingByQuoteId } from '@/data-service/bookings';
 import { getQuoteById } from '@/data-service/quotes';
-import { db } from '@/lib/db';
-import { getStatusMeta } from '@/lib/status';
-import { BookingRequestButton } from './booking-request-button';
 import { LOCALE_LABELS } from '@/lib/constants';
+import { db } from '@/lib/db';
+import { resolveOfferCarsCount } from '@/lib/offer-car-count';
+import { resolveOfferRentalPricing } from '@/lib/quote-offer-pricing';
+import { BookingRequestButton } from './booking-request-button';
+import { ResidenceCardGallery } from './residence-card-gallery';
+import { getAllUser } from '@/data-service/user';
 
 type PricingBreakdown = {
+  appliesToCars?: number | null;
   rentalFee?: string | null;
+  originalRentalFee?: string | null;
+  discountedRentalFee?: string | null;
   insurance?: string | null;
   deposit?: string | null;
   deliveryFee?: string | null;
@@ -26,6 +32,8 @@ const hasPricingDetails = (pricing?: PricingBreakdown) =>
   Boolean(
     pricing &&
     (pricing.rentalFee ||
+      pricing.originalRentalFee ||
+      pricing.discountedRentalFee ||
       pricing.insurance ||
       pricing.deposit ||
       pricing.deliveryFee ||
@@ -39,6 +47,7 @@ export default async function QuoteDetailPage({
 }) {
   const { id } = await params;
   const quote = await getQuoteById(id);
+  const users = await getAllUser();
 
   if (!quote) {
     notFound();
@@ -102,7 +111,14 @@ export default async function QuoteDetailPage({
       <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6'>
         <div className='space-y-1'>
           <h1 className='text-2xl font-semibold tracking-tight'>
-            Ajánlatkérés
+            Ajánlatkérés -{' '}
+            {quote.residenceCard && quote.residenceCard?.length > 0
+              ? 'REZIDENS'
+              : 'STANDARD'}{' '}
+            -
+            {quote.cars && +quote.cars > 1
+              ? ` ${quote.cars} AUTÓS`
+              : 'EGY AUTÓS'}
           </h1>
           <p className='text-muted-foreground'>
             Beérkezett megkeresés részletei.
@@ -120,14 +136,17 @@ export default async function QuoteDetailPage({
         </div>
 
         <BookingRequestButton
+          users={users}
           rentalDays={quote.rentalDays}
           quoteId={quote.id}
           email={quote.email}
           phone={quote.phone}
           preferredChannel={quote.preferredChannel}
+          deliveryPlaceType={quote.delivery?.placeType}
           name={quote.name}
           locale={quote.locale}
           carId={quote.carId}
+          cars={quote.cars}
           carName={quote.carName}
           rentalStart={quote.rentalStart}
           rentalEnd={quote.rentalEnd}
@@ -144,7 +163,7 @@ export default async function QuoteDetailPage({
       <div className='grid gap-6 lg:grid-cols-[2fr,1fr]'>
         <div className='space-y-4'>
           <Section title='Kapcsolat'>
-            <div className='grid grid-cols-6 gap-4'>
+            <div className='grid grid-cols-3 gap-4'>
               <Detail
                 label='Ajánlat azonosító'
                 value={quote.humanId ?? quote.id}
@@ -174,9 +193,10 @@ export default async function QuoteDetailPage({
           </Section>
 
           <Section title='Létszám'>
-            <div className='grid grid-cols-2 gap-4'>
+            <div className='grid grid-cols-3 gap-4'>
               <Detail label='Utazók száma' value={quote.partySize} />
               <Detail label='Gyerekek' value={quote.children} />
+              <Detail label='Autók száma' value={quote.cars} />
             </div>
           </Section>
 
@@ -191,6 +211,10 @@ export default async function QuoteDetailPage({
             />
           </Section>
 
+          <Section title='Rezidens kártya'>
+            <ResidenceCardGallery images={quote.residenceCard ?? []} />
+          </Section>
+
           {showPricingBreakdown && (
             <Section title='Korábban ajánlott díjak'>
               <div className='space-y-4 '>
@@ -201,28 +225,53 @@ export default async function QuoteDetailPage({
                   >
                     Ajánlat #{index + 1}
                     {offer?.carName ? ` – ${offer.carName}` : ''}
-                    <div className='space-y-2 grid grid-cols-5 gap-4'>
-                      <Detail
-                        label='Foglalási díj'
-                        value={formatPriceValue(offer?.rentalFee)}
-                      />
-                      <Detail
-                        label='Biztosítás díja'
-                        value={formatPriceValue(offer?.insurance)}
-                      />
-                      <Detail
-                        label='Kaució'
-                        value={formatPriceValue(offer?.deposit)}
-                      />
-                      <Detail
-                        label='Átvétel díja'
-                        value={formatPriceValue(offer?.deliveryFee)}
-                      />
-                      <Detail
-                        label='Extrák díja'
-                        value={formatPriceValue(offer?.extrasFee)}
-                      />
-                    </div>
+                    {(() => {
+                      const pricing = resolveOfferRentalPricing(offer ?? {});
+                      const appliesToCars =
+                        resolveOfferCarsCount(
+                          offer?.appliesToCars,
+                          quote.cars,
+                        ) ?? 1;
+
+                      return (
+                        <div className='grid gap-4 md:grid-cols-3 xl:grid-cols-4'>
+                          <Detail
+                            label='Az ár ennyi autóra szól'
+                            value={appliesToCars}
+                          />
+                          <Detail
+                            label='Aktív ár'
+                            value={formatPriceValue(pricing.effectiveRentalFee)}
+                          />
+                          <Detail
+                            label='Eredeti ár'
+                            value={formatPriceValue(pricing.originalRentalFee)}
+                          />
+                          <Detail
+                            label='Kedvezményes ár'
+                            value={formatPriceValue(
+                              pricing.discountedRentalFee,
+                            )}
+                          />
+                          <Detail
+                            label='Biztosítás díja'
+                            value={formatPriceValue(offer?.insurance)}
+                          />
+                          <Detail
+                            label='Kaució'
+                            value={formatPriceValue(offer?.deposit)}
+                          />
+                          <Detail
+                            label='Átvétel díja'
+                            value={formatPriceValue(offer?.deliveryFee)}
+                          />
+                          <Detail
+                            label='Extrák díja'
+                            value={formatPriceValue(offer?.extrasFee)}
+                          />
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
@@ -336,13 +385,17 @@ const Detail = ({
 }: {
   label: string;
   value: React.ReactNode | string | number | null | undefined;
-}) => (
-  <div className='flex flex-col rounded-lg border px-3 py-3'>
-    <span className='text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
-      {label}
-    </span>
-    <span className='text-base font-medium text-foreground'>
-      {value || '—'}
-    </span>
-  </div>
-);
+}) => {
+  const isEmptyValue = value === null || value === undefined || value === '';
+
+  return (
+    <div className='flex flex-col rounded-lg border px-3 py-3'>
+      <span className='text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
+        {label}
+      </span>
+      <span className='text-base font-medium text-foreground'>
+        {isEmptyValue ? '—' : value}
+      </span>
+    </div>
+  );
+};

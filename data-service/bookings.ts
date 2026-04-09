@@ -60,6 +60,13 @@ export type BookingHandoverCosts = {
   commissionCost?: string;
 };
 
+export type BookingFleetAssignment = {
+  id: string;
+  slotIndex: number;
+  fleetVehicleId: string;
+  fleetVehiclePlate?: string | null;
+};
+
 export const PAYMENT_METHOD_VALUES = [
   'advance_transfer',
   'cash_on_pickup',
@@ -83,6 +90,13 @@ export type BookingPayload = {
   extras?: string[];
   adults?: number;
   children?: BookingChild[];
+  cars?: number;
+  residentCard?: {
+    name?: string;
+    size?: number;
+    type?: string;
+    content?: string;
+  };
   rentalPeriod?: {
     startDate?: string;
     endDate?: string;
@@ -174,6 +188,7 @@ export type Booking = {
   createdAt: string | null;
   updatedAt: string | null;
   payload: BookingPayload | null;
+  fleetAssignments: BookingFleetAssignment[];
   selfServiceEvents?: BookingSelfServiceEvent[];
   delivery?: BookingPayload['delivery'] | null;
   pricing?: BookingPricing | null;
@@ -193,6 +208,17 @@ const toOptionalString = (value: unknown) =>
 
 const toOptionalBoolean = (value: unknown) =>
   typeof value === 'boolean' ? value : undefined;
+
+const toOptionalNumber = (value: unknown) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+};
 
 const toOptionalPaymentMethod = (
   value: unknown,
@@ -286,6 +312,19 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
           return acc;
         }, [])
       : undefined;
+
+  const cars = toOptionalNumber(payload.cars);
+  const residentCardRaw = isRecord(payload.residentCard)
+    ? payload.residentCard
+    : undefined;
+  const residentCard = residentCardRaw
+    ? {
+        name: toOptionalString(residentCardRaw.name),
+        size: toOptionalNumber(residentCardRaw.size),
+        type: toOptionalString(residentCardRaw.type),
+        content: toOptionalString(residentCardRaw.content),
+      }
+    : undefined;
 
   const children =
     Array.isArray(payload.children) && payload.children.length > 0
@@ -420,6 +459,8 @@ const normalizeBookingPayload = (payload: unknown): BookingPayload | null => {
     children,
     rentalPeriod,
     driver,
+    cars,
+    residentCard,
     contact,
     invoice,
     delivery,
@@ -563,6 +604,15 @@ type MinimalContactQuote = {
   humanId: string | null;
 };
 
+type MinimalBookingFleetAssignment = {
+  id: string;
+  slotIndex: number;
+  fleetVehicleId: string;
+  fleetVehicle: {
+    plate: string;
+  } | null;
+};
+
 type BookingRenterRow = {
   bookingId: string;
   renterId: string | null;
@@ -577,6 +627,7 @@ type BookingRenterRow = {
 
 type BookingWithQuote = RentRequests & {
   ContactQuotes: MinimalContactQuote | null;
+  bookingFleetAssignments?: MinimalBookingFleetAssignment[];
 };
 
 type BookingPricingSnapshotRow = {
@@ -951,6 +1002,14 @@ const normalizeBooking = (booking: BookingWithQuote): Booking => {
     (booking as BookingWithQuote & { signerName?: string | null }).signerName ??
     null;
   const normalizedPayload = normalizeBookingPayload(booking.payload);
+  const normalizedAssignments =
+    booking.bookingFleetAssignments?.map((assignment) => ({
+      id: assignment.id,
+      slotIndex: assignment.slotIndex,
+      fleetVehicleId: assignment.fleetVehicleId,
+      fleetVehiclePlate: assignment.fleetVehicle?.plate ?? null,
+    })) ?? [];
+  const primaryAssignment = normalizedAssignments[0];
   return {
     id: booking.id,
     humanId: booking.humanId ?? booking.ContactQuotes?.humanId ?? null,
@@ -959,6 +1018,7 @@ const normalizeBooking = (booking: BookingWithQuote): Booking => {
     carId: booking.carid ?? undefined,
     renterId: null,
     assignedFleetVehicleId:
+      primaryAssignment?.fleetVehicleId ??
       booking.assignedFleetVehicleId ??
       (isRecord(booking.payload)
         ? toOptionalString(
@@ -966,6 +1026,7 @@ const normalizeBooking = (booking: BookingWithQuote): Booking => {
           )
         : undefined),
     assignedFleetPlate:
+      primaryAssignment?.fleetVehiclePlate ??
       booking.assignedFleetPlate ??
       (isRecord(booking.payload)
         ? toOptionalString(
@@ -986,6 +1047,7 @@ const normalizeBooking = (booking: BookingWithQuote): Booking => {
     createdAt: toDateTimeString(booking.createdAt),
     updatedAt: toDateTimeString(booking.updatedAt),
     payload: normalizedPayload,
+    fleetAssignments: normalizedAssignments,
     selfServiceEvents: parseSelfServiceEvents(booking.updated),
     delivery: normalizedPayload?.delivery ?? null,
     pricing: normalizedPayload?.pricing ?? null,
@@ -1049,10 +1111,25 @@ const applyRenterByBookingId = ({
   };
 };
 
-const CONTACT_QUOTE_INCLUDE = {
+const BOOKING_INCLUDE = {
   ContactQuotes: {
     select: {
       humanId: true,
+    },
+  },
+  bookingFleetAssignments: {
+    select: {
+      id: true,
+      slotIndex: true,
+      fleetVehicleId: true,
+      fleetVehicle: {
+        select: {
+          plate: true,
+        },
+      },
+    },
+    orderBy: {
+      slotIndex: 'asc',
     },
   },
 } as const;
@@ -1081,7 +1158,7 @@ const syncQuoteStatusesForBookings = async (bookings: RentRequests[]) => {
 export const getBookings = async (): Promise<Booking[]> => {
   const bookingsRaw = await db.rentRequests.findMany({
     orderBy: { createdAt: 'desc' },
-    include: CONTACT_QUOTE_INCLUDE,
+    include: BOOKING_INCLUDE,
   });
   const archivedIdSet = await getArchivedBookingIdSet(
     bookingsRaw.map((booking) => booking.id),
@@ -1157,7 +1234,7 @@ export const getBookingById = async (id: string): Promise<Booking | null> => {
 
   const booking = await db.rentRequests.findUnique({
     where,
-    include: CONTACT_QUOTE_INCLUDE,
+    include: BOOKING_INCLUDE,
   });
   if (!booking) return null;
 
@@ -1212,7 +1289,7 @@ export const getBookingByQuoteId = async (
   const bookings = await db.rentRequests.findMany({
     where: { quoteid: trimmedQuoteId },
     orderBy: { createdAt: 'desc' },
-    include: CONTACT_QUOTE_INCLUDE,
+    include: BOOKING_INCLUDE,
   });
   const archivedIdSet = await getArchivedBookingIdSet(
     bookings.map((booking) => booking.id),

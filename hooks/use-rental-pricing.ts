@@ -3,6 +3,8 @@ import { ContactQuote } from '@/data-service/quotes';
 
 export type PricingBreakdown = {
   rentalFee?: string | null;
+  originalRentalFee?: string | null;
+  discountedRentalFee?: string | null;
   insurance?: string | null;
   deposit?: string | null;
   deliveryFee?: string | null;
@@ -15,6 +17,8 @@ export const hasPricingDetails = (pricing?: PricingBreakdown) =>
     pricing &&
     [
       pricing.rentalFee,
+      pricing.originalRentalFee,
+      pricing.discountedRentalFee,
       pricing.insurance,
       pricing.deposit,
       pricing.deliveryFee,

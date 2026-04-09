@@ -4,6 +4,12 @@ import { getArchivedBookingIdSet } from '@/lib/booking-archive';
 import { RENT_STATUS_REGISTERED } from '@/lib/constants';
 import { db } from '@/lib/db';
 import { FLEET_NOTES_META_PREFIX } from '@/lib/fleet-service-window';
+import {
+  getDefaultHandoverCostTypeLabel,
+  getDefaultHandoverCostTypeCategory,
+  HandoverCostTypeCategory,
+} from '@/lib/handover-cost-types';
+import { resolveOfferRentalPricing } from '@/lib/quote-offer-pricing';
 
 type NumericCellValue = number | string;
 
@@ -19,14 +25,27 @@ type BookingPricingSnapshotRow = {
 type BookingHandoverCostRow = {
   bookingId: string;
   direction: 'out' | 'in' | null;
-  costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
+  costType: string;
+  customCostTypeSlug: string | null;
+  customCostTypeLabel: string | null;
+  customCostTypeCategory: HandoverCostTypeCategory | null;
   amount: unknown;
   createdAt: Date;
 };
 
 type MonthHandoverCostTotalRow = {
-  costType: 'tip' | 'fuel' | 'ferry' | 'cleaning' | 'commission';
+  costType: string;
+  customCostTypeSlug: string | null;
+  customCostTypeLabel: string | null;
+  customCostTypeCategory: HandoverCostTypeCategory | null;
   total: unknown;
+};
+
+export type AnalitycsCostBreakdownItem = {
+  slug: string;
+  label: string;
+  category: HandoverCostTypeCategory;
+  total: number;
 };
 
 export type AnalitycsBookingRow = {
@@ -39,6 +58,7 @@ export type AnalitycsBookingRow = {
   rentalStart: string;
   rentalEnd: string;
   rentalDays: number;
+  fullRentalDays: number;
   carriedDays: number;
   currentMonthDays: number;
   dailyFee: NumericCellValue;
@@ -49,6 +69,7 @@ export type AnalitycsBookingRow = {
   fuelCost: number;
   ferryCost: number;
   cleaningCost: number;
+  costBreakdown: AnalitycsCostBreakdownItem[];
   revenue: number;
 };
 
@@ -64,6 +85,8 @@ export type AnalitycsCarBreakdown = {
   tip: number;
   revenue: number;
 };
+
+const UNASSIGNED_MULTI_CAR_LABEL = 'Unassigned multi-car';
 
 export type AnalitycsMonthData = {
   monthKey: string;
@@ -99,6 +122,8 @@ export type AnalitycsMonthData = {
     fuelCost: number;
     ferryCost: number;
     cleaningCost: number;
+    otherCost: number;
+    costBreakdown: AnalitycsCostBreakdownItem[];
     revenue: number;
     effectiveDays: number;
     fleetCars: number;
@@ -162,6 +187,24 @@ const parseAmount = (value: unknown): number => {
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+
+const toRequiredCars = (payload: unknown): number => {
+  if (!isRecord(payload)) return 1;
+  const parsed = parseAmount(payload.cars);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 1;
+  return Math.max(1, Math.floor(parsed));
+};
+
+const sortCostBreakdown = (items: AnalitycsCostBreakdownItem[]) =>
+  [...items].sort((left, right) => {
+    if (left.category !== right.category) {
+      return left.category === 'deduction' ? -1 : 1;
+    }
+    return left.label.localeCompare(right.label, 'hu', {
+      sensitivity: 'base',
+      numeric: true,
+    });
+  });
 
 type FleetServiceCostEntry = {
   serviceDate: string;
@@ -485,6 +528,14 @@ export async function getCurrentMonthAnalitycs(
             offerAccepted: true,
           },
         },
+        bookingFleetAssignments: {
+          select: {
+            fleetVehicleId: true,
+          },
+          orderBy: {
+            slotIndex: 'asc',
+          },
+        },
         vehicleHandovers: {
           where: { direction: 'out' },
           orderBy: { handoverAt: 'asc' },
@@ -601,17 +652,21 @@ export async function getCurrentMonthAnalitycs(
           .$queryRaw<BookingHandoverCostRow[]>(
             Prisma.sql`
             SELECT
-              "bookingId",
-              "direction",
-              "costType",
-              "amount",
-              "createdAt"
-            FROM "BookingHandoverCosts"
-            WHERE "bookingId" IN (${Prisma.join(
+              c."bookingId",
+              c."direction",
+              c."costType"::text AS "costType",
+              c."customCostTypeSlug",
+              t."label" AS "customCostTypeLabel",
+              t."category" AS "customCostTypeCategory",
+              c."amount",
+              c."createdAt"
+            FROM "BookingHandoverCosts" c
+            LEFT JOIN "HandoverCustomCostTypes" t ON t."slug" = c."customCostTypeSlug"
+            WHERE c."bookingId" IN (${Prisma.join(
               bookingIds.map((id) => Prisma.sql`${id}::uuid`),
             )})
-              AND "createdAt" >= ${monthStart}
-              AND "createdAt" < ${monthEndExclusive}
+              AND c."createdAt" >= ${monthStart}
+              AND c."createdAt" < ${monthEndExclusive}
           `,
           )
           .catch(() => [])
@@ -620,12 +675,16 @@ export async function getCurrentMonthAnalitycs(
       .$queryRaw<MonthHandoverCostTotalRow[]>(
         Prisma.sql`
         SELECT
-          "costType",
-          SUM("amount") AS "total"
-        FROM "BookingHandoverCosts"
-        WHERE "createdAt" >= ${monthStart}
-          AND "createdAt" < ${monthEndExclusive}
-        GROUP BY "costType"
+          c."costType"::text AS "costType",
+          c."customCostTypeSlug",
+          t."label" AS "customCostTypeLabel",
+          t."category" AS "customCostTypeCategory",
+          SUM(c."amount") AS "total"
+        FROM "BookingHandoverCosts" c
+        LEFT JOIN "HandoverCustomCostTypes" t ON t."slug" = c."customCostTypeSlug"
+        WHERE c."createdAt" >= ${monthStart}
+          AND c."createdAt" < ${monthEndExclusive}
+        GROUP BY c."costType", c."customCostTypeSlug", t."label", t."category"
       `,
       )
       .catch(() => []),
@@ -730,15 +789,51 @@ export async function getCurrentMonthAnalitycs(
         parseAmount(payloadInCosts?.commission);
       const bookingHandoverCosts =
         handoverCostsByBookingId.get(booking.id) ?? [];
+      const getCostCategory = (
+        handoverCost: Pick<
+          BookingHandoverCostRow,
+          'costType' | 'customCostTypeCategory'
+        >,
+      ): HandoverCostTypeCategory =>
+        handoverCost.costType === 'custom'
+          ? (handoverCost.customCostTypeCategory ?? 'expense')
+          : getDefaultHandoverCostTypeCategory(handoverCost.costType);
+      const getCostSlug = (
+        handoverCost: Pick<BookingHandoverCostRow, 'costType' | 'customCostTypeSlug'>,
+      ) =>
+        handoverCost.costType === 'custom'
+          ? (handoverCost.customCostTypeSlug ?? 'custom')
+          : handoverCost.costType;
+      const getCostLabel = (
+        handoverCost: Pick<
+          BookingHandoverCostRow,
+          'costType' | 'customCostTypeSlug' | 'customCostTypeLabel'
+        >,
+      ) =>
+        handoverCost.costType === 'custom'
+          ? (handoverCost.customCostTypeLabel ??
+            handoverCost.customCostTypeSlug ??
+            'Egyedi költség')
+          : getDefaultHandoverCostTypeLabel(handoverCost.costType);
       const handoverCostsMap = new Map<string, number>();
+      const bookingCostBreakdownMap = new Map<string, AnalitycsCostBreakdownItem>();
       for (const handoverCost of bookingHandoverCosts) {
         const directionKey = handoverCost.direction ?? 'none';
-        const key = `${directionKey}:${handoverCost.costType}`;
+        const effectiveType = getCostSlug(handoverCost);
+        const key = `${directionKey}:${effectiveType}`;
+        const amount = parseAmount(handoverCost.amount);
         const previousAmount = handoverCostsMap.get(key) ?? 0;
         handoverCostsMap.set(
           key,
-          previousAmount + parseAmount(handoverCost.amount),
+          previousAmount + amount,
         );
+        const previousBreakdown = bookingCostBreakdownMap.get(effectiveType);
+        bookingCostBreakdownMap.set(effectiveType, {
+          slug: effectiveType,
+          label: previousBreakdown?.label ?? getCostLabel(handoverCost),
+          category: previousBreakdown?.category ?? getCostCategory(handoverCost),
+          total: (previousBreakdown?.total ?? 0) + amount,
+        });
       }
       const hasMonthHandoverCostRows = handoverCostsMap.size > 0;
       const getHandoverCostTotal = (
@@ -747,15 +842,23 @@ export async function getCurrentMonthAnalitycs(
         (handoverCostsMap.get(`out:${costType}`) ?? 0) +
         (handoverCostsMap.get(`in:${costType}`) ?? 0) +
         (handoverCostsMap.get(`none:${costType}`) ?? 0);
+      const deductionFromCosts = bookingHandoverCosts
+        .filter((handoverCost) => getCostCategory(handoverCost) === 'deduction')
+        .reduce((sum, handoverCost) => sum + parseAmount(handoverCost.amount), 0);
 
       const quotePricing = selectQuotePricing(
         booking.ContactQuotes?.bookingRequestData,
         booking.carid,
         booking.ContactQuotes?.offerAccepted,
       );
+      const quotePricingResolved = resolveOfferRentalPricing({
+        rentalFee: toTrimmedString(quotePricing?.rentalFee),
+        originalRentalFee: toTrimmedString(quotePricing?.originalRentalFee),
+        discountedRentalFee: toTrimmedString(quotePricing?.discountedRentalFee),
+      });
 
       const rentalFee = parseAmount(
-        pricingSource?.rentalFee ?? quotePricing?.rentalFee,
+        pricingSource?.rentalFee ?? quotePricingResolved.effectiveRentalFee,
       );
       const delivery = parseAmount(
         pricingSource?.deliveryFee ?? quotePricing?.deliveryFee,
@@ -776,16 +879,9 @@ export async function getCurrentMonthAnalitycs(
           : Boolean(normalizedInsurance);
 
       const insurance = hasInsurance ? parseAmount(normalizedInsurance) : 0;
-      const deductionFromCosts =
-        getHandoverCostTotal('tip') + getHandoverCostTotal('commission');
-
-      const hasDeductionCostRow =
-        handoverCostsMap.has('out:tip') ||
-        handoverCostsMap.has('in:tip') ||
-        handoverCostsMap.has('none:tip') ||
-        handoverCostsMap.has('out:commission') ||
-        handoverCostsMap.has('in:commission') ||
-        handoverCostsMap.has('none:commission');
+      const hasDeductionCostRow = bookingHandoverCosts.some(
+        (handoverCost) => getCostCategory(handoverCost) === 'deduction',
+      );
 
       const tip = parseAmount(
         hasDeductionCostRow
@@ -842,6 +938,11 @@ export async function getCurrentMonthAnalitycs(
 
       const dailyFee: NumericCellValue =
         fullRentalDays > 0 ? rentalFee / fullRentalDays : '#DIV/0!';
+      const costBreakdown = sortCostBreakdown(
+        Array.from(bookingCostBreakdownMap.values()).filter(
+          (item) => item.total > 0,
+        ),
+      );
 
       return [
         {
@@ -853,6 +954,7 @@ export async function getCurrentMonthAnalitycs(
           rentalStart: toIsoDate(rentalStart),
           rentalEnd: toIsoDate(rentalEnd),
           rentalDays: totalRentalDays,
+          fullRentalDays,
           carriedDays,
           currentMonthDays,
           dailyFee,
@@ -863,6 +965,7 @@ export async function getCurrentMonthAnalitycs(
           fuelCost,
           ferryCost,
           cleaningCost,
+          costBreakdown,
           revenue,
         },
       ];
@@ -902,6 +1005,8 @@ export async function getCurrentMonthAnalitycs(
       fuelCost: 0,
       ferryCost: 0,
       cleaningCost: 0,
+      otherCost: 0,
+      costBreakdown: [] as AnalitycsCostBreakdownItem[],
       revenue: 0,
     },
   );
@@ -911,27 +1016,62 @@ export async function getCurrentMonthAnalitycs(
   const monthCapacity = fleetCars * daysPerCar - fleetCars * 4;
   const monthHandoverTotals = monthHandoverCostTotals.reduce(
     (acc, row) => {
-      acc[row.costType] += parseAmount(row.total);
+      const amount = parseAmount(row.total);
+      const category =
+        row.costType === 'custom'
+          ? (row.customCostTypeCategory ?? 'expense')
+          : getDefaultHandoverCostTypeCategory(row.costType);
+      const effectiveType =
+        row.costType === 'custom'
+          ? (row.customCostTypeSlug ?? 'custom')
+          : row.costType;
+      const label =
+        row.costType === 'custom'
+          ? (row.customCostTypeLabel ?? row.customCostTypeSlug ?? 'Egyedi költség')
+          : getDefaultHandoverCostTypeLabel(row.costType);
+      if (category === 'deduction') {
+        acc.deduction += amount;
+      } else {
+        acc.expense += amount;
+      }
+
+      if (effectiveType === 'fuel') acc.fuel += amount;
+      if (effectiveType === 'ferry') acc.ferry += amount;
+      if (effectiveType === 'cleaning') acc.cleaning += amount;
+      acc.costBreakdown.push({
+        slug: effectiveType,
+        label,
+        category,
+        total: amount,
+      });
       return acc;
     },
     {
-      tip: 0,
+      deduction: 0,
+      expense: 0,
       fuel: 0,
       ferry: 0,
       cleaning: 0,
-      commission: 0,
+      costBreakdown: [] as AnalitycsCostBreakdownItem[],
     },
   );
-  const tipTotal = monthHandoverTotals.tip + monthHandoverTotals.commission;
+  const tipTotal = monthHandoverTotals.deduction;
   const fuelCostTotal = monthHandoverTotals.fuel;
   const ferryCostTotal = monthHandoverTotals.ferry;
   const cleaningCostTotal = monthHandoverTotals.cleaning;
+  const otherCostTotal = Math.max(
+    0,
+    monthHandoverTotals.expense -
+      fuelCostTotal -
+      ferryCostTotal -
+      cleaningCostTotal,
+  );
   const revenue =
     totals.rentalFee + totals.insurance + totals.delivery - tipTotal;
   const utilization =
     monthCapacity > 0 ? effectiveDays / (monthCapacity / 100) : 0;
   const service = monthServiceCosts;
-  const expense = service + fuelCostTotal + ferryCostTotal + cleaningCostTotal;
+  const expense = service + monthHandoverTotals.expense;
   const result = revenue - expense;
   const activeCount = rowsWithoutIndex.length;
   const archivedCount = archivedRowsWithoutIndex.length;
@@ -961,13 +1101,12 @@ export async function getCurrentMonthAnalitycs(
     ]),
   );
 
-  for (const row of rows) {
-    if (!fleetPlateSet.has(row.plate)) {
-      continue;
-    }
+  const getOrCreatePerCarEntry = (plate: string) => {
+    const existing = perCarMap.get(plate);
+    if (existing) return existing;
 
-    const previous = perCarMap.get(row.plate) ?? {
-      plate: row.plate,
+    const created: AnalitycsCarBreakdown = {
+      plate,
       rows: 0,
       rentalDays: 0,
       carriedDays: 0,
@@ -978,18 +1117,69 @@ export async function getCurrentMonthAnalitycs(
       tip: 0,
       revenue: 0,
     };
+    perCarMap.set(plate, created);
+    return created;
+  };
 
-    previous.rows += 1;
-    previous.rentalDays += row.rentalDays;
-    previous.carriedDays += row.carriedDays;
-    previous.currentMonthDays += row.currentMonthDays;
-    previous.rentalFee += row.rentalFee;
-    previous.insurance += row.insurance;
-    previous.delivery += row.delivery;
-    previous.tip += row.tip;
-    previous.revenue += row.revenue;
+  for (const row of rows) {
+    const sourceBooking = activeBookings.find((booking) => booking.id === row.bookingId);
+    const requiredCars = toRequiredCars(sourceBooking?.payload);
+    const assignedVehicleIds =
+      sourceBooking?.bookingFleetAssignments
+        ?.map((assignment) => assignment.fleetVehicleId)
+        .filter((fleetVehicleId): fleetVehicleId is string =>
+          Boolean(fleetVehicleId),
+        ) ?? [];
+    const fallbackAssignedVehicleId =
+      assignedVehicleIds.length === 0
+        ? toTrimmedString(sourceBooking?.assignedFleetVehicleId)
+        : undefined;
+    const resolvedAssignedVehicleIds = Array.from(
+      new Set(
+        [...assignedVehicleIds, ...(fallbackAssignedVehicleId ? [fallbackAssignedVehicleId] : [])].filter(
+          (fleetVehicleId): fleetVehicleId is string => Boolean(fleetVehicleId),
+        ),
+      ),
+    );
+    const assignedPlates = resolvedAssignedVehicleIds
+      .map((fleetVehicleId) => fleetPlateById.get(fleetVehicleId))
+      .filter(
+        (plate): plate is string => Boolean(plate && fleetPlateSet.has(plate)),
+      );
+    const assignedCount = Math.min(requiredCars, assignedPlates.length);
+    const missingCount = Math.max(0, requiredCars - assignedCount);
+    const priceShareDivisor = Math.max(1, requiredCars);
+    const rentalFeeShare = row.rentalFee / priceShareDivisor;
+    const insuranceShare = row.insurance / priceShareDivisor;
+    const deliveryShare = row.delivery / priceShareDivisor;
+    const tipShare = row.tip / priceShareDivisor;
+    const revenueShare = row.revenue / priceShareDivisor;
 
-    perCarMap.set(row.plate, previous);
+    assignedPlates.slice(0, assignedCount).forEach((plate) => {
+      const previous = getOrCreatePerCarEntry(plate);
+      previous.rows += 1;
+      previous.rentalDays += row.rentalDays;
+      previous.carriedDays += row.carriedDays;
+      previous.currentMonthDays += row.currentMonthDays;
+      previous.rentalFee += rentalFeeShare;
+      previous.insurance += insuranceShare;
+      previous.delivery += deliveryShare;
+      previous.tip += tipShare;
+      previous.revenue += revenueShare;
+    });
+
+    if (missingCount > 0) {
+      const previous = getOrCreatePerCarEntry(UNASSIGNED_MULTI_CAR_LABEL);
+      previous.rows += missingCount;
+      previous.rentalDays += row.rentalDays * missingCount;
+      previous.carriedDays += row.carriedDays * missingCount;
+      previous.currentMonthDays += row.currentMonthDays * missingCount;
+      previous.rentalFee += rentalFeeShare * missingCount;
+      previous.insurance += insuranceShare * missingCount;
+      previous.delivery += deliveryShare * missingCount;
+      previous.tip += tipShare * missingCount;
+      previous.revenue += revenueShare * missingCount;
+    }
   }
 
   const perCar = [...perCarMap.values()].sort((a, b) =>
@@ -1026,6 +1216,10 @@ export async function getCurrentMonthAnalitycs(
       fuelCost: fuelCostTotal,
       ferryCost: ferryCostTotal,
       cleaningCost: cleaningCostTotal,
+      otherCost: otherCostTotal,
+      costBreakdown: sortCostBreakdown(
+        monthHandoverTotals.costBreakdown.filter((item) => item.total > 0),
+      ),
       revenue,
       effectiveDays,
       fleetCars,

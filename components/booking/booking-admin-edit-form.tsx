@@ -53,6 +53,8 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
   } | null>(null);
 
   const [form, setForm] = useState(initial);
+  const hasInsurance =
+    form.pricingSnapshot.insurance.trim().length > 0;
 
   const updateBaseField = <
     K extends Exclude<
@@ -77,7 +79,13 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
   ) => {
     setForm((prev) => ({
       ...prev,
-      pricingSnapshot: { ...prev.pricingSnapshot, [key]: value },
+      pricingSnapshot: {
+        ...prev.pricingSnapshot,
+        [key]: value,
+        ...(key === 'insurance'
+          ? { deposit: value.trim().length > 0 ? '0' : prev.pricingSnapshot.deposit }
+          : {}),
+      },
     }));
   };
 
@@ -206,7 +214,12 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
       .filter((row) => row.fleetVehicleId.trim().length > 0);
 
     startTransition(async () => {
-      const hasPricingValues = Object.values(form.pricingSnapshot).some(
+      const normalizedPricingSnapshot = {
+        ...form.pricingSnapshot,
+        deposit: hasInsurance ? '0' : form.pricingSnapshot.deposit,
+      };
+
+      const hasPricingValues = Object.values(normalizedPricingSnapshot).some(
         (value) => value.trim().length > 0,
       );
       const hasDeliveryValues =
@@ -242,7 +255,7 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
         driversJson: JSON.stringify(form.drivers),
         pricingSnapshotJson:
           form.hasPricingSnapshot || hasPricingValues
-            ? JSON.stringify(form.pricingSnapshot)
+            ? JSON.stringify(normalizedPricingSnapshot)
             : '',
         deliveryDetailsJson:
           form.hasDeliveryDetails || hasDeliveryValues
@@ -610,10 +623,11 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
           />
           <Input
             label='Kaució'
-            value={form.pricingSnapshot.deposit}
+            value={hasInsurance ? '0' : form.pricingSnapshot.deposit}
             onChange={(event) =>
               updatePricingField('deposit', event.target.value)
             }
+            disabled={hasInsurance}
           />
           <Input
             label='Kiszállítási díj'

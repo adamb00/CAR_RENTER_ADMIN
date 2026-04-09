@@ -8,6 +8,8 @@ import {
   PUBLIC_SITE_BASE_URL,
 } from '@/lib/constants';
 import { db } from '@/lib/db';
+import { resolveOfferCarsCount } from '@/lib/offer-car-count';
+import { normalizeOfferRentalPricing, resolveOfferRentalPricing } from '@/lib/quote-offer-pricing';
 import { hasWhatsappApiConfig, sendWhatsappTextMessage } from '@/lib/whatsapp';
 import { revalidatePath } from 'next/cache';
 
@@ -33,9 +35,12 @@ type BookingRequestOfferData = {
   adminName?: string | null;
   carId?: string | null;
   carName?: string | null;
+  appliesToCars?: number | null;
   rentalStart?: string | null;
   rentalEnd?: string | null;
   rentalFee?: string | null;
+  originalRentalFee?: string | null;
+  discountedRentalFee?: string | null;
   deposit?: string | null;
   insurance?: string | null;
   deliveryFee?: string | null;
@@ -108,10 +113,24 @@ const buildWhatsappText = ({
   }
 
   offers.forEach((offer, index) => {
+    const pricing = resolveOfferRentalPricing(offer);
     lines.push('');
     lines.push(`${staticText.offerLabel} ${index + 1}`);
     lines.push(offer.carName?.trim() || offer.carId || '—');
-    lines.push(`${staticText.rentalFeeLabel}: ${formatPrice(offer.rentalFee)}`);
+    const appliesToCars = resolveOfferCarsCount(offer.appliesToCars);
+    if (appliesToCars) {
+      lines.push(staticText.priceAppliesToCarsText(appliesToCars));
+    }
+    if (pricing.hasDiscount && pricing.originalRentalFee) {
+      lines.push(
+        `${staticText.originalPriceLabel}: ${formatPrice(pricing.originalRentalFee)}`,
+      );
+    }
+    lines.push(
+      pricing.hasDiscount && pricing.discountedRentalFee
+        ? `${staticText.discountedPriceLabel}: ${formatPrice(pricing.discountedRentalFee)}`
+        : `${staticText.rentalFeeLabel}: ${formatPrice(pricing.effectiveRentalFee)}`,
+    );
     lines.push(`${staticText.insuranceLabel}: ${formatPrice(offer.insurance)}`);
     lines.push(`${staticText.depositLabel}: ${formatPrice(offer.deposit)}`);
     lines.push(
@@ -166,9 +185,12 @@ const buildBookingRequestRecord = ({
     adminName: toNullableString(adminName),
     carId: toNullableString(offer.carId),
     carName: toNullableString(offer.carName),
+    appliesToCars: resolveOfferCarsCount(offer.appliesToCars),
     rentalStart: toNullableString(rentalStart),
     rentalEnd: toNullableString(rentalEnd),
     rentalFee: toNullableString(offer.rentalFee),
+    originalRentalFee: toNullableString(offer.originalRentalFee),
+    discountedRentalFee: toNullableString(offer.discountedRentalFee),
     deposit: toNullableString(offer.deposit),
     insurance: toNullableString(offer.insurance),
     deliveryFee: toNullableString(offer.deliveryFee),
@@ -196,15 +218,17 @@ export const sendBookingRequestWhatsappAction = async (
   }
 
   const locale = normalizeLocale(input.locale);
-  const offers: ResolvedOffer[] = input.offers.map((offer, index) => ({
-    ...offer,
-    bookingLink: buildBookingLink(
-      locale,
-      offer.carId as string,
-      input.quoteId,
-      index,
-    ),
-  }));
+  const offers: ResolvedOffer[] = input.offers.map((offer, index) =>
+    normalizeOfferRentalPricing({
+      ...offer,
+      bookingLink: buildBookingLink(
+        locale,
+        offer.carId as string,
+        input.quoteId,
+        index,
+      ),
+    }),
+  );
 
   const text = buildWhatsappText({
     locale,

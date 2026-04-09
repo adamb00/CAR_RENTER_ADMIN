@@ -48,10 +48,7 @@ export default function RentBaseDetails({
         label='Biztosítás'
         value={booleanLabel(booking.payload?.consents?.insurance)}
       />
-      <Detail
-        label='Autó'
-        value={booking.carLabel ?? booking.carId ?? booking.payload?.carId}
-      />
+
       <Detail
         label='Kapcsolt ajánlat'
         value={
@@ -82,12 +79,16 @@ export default function RentBaseDetails({
           value={formatDate(booking.updatedAt, 'short')}
         />
       </div>
-      <div>
+      <div className=' grid gap-3 md:grid-cols-2'>
         <Detail
           label='Autó'
           value={
             booking.carLabel ?? booking.carId ?? booking.payload?.carId ?? '—'
           }
+        />
+        <Detail
+          label='Autók száma'
+          value={booking.payload?.cars ?? '—'}
         />
       </div>
     </Section>

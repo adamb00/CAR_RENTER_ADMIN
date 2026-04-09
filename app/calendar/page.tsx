@@ -1,5 +1,6 @@
 import { BookingCalendar } from '@/components/booking/booking-calendar';
 import { getBookings } from '@/data-service/bookings';
+import { splitPricingByCars } from '@/lib/booking-pricing-share';
 import { db } from '@/lib/db';
 import { resolveDeliveryIsland } from '@/lib/delivery-island';
 import { formatPlaceType } from '@/lib/format/format-place';
@@ -93,25 +94,51 @@ export default async function CalendarPage() {
     const arrival = `${booking.delivery?.arrivalHour ?? '-'}:${booking.delivery?.arrivalMinute ?? '-'}`;
     const handoverTimes = handoverByBookingId.get(booking.id);
 
-    return {
-      id: booking.id,
-      humanId: booking.humanId ?? null,
-      contactName: booking.contactName,
-      rentalStart: booking.rentalStart,
-      rentalEnd: booking.rentalEnd,
-      arrivalHour: booking.delivery?.arrivalHour ?? null,
-      arrivalMinute: booking.delivery?.arrivalMinute ?? null,
-      handoverOutAt: handoverTimes?.outAt ?? null,
-      handoverInAt: handoverTimes?.inAt ?? null,
-      status: booking.status ?? null,
-      assignedFleetVehicleId: booking.assignedFleetVehicleId,
-      carLabel: booking.carLabel ?? null,
-      deliveryLocation,
-      deliveryIsland,
-      pricing: booking.pricing ?? null,
-      arrival,
-    };
-  });
+    const requiredCars = Math.max(1, booking.payload?.cars ?? 1);
+    const assignedSlots =
+      booking.fleetAssignments.length > 0
+        ? booking.fleetAssignments.map((assignment) => ({
+            slotIndex: assignment.slotIndex,
+            fleetVehicleId: assignment.fleetVehicleId,
+          }))
+        : booking.assignedFleetVehicleId
+          ? [
+              {
+                slotIndex: 0,
+                fleetVehicleId: booking.assignedFleetVehicleId,
+              },
+            ]
+          : [];
+
+    return Array.from({ length: requiredCars }, (_, slotIndex) => {
+      const assignedSlot = assignedSlots.find(
+        (entry) => entry.slotIndex === slotIndex,
+      );
+
+      return {
+        id: `${booking.id}:${slotIndex}`,
+        bookingId: booking.id,
+        humanId: booking.humanId ?? null,
+        contactName: booking.contactName,
+        rentalStart: booking.rentalStart,
+        rentalEnd: booking.rentalEnd,
+        arrivalHour: booking.delivery?.arrivalHour ?? null,
+        arrivalMinute: booking.delivery?.arrivalMinute ?? null,
+        handoverOutAt: handoverTimes?.outAt ?? null,
+        handoverInAt: handoverTimes?.inAt ?? null,
+        status: booking.status ?? null,
+        assignedFleetVehicleId: assignedSlot?.fleetVehicleId,
+        carLabel: booking.carLabel ?? null,
+        deliveryLocation,
+        deliveryIsland,
+        pricing: splitPricingByCars(booking.pricing, requiredCars) ?? null,
+        arrival,
+        rentalDays: booking.rentalDays,
+        slotIndex,
+        requiredCars,
+      };
+    });
+  }).flat();
 
   const fleet = fleetVehicles.map((vehicle) => ({
     id: vehicle.id,

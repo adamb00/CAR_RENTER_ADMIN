@@ -1,12 +1,7 @@
 import { BookingPricing } from '@/data-service/bookings';
 
 export type HandoverDirectionValue = 'out' | 'in';
-export type HandoverCostTypeValue =
-  | 'tip'
-  | 'fuel'
-  | 'ferry'
-  | 'cleaning'
-  | 'commission';
+export type HandoverCostTypeValue = string;
 
 export type BookingPricingSnapshotForm = {
   rentalFee: string;
@@ -125,6 +120,7 @@ export type BookingAdminEditFormProps = {
 
 export type BookingCalendarBooking = {
   id: string;
+  bookingId: string;
   humanId?: string | null;
   contactName: string;
   rentalStart?: string;
@@ -141,6 +137,8 @@ export type BookingCalendarBooking = {
   pricing?: BookingPricing | null;
   arrival?: string;
   rentalDays?: number;
+  slotIndex?: number;
+  requiredCars?: number;
 };
 
 export type BookingCalendarVehicle = {
@@ -190,6 +188,8 @@ export type VisibleBooking = BookingCalendarBooking & {
 };
 
 export type DragPayload = {
+  calendarEntryId: string;
   bookingId: string;
+  slotIndex: number;
   sourceVehicleId?: string;
 };

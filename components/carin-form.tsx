@@ -8,6 +8,7 @@ import { FloatingTextarea } from './ui/textarea';
 import { createVehicleHandoverAction } from '@/actions/createVehicleHandoverAction';
 import { Booking } from '@/data-service/bookings';
 import { formatAddress } from '@/lib/format/format-address';
+import { PricingBreakdown } from '@/hooks/use-rental-pricing';
 import CarDamages from './car/car-damages';
 import { Button } from './ui/button';
 import { Detail } from './ui/detail';
@@ -31,6 +32,7 @@ const emptyForm = {
 
 type CarinFormProps = {
   booking: Booking | null;
+  pricing?: PricingBreakdown | null;
   vehicle: FleetVehicle | null;
   handoverOutMileage?: number | null;
   users: Pick<User, 'id' | 'name'>[];
@@ -39,6 +41,7 @@ type CarinFormProps = {
 type CarinFormValues = typeof emptyForm;
 export default function CarinForm({
   booking,
+  pricing,
   vehicle,
   handoverOutMileage,
   users,
@@ -334,33 +337,25 @@ export default function CarinForm({
       <div className='grid md:grid-cols-4 w-full gap-4 mb-6'>
         <Detail
           label='Bérlési díj'
-          value={
-            booking?.pricing?.rentalFee
-              ? `${booking.pricing.rentalFee} €`
-              : null
-          }
+          value={pricing?.rentalFee ? `${pricing.rentalFee} €` : null}
         />
         <Detail
           label='Biztosítás'
-          value={
-            booking?.pricing?.insurance
-              ? `${booking.pricing.insurance} €`
-              : 'Nem kértek'
-          }
+          value={pricing?.insurance ? `${pricing.insurance} €` : 'Nem kértek'}
         />
         <Detail
           label='Kaució'
           value={
-            booking?.pricing?.deposit ? `${booking.pricing.deposit} €` : '0 €'
+            pricing?.insurance
+              ? '0 €'
+              : pricing?.deposit
+                ? `${pricing.deposit} €`
+                : '0 €'
           }
         />
         <Detail
           label='Kiszállási díj'
-          value={
-            booking?.pricing?.deliveryFee
-              ? `${booking.pricing.deliveryFee} €`
-              : '0 €'
-          }
+          value={pricing?.deliveryFee ? `${pricing.deliveryFee} €` : '0 €'}
         />
       </div>
       <form onSubmit={handleSubmit} className='grid gap-4 md:grid-cols-2'>

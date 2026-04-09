@@ -240,7 +240,7 @@ export function useBookingCalendar({
   const bookingsByVehicle = useMemo(() => {
     const map = new Map<
       string,
-      { bookingId: string; interval: BookingInterval }[]
+      { calendarEntryId: string; interval: BookingInterval }[]
     >();
 
     bookings.forEach((booking) => {
@@ -249,7 +249,7 @@ export function useBookingCalendar({
       if (!interval) return;
       const entry = map.get(booking.assignedFleetVehicleId) ?? [];
       entry.push({
-        bookingId: booking.id,
+        calendarEntryId: booking.id,
         interval,
       });
       map.set(booking.assignedFleetVehicleId, entry);
@@ -307,7 +307,7 @@ export function useBookingCalendar({
     payload: DragPayload,
     vehicleId: string,
   ): boolean => {
-    const requestedInterval = bookingIntervalsById.get(payload.bookingId);
+    const requestedInterval = bookingIntervalsById.get(payload.calendarEntryId);
     if (!requestedInterval) return false;
     const vehicle = fleetVehicleById.get(vehicleId);
     if (
@@ -324,7 +324,7 @@ export function useBookingCalendar({
     const bookedSlots = bookingsByVehicle.get(vehicleId) ?? [];
     return !bookedSlots.some(
       (slot) =>
-        slot.bookingId !== payload.bookingId &&
+        slot.calendarEntryId !== payload.calendarEntryId &&
         intervalsOverlap(requestedInterval, slot.interval),
     );
   };
@@ -346,8 +346,8 @@ export function useBookingCalendar({
     [bookings],
   );
 
-  const getAvailableFleetVehicles = (bookingId: string) => {
-    const requestedInterval = bookingIntervalsById.get(bookingId);
+  const getAvailableFleetVehicles = (calendarEntryId: string) => {
+    const requestedInterval = bookingIntervalsById.get(calendarEntryId);
     if (!requestedInterval) return sortedFleetVehicles;
 
     return sortedFleetVehicles.filter((vehicle) => {
@@ -364,7 +364,7 @@ export function useBookingCalendar({
       const bookedSlots = bookingsByVehicle.get(vehicle.id) ?? [];
       return !bookedSlots.some(
         (slot) =>
-          slot.bookingId !== bookingId &&
+          slot.calendarEntryId !== calendarEntryId &&
           intervalsOverlap(requestedInterval, slot.interval),
       );
     });
@@ -374,7 +374,9 @@ export function useBookingCalendar({
     unassignedBookings.filter((booking) =>
       isVehicleAvailable(
         {
-          bookingId: booking.id,
+          calendarEntryId: booking.id,
+          bookingId: booking.bookingId,
+          slotIndex: booking.slotIndex ?? 0,
         },
         vehicleId,
       ),
@@ -388,12 +390,17 @@ export function useBookingCalendar({
   const timelineWidth = days.length * dayColumnWidth;
   const dayGridTemplate = `repeat(${days.length}, ${dayColumnWidth}px)`;
 
-  const handleAssign = (bookingId: string, fleetVehicleId: string | null) => {
+  const handleAssign = (
+    bookingId: string,
+    slotIndex: number,
+    fleetVehicleId: string | null,
+  ) => {
     setMessage(null);
     startTransition(async () => {
       const result = await assignFleetVehicleToBookingAction({
         bookingId,
         fleetVehicleId,
+        slotIndex,
       });
       if (result?.error) {
         setMessage(result.error);
@@ -469,7 +476,9 @@ export function useBookingCalendar({
     const interval = bookingIntervalsById.get(booking.id);
     if (!interval) return null;
     return {
-      bookingId: booking.id,
+      calendarEntryId: booking.id,
+      bookingId: booking.bookingId,
+      slotIndex: booking.slotIndex ?? 0,
       sourceVehicleId,
     };
   };
@@ -584,6 +593,7 @@ export function useBookingCalendar({
       const result = await assignFleetVehicleToBookingAction({
         bookingId: payload.bookingId,
         fleetVehicleId: vehicleId,
+        slotIndex: payload.slotIndex,
       });
       if (result?.error) {
         setMessage(result.error);
@@ -613,6 +623,7 @@ export function useBookingCalendar({
       const result = await assignFleetVehicleToBookingAction({
         bookingId: payload.bookingId,
         fleetVehicleId: null,
+        slotIndex: payload.slotIndex,
       });
       if (result?.error) {
         setMessage(result.error);

@@ -99,6 +99,9 @@ export function BookingCalendarBookingChip({
   const bookingMenuItemStyle = {
     '--fleet-color': bookingColor,
   } as CSSProperties;
+  const slotParams = new URLSearchParams({
+    slot: String(booking.slotIndex ?? 0),
+  }).toString();
 
   return (
     <DropdownMenu
@@ -167,8 +170,14 @@ export function BookingCalendarBookingChip({
           className='min-w-64 space-y-1 text-xs'
         >
           <div>
-            <strong>Foglalás:</strong> {booking.humanId ?? booking.id}
+            <strong>Foglalás:</strong> {booking.humanId ?? booking.bookingId}
           </div>
+          {(booking.requiredCars ?? 1) > 1 && (
+            <div>
+              <strong>Autóigény slot:</strong> {(booking.slotIndex ?? 0) + 1} /{' '}
+              {booking.requiredCars}
+            </div>
+          )}
           <div>
             <strong>Név:</strong> {booking.contactName || '—'}
           </div>
@@ -209,7 +218,9 @@ export function BookingCalendarBookingChip({
           </div>
           <div>
             <strong>Kaució:</strong>{' '}
-            {formatPriceValue(booking.pricing?.deposit)}
+            {booking.pricing?.insurance
+              ? '0 €'
+              : formatPriceValue(booking.pricing?.deposit)}
           </div>
           <div>
             <strong>Extrák díja:</strong>{' '}
@@ -221,21 +232,25 @@ export function BookingCalendarBookingChip({
         <DropdownMenuItem
           className='data-highlighted:bg-(--fleet-color) data-highlighted:text-primary-foreground'
           style={bookingMenuItemStyle}
-          onSelect={() => router.push(`/bookings/${booking.id}/edit`)}
+          onSelect={() => router.push(`/bookings/${booking.bookingId}/edit`)}
         >
           Megnyitás / Módosítás
         </DropdownMenuItem>
         <DropdownMenuItem
           className='data-highlighted:bg-(--fleet-color) data-highlighted:text-primary-foreground'
           style={bookingMenuItemStyle}
-          onSelect={() => router.push(`/bookings/${booking.id}/carout`)}
+          onSelect={() =>
+            router.push(`/bookings/${booking.bookingId}/carout?${slotParams}`)
+          }
         >
           Kiadás
         </DropdownMenuItem>
         <DropdownMenuItem
           className='data-highlighted:bg-(--fleet-color) data-highlighted:text-primary-foreground'
           style={bookingMenuItemStyle}
-          onSelect={() => router.push(`/bookings/${booking.id}/carin`)}
+          onSelect={() =>
+            router.push(`/bookings/${booking.bookingId}/carin?${slotParams}`)
+          }
           disabled={!hasOut}
         >
           Visszavétel

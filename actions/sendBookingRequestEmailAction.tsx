@@ -21,6 +21,7 @@ import {
 } from '@/components/emails/types';
 import { normalizeConfirmationLocale } from '@/lib/format/format-locale';
 import { buildTextBody } from '@/components/emails/utils/build-text-body';
+import { normalizeOfferRentalPricing } from '@/lib/quote-offer-pricing';
 
 type SendBookingRequestEmailResult = {
   success?: string;
@@ -31,9 +32,12 @@ type BookingRequestOfferData = {
   adminName?: string | null;
   carId?: string | null;
   carName?: string | null;
+  appliesToCars?: number | null;
   rentalStart?: string | null;
   rentalEnd?: string | null;
   rentalFee?: string | null;
+  originalRentalFee?: string | null;
+  discountedRentalFee?: string | null;
   deposit?: string | null;
   insurance?: string | null;
   deliveryFee?: string | null;
@@ -116,9 +120,12 @@ const buildBookingRequestRecord = (
     adminName: toNullableString(input.adminName),
     carId: toNullableString(offer.carId),
     carName: toNullableString(offer.carName),
+    appliesToCars: offer.appliesToCars ?? null,
     rentalStart: toNullableString(input.rentalStart),
     rentalEnd: toNullableString(input.rentalEnd),
     rentalFee: offer.rentalFee ?? null,
+    originalRentalFee: offer.originalRentalFee ?? null,
+    discountedRentalFee: offer.discountedRentalFee ?? null,
     deposit: offer.deposit ?? null,
     insurance: offer.insurance ?? null,
     deliveryFee: offer.deliveryFee ?? null,
@@ -178,15 +185,17 @@ export const sendBookingRequestEmailAction = async (
 
   const locale = normalizeConfirmationLocale(input.locale);
   const copy = EMAIL_COPY[locale] ?? EMAIL_COPY.en;
-  const offersWithLinks = input.offers.map((offer, index) => ({
-    ...offer,
-    bookingLink: buildBookingLink(
-      locale,
-      offer.carId as string,
-      input.quoteId,
-      index,
-    ),
-  }));
+  const offersWithLinks = input.offers.map((offer, index) =>
+    normalizeOfferRentalPricing({
+      ...offer,
+      bookingLink: buildBookingLink(
+        locale,
+        offer.carId as string,
+        input.quoteId,
+        index,
+      ),
+    }),
+  );
 
   const inputWithLinks: SendBookingRequestEmailResolvedInput = {
     ...input,

@@ -4,12 +4,15 @@ import { Button } from '../ui/button';
 import { sendBookingFinalizationEmailAction } from '@/actions/sendBookingFinalizationEmailAction';
 import { Booking } from '@/data-service/bookings';
 import { StatusMessage } from './types';
+import { getUserOptions, UserOptionSource } from '@/lib/user-options';
+import { FloatingSelect } from '../ui/floating-select';
 
 type ConfirmButtonProps = {
   saved: boolean;
   deliveryDetailsRequired: boolean;
   deliverySaved: boolean;
   booking: Booking;
+  users: UserOptionSource[];
 };
 
 export default function ConfirmButton({
@@ -17,10 +20,12 @@ export default function ConfirmButton({
   deliveryDetailsRequired,
   deliverySaved,
   booking,
+  users,
 }: ConfirmButtonProps) {
   const [signerName, setSignerName] = useState('');
   const [isSendingEmail, startSendTransition] = useTransition();
   const [emailStatus, setEmailStatus] = useState<StatusMessage | null>(null);
+  const userOptions = getUserOptions(users);
 
   const handleSendEmail = () => {
     setEmailStatus(null);
@@ -43,12 +48,29 @@ export default function ConfirmButton({
   return (
     <div className='rounded-lg border bg-card p-4 space-y-3'>
       <div className='space-y-2'>
-        <Input
+        {/* <Input
           type='text'
           value={signerName}
           onChange={(event) => setSignerName(event.target.value)}
           label='Aláíró neve'
-        />
+        /> */}
+
+        <FloatingSelect
+          label='Aláíró neve'
+          alwaysFloatLabel
+          required
+          value={signerName}
+          onChange={(event) => setSignerName(event.target.value)}
+        >
+          <option value='' disabled>
+            Kérlek válassz ki valakit!
+          </option>
+          {userOptions.map((option) => (
+            <option key={option.id} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </FloatingSelect>
       </div>
       <p className='text-sm text-muted-foreground'>
         Az alábbi gombbal elküldheted a foglalás véglegesítő e-mailt az

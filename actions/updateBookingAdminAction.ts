@@ -18,6 +18,7 @@ import {
   DELIVERY_ISLAND_LANZAROTE,
   resolveDeliveryIsland,
 } from '@/lib/delivery-island';
+import { isDefaultHandoverCostTypeSlug } from '@/lib/handover-cost-types';
 
 type UpdateBookingAdminInput = {
   bookingId: string;
@@ -51,12 +52,7 @@ type UpdateBookingAdminResult = {
 };
 
 type HandoverDirectionValue = 'out' | 'in';
-type HandoverCostTypeValue =
-  | 'tip'
-  | 'fuel'
-  | 'ferry'
-  | 'cleaning'
-  | 'commission';
+type HandoverCostTypeValue = string;
 
 type BookingPricingSnapshotInput = {
   rentalFee?: unknown;
@@ -90,13 +86,6 @@ type BookingContractInput = {
   pdfSentAt?: unknown;
 };
 
-const COST_TYPES: HandoverCostTypeValue[] = [
-  'tip',
-  'fuel',
-  'ferry',
-  'cleaning',
-  'commission',
-];
 const DIRECTIONS: HandoverDirectionValue[] = ['out', 'in'];
 
 const toOptionalString = (value?: string | null) => {
@@ -406,7 +395,7 @@ export const updateBookingAdminAction = async (
     ) as HandoverCostTypeValue;
     const amountRaw = toOptionalString(String(row.amount ?? ''));
     if (!direction || !DIRECTIONS.includes(direction)) return acc;
-    if (!costType || !COST_TYPES.includes(costType)) return acc;
+    if (!costType || !isDefaultHandoverCostTypeSlug(costType)) return acc;
     if (!amountRaw) return acc;
     const numericAmount = Number(amountRaw);
     if (!Number.isFinite(numericAmount)) return acc;
@@ -669,7 +658,9 @@ export const updateBookingAdminAction = async (
         const insurance =
           toOptionalString(String(pricingData.insurance ?? '')) ?? null;
         const deposit =
-          toOptionalString(String(pricingData.deposit ?? '')) ?? null;
+          insurance
+            ? '0'
+            : (toOptionalString(String(pricingData.deposit ?? '')) ?? null);
         const deliveryFee =
           toOptionalString(String(pricingData.deliveryFee ?? '')) ?? null;
         const extrasFee =
@@ -784,7 +775,15 @@ export const updateBookingAdminAction = async (
       await tx.$executeRaw`
         DELETE FROM "BookingHandoverCosts"
         WHERE "bookingId" = ${bookingId}::uuid
-          AND "direction" IS NOT NULL
+          AND "direction" = 'out'::"HandoverDirection"
+          AND "customCostTypeSlug" IS NULL
+          AND "costType" IN (
+            'tip'::"HandoverCostType",
+            'fuel'::"HandoverCostType",
+            'ferry'::"HandoverCostType",
+            'cleaning'::"HandoverCostType",
+            'commission'::"HandoverCostType"
+          )
       `;
       if (handoverCosts.length > 0) {
         for (const row of handoverCosts) {
@@ -793,6 +792,7 @@ export const updateBookingAdminAction = async (
               "bookingId",
               "direction",
               "costType",
+              "customCostTypeSlug",
               "amount",
               "updatedAt"
             )
@@ -800,6 +800,7 @@ export const updateBookingAdminAction = async (
               ${bookingId}::uuid,
               CAST(${row.direction} AS "HandoverDirection"),
               CAST(${row.costType} AS "HandoverCostType"),
+              NULL,
               ${row.amount},
               timezone('utc'::text, now())
             )

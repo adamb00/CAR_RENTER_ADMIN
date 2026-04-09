@@ -20,6 +20,7 @@ const createContactQuoteSchema = z
     rentalEnd: z.string().optional(),
     preferredChannel: z.enum(['email', 'whatsapp']),
     carId: z.string().optional(),
+    cars: z.string().default('1'),
   })
   .superRefine((values, ctx) => {
     const email = values.email.trim();
@@ -27,6 +28,7 @@ const createContactQuoteSchema = z
     const locale = values.locale.trim().toLowerCase();
     const rentalStart = values.rentalStart?.trim() ?? '';
     const rentalEnd = values.rentalEnd?.trim() ?? '';
+    const cars = values.cars.trim();
 
     if (!SUPPORTED_LOCALE_SET.has(locale)) {
       ctx.addIssue({
@@ -83,6 +85,24 @@ const createContactQuoteSchema = z
         path: ['rentalEnd'],
       });
     }
+
+    if (!cars) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Autók száma kötelező',
+        path: ['cars'],
+      });
+      return;
+    }
+
+    const parsedCars = Number(cars);
+    if (!Number.isInteger(parsedCars) || parsedCars <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Pozitív egész autószám szükséges',
+        path: ['cars'],
+      });
+    }
   });
 
 type CreateContactQuoteInput = z.input<typeof createContactQuoteSchema>;
@@ -99,6 +119,7 @@ type CreateContactQuoteResult = {
     rentalStart?: string | null;
     rentalEnd?: string | null;
     carId?: string | null;
+    cars?: string | null;
   };
 };
 
@@ -125,6 +146,7 @@ export const createContactQuoteAction = async (
   const rentalStart = parseDateInput(values.rentalStart);
   const rentalEnd = parseDateInput(values.rentalEnd);
   const requestedCarId = values.carId?.trim() || null;
+  const requestedCars = values.cars.trim();
 
   let carName: string | null = null;
   if (requestedCarId) {
@@ -158,6 +180,7 @@ export const createContactQuoteAction = async (
         departureflight: null,
         carid: requestedCarId,
         carname: carName,
+        cars: requestedCars,
         extras: [],
       },
       select: {
@@ -170,6 +193,7 @@ export const createContactQuoteAction = async (
         rentalstart: true,
         rentalend: true,
         carid: true,
+        cars: true,
       },
     });
 
@@ -186,6 +210,7 @@ export const createContactQuoteAction = async (
         rentalStart: quote.rentalstart?.toISOString().slice(0, 10) ?? null,
         rentalEnd: quote.rentalend?.toISOString().slice(0, 10) ?? null,
         carId: quote.carid,
+        cars: quote.cars,
       },
     };
   } catch (error) {

@@ -2,9 +2,12 @@ export type BookingRequestData = {
   adminName?: string | null;
   carId?: string | null;
   carName?: string | null;
+  appliesToCars?: number | null;
   rentalStart?: string | null;
   rentalEnd?: string | null;
   rentalFee?: string | null;
+  originalRentalFee?: string | null;
+  discountedRentalFee?: string | null;
   deposit?: string | null;
   insurance?: string | null;
   deliveryFee?: string | null;

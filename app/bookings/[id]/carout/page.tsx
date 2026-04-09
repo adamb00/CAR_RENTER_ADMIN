@@ -1,6 +1,7 @@
 import CaroutForm from '@/components/carout-form';
 import { getBookingById } from '@/data-service/bookings';
 import { getVehicleById } from '@/data-service/cars';
+import { getRequiredCarsCount, splitPricingByCars } from '@/lib/booking-pricing-share';
 import { getAllUser } from '@/data-service/user';
 import { db } from '@/lib/db';
 import { formatDate } from '@/lib/format/format-date';
@@ -8,14 +9,34 @@ import Link from 'next/link';
 
 export default async function BookingIssuePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ slot?: string }>;
 }) {
   const { id } = await params;
+  const resolvedSearchParams = await searchParams;
 
   const booking = await getBookingById(id);
   const users = await getAllUser();
-  const vehicle = await getVehicleById(booking?.assignedFleetVehicleId ?? '');
+  const requestedSlotIndex = Number.parseInt(
+    resolvedSearchParams?.slot ?? '0',
+    10,
+  );
+  const slotIndex = Number.isFinite(requestedSlotIndex)
+    ? Math.max(0, requestedSlotIndex)
+    : 0;
+  const selectedAssignment =
+    booking?.fleetAssignments.find(
+      (assignment) => assignment.slotIndex === slotIndex,
+    ) ?? booking?.fleetAssignments[0];
+  const vehicle = await getVehicleById(
+    selectedAssignment?.fleetVehicleId ?? booking?.assignedFleetVehicleId ?? '',
+  );
+  const pricing = splitPricingByCars(
+    booking?.pricing,
+    getRequiredCarsCount(booking?.payload?.cars),
+  );
   const handoverOutRecord =
     booking?.id && vehicle?.id
       ? await db.vehicleHandover.findFirst({
@@ -74,9 +95,18 @@ export default async function BookingIssuePage({
             {formatDate(booking?.rentalEnd, 'short')}
           </span>
         </p>
+        {(booking?.payload?.cars ?? 1) > 1 && (
+          <p className='text-sm text-muted-foreground'>
+            Slot:{' '}
+            <span className='font-medium text-foreground'>
+              {slotIndex + 1} / {booking?.payload?.cars}
+            </span>
+          </p>
+        )}
       </div>
       <CaroutForm
         booking={booking}
+        pricing={pricing ?? null}
         vehicle={vehicle}
         users={users}
         handoverOut={handoverOut}

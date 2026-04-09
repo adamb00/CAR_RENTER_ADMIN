@@ -1,7 +1,10 @@
 export type BookingRequestOfferBase = {
   carId?: string | null;
   carName?: string | null;
+  appliesToCars?: number | null;
   rentalFee?: string;
+  originalRentalFee?: string;
+  discountedRentalFee?: string;
   deposit?: string;
   insurance?: string;
   deliveryFee?: string;

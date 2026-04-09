@@ -15,7 +15,7 @@ type UnassignedBookingCardProps = {
   booking: BookingCalendarBooking;
   fleetVehicles: BookingCalendarVehicle[];
   disabled?: boolean;
-  onAssign: (bookingId: string, vehicleId: string) => void;
+  onAssign: (bookingId: string, slotIndex: number, vehicleId: string) => void;
   onDragStart?: (
     event: DragEvent<HTMLDivElement>,
     booking: BookingCalendarBooking,
@@ -66,6 +66,14 @@ export const UnassignedBookingCard = ({
       <div className='text-sm text-muted-foreground'>
         {booking.rentalStart} → {booking.rentalEnd}
       </div>
+      {(booking.requiredCars ?? 1) > 1 && (
+        <div className='text-sm text-muted-foreground'>
+          Autóigény slot:{' '}
+          <span className='font-medium text-foreground'>
+            {(booking.slotIndex ?? 0) + 1} / {booking.requiredCars}
+          </span>
+        </div>
+      )}
       <div className='text-sm text-muted-foreground mb-4'>
         Átvétel helye:{' '}
         <span className='font-medium text-foreground'>
@@ -150,7 +158,9 @@ export const UnassignedBookingCard = ({
         type='button'
         className='w-full'
         disabled={disabled || !selectedVehicle}
-        onClick={() => onAssign(booking.id, selectedVehicle)}
+        onClick={() =>
+          onAssign(booking.bookingId, booking.slotIndex ?? 0, selectedVehicle)
+        }
       >
         Hozzárendelés
       </Button>

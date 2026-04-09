@@ -212,14 +212,15 @@ export function BookingCalendarTimeline({
                                       onSelect={() => {
                                         calendar.closeRowContextMenu();
                                         calendar.handleAssign(
-                                          unassignedBooking.id,
+                                          unassignedBooking.bookingId,
+                                          unassignedBooking.slotIndex ?? 0,
                                           vehicle.id,
                                         );
                                       }}
                                     >
                                       {unassignedBooking.humanId &&
                                       unassignedBooking.contactName
-                                        ? `${unassignedBooking.humanId} | ${unassignedBooking.contactName} | (${unassignedBooking.rentalStart} - ${unassignedBooking.rentalEnd})`
+                                        ? `${unassignedBooking.humanId} | ${unassignedBooking.contactName} | ${(unassignedBooking.slotIndex ?? 0) + 1}/${unassignedBooking.requiredCars ?? 1} | (${unassignedBooking.rentalStart} - ${unassignedBooking.rentalEnd})`
                                         : ''}
                                     </DropdownMenuItem>
                                   ),
@@ -266,7 +267,9 @@ export function BookingCalendarTimeline({
                           key={booking.id}
                           booking={booking}
                           vehicle={vehicle}
-                          hasOut={calendar.carOutBookingIdSet.has(booking.id)}
+                          hasOut={calendar.carOutBookingIdSet.has(
+                            booking.bookingId,
+                          )}
                           isPending={calendar.isPending}
                           dayColumnWidth={calendar.dayColumnWidth}
                           timelineWidth={calendar.timelineWidth}
