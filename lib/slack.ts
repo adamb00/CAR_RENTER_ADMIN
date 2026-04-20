@@ -75,6 +75,48 @@ export const verifySlackRequestSignature = ({
   return timingSafeEqual(expectedBuffer, receivedBuffer);
 };
 
+export const verifySlackRequestSignatureDetailed = ({
+  rawBody,
+  timestamp,
+  signature,
+}: {
+  rawBody: string;
+  timestamp?: string | null;
+  signature?: string | null;
+}) => {
+  const signingSecret = SLACK_SIGNING_SECRET?.trim();
+  if (!signingSecret) return { ok: false as const, reason: 'missing_secret' };
+  if (!timestamp) return { ok: false as const, reason: 'missing_timestamp' };
+  if (!signature) return { ok: false as const, reason: 'missing_signature' };
+
+  const parsedTimestamp = Number(timestamp);
+  if (!Number.isFinite(parsedTimestamp)) {
+    return { ok: false as const, reason: 'invalid_timestamp' };
+  }
+
+  const requestAge = Math.abs(Math.floor(Date.now() / 1000) - parsedTimestamp);
+  if (requestAge > 60 * 5) {
+    return { ok: false as const, reason: 'timestamp_out_of_range' };
+  }
+
+  const baseString = `v0:${timestamp}:${rawBody}`;
+  const expected = `v0=${createHmac('sha256', signingSecret)
+    .update(baseString)
+    .digest('hex')}`;
+
+  const expectedBuffer = Buffer.from(expected, 'utf8');
+  const receivedBuffer = Buffer.from(signature, 'utf8');
+
+  if (expectedBuffer.length !== receivedBuffer.length) {
+    return { ok: false as const, reason: 'signature_length_mismatch' };
+  }
+
+  const ok = timingSafeEqual(expectedBuffer, receivedBuffer);
+  return ok
+    ? { ok: true as const, reason: 'ok' }
+    : { ok: false as const, reason: 'signature_mismatch' };
+};
+
 export const sendSlackDirectMessage = async ({
   slackUserId,
   text,

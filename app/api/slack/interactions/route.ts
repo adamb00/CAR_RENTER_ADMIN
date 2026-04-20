@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import {
   hasSlackSigningSecret,
   parseTaskStatusActionValue,
-  verifySlackRequestSignature,
+  verifySlackRequestSignatureDetailed,
 } from '@/lib/slack';
 import type { TaskStatus } from '@prisma/client';
 import { NextResponse } from 'next/server';
@@ -37,16 +37,17 @@ export async function POST(request: Request) {
   const timestamp = request.headers.get('x-slack-request-timestamp');
   const signature = request.headers.get('x-slack-signature');
 
-  const verified = verifySlackRequestSignature({
+  const verification = verifySlackRequestSignatureDetailed({
     rawBody,
     timestamp,
     signature,
   });
 
-  if (!verified) {
+  if (!verification.ok) {
     console.error('Slack interaction rejected: invalid signature', {
       hasTimestamp: Boolean(timestamp),
       hasSignature: Boolean(signature),
+      reason: verification.reason,
     });
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
