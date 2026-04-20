@@ -50,6 +50,8 @@ export const WHATSAPP_API_TOKEN = process.env.WHATSAPP_API_TOKEN;
 export const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 export const WHATSAPP_GRAPH_API_VERSION =
   process.env.WHATSAPP_GRAPH_API_VERSION;
+export const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
+export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
 
 export const ADMIN_SIGNATURE = {
   company: 'ZODIACS Rent a Car',

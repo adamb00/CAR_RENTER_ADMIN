@@ -24,3 +24,7 @@ export const hasVehicleHandoverOut = async (
 
   return !!handover;
 };
+
+export const getFleetCars = async () => {
+  return db.fleetVehicle.findMany({});
+};

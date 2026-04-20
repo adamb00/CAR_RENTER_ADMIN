@@ -20,12 +20,14 @@ type CreateNewUserActionResult = {
 const buildHtmlBody = async ({
   name,
   email,
+  slackUserId,
 }: {
   name: string;
   email: string;
+  slackUserId: string;
 }): Promise<string> => {
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const html = renderToStaticMarkup(NewUserEmail({ name, email }));
+  const html = renderToStaticMarkup(NewUserEmail({ name, email, slackUserId }));
 
   return `<!doctype html>${html}`;
 };
@@ -39,9 +41,9 @@ export const createNewUserAction = async (
     return { error: 'Hibás adatok. Kérjük próbáld meg újból!' };
   }
 
-  const { name, email } = validatedFields.data;
+  const { name, email, slackUserId } = validatedFields.data;
 
-  const html = await buildHtmlBody({ name, email });
+  const html = await buildHtmlBody({ name, email, slackUserId });
 
   try {
     const transporter = await getTransporter();

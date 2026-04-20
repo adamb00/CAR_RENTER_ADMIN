@@ -12,7 +12,7 @@ export default function AddUserForm() {
   const [error, setError] = useState<{ error: string | null }>({ error: null });
 
   const form = useForm<UserSchemaType>({
-    defaultValues: { email: '', name: '' },
+    defaultValues: { email: '', name: '', slackUserId: '' },
   });
 
   const handleOnSubmit = (values: UserSchemaType) => {
@@ -50,6 +50,17 @@ export default function AddUserForm() {
                 <FormItem>
                   <FormControl>
                     <Input label='Teljes név' {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='slackUserId'
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input label='Slack user ID (pl. U0123ABC)' {...field} />
                   </FormControl>
                 </FormItem>
               )}

@@ -1,5 +1,6 @@
 'use server';
 
+import { auth } from '@/auth';
 import {
   markAllNotificationsRead,
   markNotificationRead,
@@ -12,7 +13,8 @@ export const markNotificationReadAction = async (id: string) => {
   }
 
   try {
-    await markNotificationRead(id.trim());
+    const session = await auth();
+    await markNotificationRead(id.trim(), session?.user?.id ?? null);
     revalidatePath('/', 'layout');
   } catch (error) {
     console.error('markNotificationReadAction', error);
@@ -24,7 +26,8 @@ export const markNotificationReadAction = async (id: string) => {
 
 export const markAllNotificationsReadAction = async () => {
   try {
-    await markAllNotificationsRead();
+    const session = await auth();
+    await markAllNotificationsRead(session?.user?.id ?? null);
     revalidatePath('/', 'layout');
   } catch (error) {
     console.error('markAllNotificationsReadAction', error);

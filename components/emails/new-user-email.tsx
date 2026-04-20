@@ -1,16 +1,29 @@
 const CREATE_USER_URL = 'https://admin.zodiacsrentacar.com/create-new-user';
 
-const buildCreateUserUrl = (name: string, email: string) => {
+const buildCreateUserUrl = (
+  name: string,
+  email: string,
+  slackUserId: string,
+) => {
   const params = new URLSearchParams({
     name: name.trim(),
     email: email.trim(),
+    slackUserId: slackUserId.trim(),
   });
 
   return `${CREATE_USER_URL}?${params.toString()}`;
 };
 
-export function NewUserEmail({ name, email }: { name: string; email: string }) {
-  const createUserUrl = buildCreateUserUrl(name, email);
+export function NewUserEmail({
+  name,
+  email,
+  slackUserId,
+}: {
+  name: string;
+  email: string;
+  slackUserId: string;
+}) {
+  const createUserUrl = buildCreateUserUrl(name, email, slackUserId);
 
   return (
     <div

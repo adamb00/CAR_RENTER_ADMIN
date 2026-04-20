@@ -8,6 +8,7 @@ import {
   Inbox,
   UserIcon,
   UserRoundCog,
+  UserStar,
 } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -66,6 +67,21 @@ export const navItems = (unreadBadgeCount: number) =>
           {
             title: 'Új autó hozzáadása',
             url: '/cars/new',
+          },
+        ],
+      },
+      {
+        title: 'Feladatok',
+        url: '#',
+        icon: UserStar,
+        items: [
+          {
+            title: 'Összes feladat',
+            url: '/tasks',
+          },
+          {
+            title: 'Új feladat kiosztása',
+            url: '/tasks/new',
           },
         ],
       },

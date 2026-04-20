@@ -27,6 +27,7 @@ const emptyForm = {
   milage: '',
   rangeKm: '',
   tip: '',
+  parkingCost: '',
   fuelCost: '',
   ferryCost: '',
   cleaningCost: '',
@@ -156,7 +157,7 @@ export default function CaroutForm({
     if (!outCosts) return;
     setForm((prev) => {
       if (
-        prev.fuelCost.trim().length > 0 ||
+        prev.parkingCost.trim().length > 0 ||
         prev.ferryCost.trim().length > 0 ||
         prev.cleaningCost.trim().length > 0 ||
         prev.commission.trim().length > 0
@@ -165,7 +166,7 @@ export default function CaroutForm({
       }
       return {
         ...prev,
-        fuelCost: outCosts.fuelCost ?? '',
+        parkingCost: outCosts.fuelCost ?? '',
         ferryCost: outCosts.ferryCost ?? '',
         cleaningCost: outCosts.cleaningCost ?? '',
         commission: outCosts.commissionCost ?? '',
@@ -298,16 +299,16 @@ export default function CaroutForm({
       });
       return;
     }
-    const fuelCostRaw = form.fuelCost.trim().replace(',', '.');
-    const fuelCostValue =
-      fuelCostRaw.length > 0 ? Number(fuelCostRaw) : undefined;
+    const parkingCostRaw = form.parkingCost.trim().replace(',', '.');
+    const parkingCostValue =
+      parkingCostRaw.length > 0 ? Number(parkingCostRaw) : undefined;
     if (
-      fuelCostValue != null &&
-      (Number.isNaN(fuelCostValue) || fuelCostValue < 0)
+      parkingCostValue != null &&
+      (Number.isNaN(parkingCostValue) || parkingCostValue < 0)
     ) {
       setStatus({
         type: 'error',
-        message: 'A tankolás mezőbe csak nem negatív szám írható.',
+        message: 'A parkolás mezőbe csak nem negatív szám írható.',
       });
       return;
     }
@@ -366,7 +367,7 @@ export default function CaroutForm({
         mileage: mileageValue,
         rangeKm: rangeKmValue,
         tip: tipValue,
-        fuelCost: fuelCostValue,
+        fuelCost: parkingCostValue,
         ferryCost: ferryCostValue,
         cleaningCost: cleaningCostValue,
         commission: commissionValue,
@@ -539,38 +540,17 @@ export default function CaroutForm({
             }
           />
           <Input
-            label='Tankolás (opcionális)'
+            label='Parkolás (opcionális)'
             type='number'
             inputMode='decimal'
             min={0}
             step='0.01'
-            value={form.fuelCost}
+            value={form.parkingCost}
             onChange={(e) =>
-              setForm((prev) => ({ ...prev, fuelCost: e.target.value }))
+              setForm((prev) => ({ ...prev, parkingCost: e.target.value }))
             }
           />
-          {/* <Input
-            label='Komp (opcionális)'
-            type='number'
-            inputMode='decimal'
-            min={0}
-            step='0.01'
-            value={form.ferryCost}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, ferryCost: e.target.value }))
-            }
-          />
-          <Input
-            label='Takarítás (opcionális)'
-            type='number'
-            inputMode='decimal'
-            min={0}
-            step='0.01'
-            value={form.cleaningCost}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, cleaningCost: e.target.value }))
-            }
-          /> */}
+
           <Input
             label='Jutalék (opcionális)'
             type='number'

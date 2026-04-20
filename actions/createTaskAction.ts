@@ -1,0 +1,135 @@
+'use server';
+
+import { TaskFormValues } from '@/components/tasks/new-task';
+import { createTaskNotification } from '@/data-service/notifications';
+import { createTask } from '@/data-service/tasks';
+import { getUserById } from '@/data-service/user';
+import { getTransporter, MAIL_USER } from '@/lib/mailer';
+import { formatTaskPriorityLabel, normalizeTaskPriority } from '@/lib/task-priority';
+import { buildTaskStatusActionValue, hasSlackConfig, sendSlackDirectMessage } from '@/lib/slack';
+import { redirect } from 'next/navigation';
+
+export const createTaskAction = async (data: TaskFormValues) => {
+  const response = await createTask(data);
+
+  if (!response) {
+    throw new Error('Task creation failed');
+  }
+
+  const user = await getUserById(data.assignedTo);
+
+  if (!user) {
+    throw new Error('Assigned user not found');
+  }
+
+  const createdByUser = await getUserById(data.createdBy!);
+
+  if (!createdByUser) {
+    throw new Error('Creator user not found');
+  }
+
+  const taskDescription = data.description?.trim() || 'Nincs megadva.';
+  const priority = normalizeTaskPriority(data.priority);
+  const priorityLabel = formatTaskPriorityLabel(priority);
+
+  if (response.assignedTo) {
+    await createTaskNotification({
+      taskId: response.id,
+      recipientUserId: response.assignedTo,
+      title: `Új feladat: ${data.title}`,
+      description: `${taskDescription} | Prioritás: ${priorityLabel}`,
+      href: '/tasks',
+      metadata: {
+        taskId: response.id,
+        dueDate: data.dueDate,
+        priority,
+        assignedCar: data.assignedCar ?? null,
+        createdBy: createdByUser.name ?? createdByUser.email,
+      },
+    });
+  }
+
+  const text = `Cím: ${data.title}\nLeírás: ${taskDescription}\nPrioritás: ${priorityLabel}\nHatáridő: ${data.dueDate}\nLétrehozta: ${createdByUser.name}`;
+  const html = text.replace(/\n/g, '<br>');
+
+  try {
+    const transporter = await getTransporter();
+    await transporter.sendMail({
+      from: MAIL_USER,
+      to: user.email,
+      subject: `Új feladat: ${data.title}`,
+      text,
+      html,
+    });
+  } catch (error) {
+    console.error('Error sending email:', error);
+    throw new Error('Failed to send email notification');
+  }
+
+  const slackUserId = user.slackUserId?.trim();
+
+  if (slackUserId && slackUserId !== 'NULL' && hasSlackConfig()) {
+    try {
+      await sendSlackDirectMessage({
+        slackUserId,
+        text: `Új feladatot kaptál.\nCím: ${data.title}\nLeírás: ${taskDescription}\nPrioritás: ${priorityLabel}\nHatáridő: ${data.dueDate}\nLétrehozta: ${createdByUser.name}`,
+        blocks: [
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: `*Új feladatot kaptál*\n*Cím:* ${data.title}\n*Leírás:* ${taskDescription}\n*Prioritás:* ${priorityLabel}\n*Határidő:* ${data.dueDate}\n*Létrehozta:* ${createdByUser.name}`,
+            },
+          },
+          {
+            type: 'actions',
+            elements: [
+              {
+                type: 'button',
+                action_id: 'task_status_update',
+                text: {
+                  type: 'plain_text',
+                  text: 'Folyamatban',
+                },
+                style: 'primary',
+                value: buildTaskStatusActionValue({
+                  taskId: response.id,
+                  status: 'IN_PROGRESS',
+                }),
+              },
+              {
+                type: 'button',
+                action_id: 'task_status_update',
+                text: {
+                  type: 'plain_text',
+                  text: 'Elvégeztem',
+                },
+                style: 'primary',
+                value: buildTaskStatusActionValue({
+                  taskId: response.id,
+                  status: 'COMPLETED',
+                }),
+              },
+              {
+                type: 'button',
+                action_id: 'task_status_update',
+                text: {
+                  type: 'plain_text',
+                  text: 'Mégse',
+                },
+                style: 'danger',
+                value: buildTaskStatusActionValue({
+                  taskId: response.id,
+                  status: 'CANCELLED',
+                }),
+              },
+            ],
+          },
+        ],
+      });
+    } catch (error) {
+      console.error('Error sending Slack message:', error);
+    }
+  }
+  redirect('/tasks');
+};

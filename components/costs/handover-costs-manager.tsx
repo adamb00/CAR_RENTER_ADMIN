@@ -412,24 +412,6 @@ export function HandoverCostsManager({
               disabled={isTypePending}
             />
 
-            {/* <FloatingSelect
-              label='Kategória'
-              value={typeForm.category}
-              onChange={(event) =>
-                setTypeForm((previous) => ({
-                  ...previous,
-                  category: event.target.value as HandoverCostTypeCategory,
-                }))
-              }
-              disabled={isTypePending}
-            >
-              {HANDOVER_COST_TYPE_CATEGORY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </FloatingSelect> */}
-
             <div className='flex items-end'>
               <Button type='submit' disabled={isTypePending} className='w-1/2'>
                 {isTypePending ? 'Mentés...' : 'Új típus hozzáadása'}

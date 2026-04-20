@@ -19,9 +19,19 @@ export default async function RootLayout({
   children: ReactNode;
 }>) {
   const session = await auth();
+  const userId = session?.user?.id ?? null;
+
+  if (!session) {
+    return (
+      <html lang='en'>
+        <body className='antialiased'>{children}</body>
+      </html>
+    );
+  }
+
   const [notifications, unreadCount, delayedNotifications] = await Promise.all([
-    getSidebarNotifications(),
-    getUnreadNotificationsCount(),
+    getSidebarNotifications(userId),
+    getUnreadNotificationsCount(userId),
     getDelayedNotifications(),
   ]);
 
@@ -34,16 +44,8 @@ export default async function RootLayout({
         metadata: notification.metadata ?? null,
       });
       await markNotificationAsProcessed(notification.id, notification.eventKey);
-    })
+    }),
   );
-
-  if (!session) {
-    return (
-      <html lang='en'>
-        <body className='antialiased'>{children}</body>
-      </html>
-    );
-  }
 
   return (
     <html lang='en' suppressHydrationWarning>

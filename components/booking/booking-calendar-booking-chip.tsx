@@ -103,6 +103,10 @@ export function BookingCalendarBookingChip({
     slot: String(booking.slotIndex ?? 0),
   }).toString();
 
+  const bookingParams = new URLSearchParams({
+    bookingId: String(booking.bookingId),
+  }).toString();
+
   return (
     <DropdownMenu
       open={contextMenuBookingId === booking.id}
@@ -254,6 +258,14 @@ export function BookingCalendarBookingChip({
           disabled={!hasOut}
         >
           Visszavétel
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className='data-highlighted:bg-(--fleet-color) data-highlighted:text-primary-foreground'
+          style={bookingMenuItemStyle}
+          onSelect={() => router.push(`/tasks/new?${bookingParams}`)}
+          disabled={!hasOut}
+        >
+          Feladat kiosztása
         </DropdownMenuItem>
         <DropdownMenuSeparator />
       </DropdownMenuContent>

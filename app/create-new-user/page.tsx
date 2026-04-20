@@ -18,6 +18,7 @@ export default function Page() {
   const params = useSearchParams();
   const name = params?.get('name');
   const email = params?.get('email');
+  const slackUserId = params?.get('slackUserId');
   const signatureRef = useRef<SignaturePadHandle>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -26,6 +27,7 @@ export default function Page() {
     defaultValues: {
       name: name ?? '',
       email: email ?? '',
+      slackUserId: slackUserId ?? '',
       password: '',
       signatureData: '',
     },
@@ -62,6 +64,17 @@ export default function Page() {
               <FormItem>
                 <FormControl>
                   <Input label='Teljes név' {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name='slackUserId'
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input label='Slack user ID' {...field} />
                 </FormControl>
               </FormItem>
             )}

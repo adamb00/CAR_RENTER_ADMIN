@@ -36,6 +36,7 @@ export const createUser = async (values: NewUserSchemaType) => {
         email: values.email,
         password: hashedPassword,
         name: values.name.toString(),
+        slackUserId: values.slackUserId,
         signatureData: values.signatureData,
       },
     });
