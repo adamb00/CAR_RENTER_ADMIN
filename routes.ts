@@ -9,7 +9,7 @@ export const publicRoutes = ['/auth/login'];
  * API routes that do not require authentication
  * @type {string[]}
  */
-export const publicApiRoutes = ['/api/user'];
+export const publicApiRoutes = ['/api/user', '/api/slack/interactions'];
 
 /**
  * An array of routes that are used for authentication
