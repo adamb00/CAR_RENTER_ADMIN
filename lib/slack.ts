@@ -4,6 +4,9 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 type SlackChatPostMessageResponse = {
   ok: boolean;
   error?: string;
+  response_metadata?: {
+    messages?: string[];
+  };
 };
 
 const SLACK_CHAT_POST_MESSAGE_URL = 'https://slack.com/api/chat.postMessage';
@@ -104,7 +107,41 @@ export const sendSlackDirectMessage = async ({
 
   const data = (await response.json()) as SlackChatPostMessageResponse;
 
+  if (!data.ok && data.error === 'invalid_blocks' && blocks?.length) {
+    const fallbackResponse = await fetch(SLACK_CHAT_POST_MESSAGE_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+      body: JSON.stringify({
+        channel: slackUserId,
+        text,
+      }),
+    });
+
+    if (!fallbackResponse.ok) {
+      throw new Error(`Slack HTTP error: ${fallbackResponse.status}`);
+    }
+
+    const fallbackData =
+      (await fallbackResponse.json()) as SlackChatPostMessageResponse;
+
+    if (fallbackData.ok) {
+      return;
+    }
+
+    throw new Error(
+      `Slack API error: ${fallbackData.error ?? 'unknown_error'}`,
+    );
+  }
+
   if (!data.ok) {
-    throw new Error(`Slack API error: ${data.error ?? 'unknown_error'}`);
+    const details = data.response_metadata?.messages?.join(' | ');
+    throw new Error(
+      `Slack API error: ${data.error ?? 'unknown_error'}${
+        details ? ` (${details})` : ''
+      }`,
+    );
   }
 };

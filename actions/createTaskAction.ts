@@ -10,6 +10,9 @@ import { buildTaskStatusActionValue, hasSlackConfig, sendSlackDirectMessage } fr
 import { redirect } from 'next/navigation';
 
 export const createTaskAction = async (data: TaskFormValues) => {
+  const clampSlackText = (value: string, max = 2800) =>
+    value.length <= max ? value : `${value.slice(0, max - 1)}…`;
+
   const response = await createTask(data);
 
   if (!response) {
@@ -70,6 +73,9 @@ export const createTaskAction = async (data: TaskFormValues) => {
 
   if (slackUserId && slackUserId !== 'NULL' && hasSlackConfig()) {
     try {
+      const slackBlockText = clampSlackText(
+        `*Új feladatot kaptál*\n*Cím:* ${data.title}\n*Leírás:* ${taskDescription}\n*Prioritás:* ${priorityLabel}\n*Határidő:* ${data.dueDate}\n*Létrehozta:* ${createdByUser.name}`,
+      );
       await sendSlackDirectMessage({
         slackUserId,
         text: `Új feladatot kaptál.\nCím: ${data.title}\nLeírás: ${taskDescription}\nPrioritás: ${priorityLabel}\nHatáridő: ${data.dueDate}\nLétrehozta: ${createdByUser.name}`,
@@ -78,7 +84,7 @@ export const createTaskAction = async (data: TaskFormValues) => {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `*Új feladatot kaptál*\n*Cím:* ${data.title}\n*Leírás:* ${taskDescription}\n*Prioritás:* ${priorityLabel}\n*Határidő:* ${data.dueDate}\n*Létrehozta:* ${createdByUser.name}`,
+              text: slackBlockText,
             },
           },
           {
@@ -86,7 +92,7 @@ export const createTaskAction = async (data: TaskFormValues) => {
             elements: [
               {
                 type: 'button',
-                action_id: 'task_status_update',
+                action_id: 'task_status_in_progress',
                 text: {
                   type: 'plain_text',
                   text: 'Folyamatban',
@@ -99,12 +105,11 @@ export const createTaskAction = async (data: TaskFormValues) => {
               },
               {
                 type: 'button',
-                action_id: 'task_status_update',
+                action_id: 'task_status_completed',
                 text: {
                   type: 'plain_text',
                   text: 'Elvégeztem',
                 },
-                style: 'primary',
                 value: buildTaskStatusActionValue({
                   taskId: response.id,
                   status: 'COMPLETED',
@@ -112,7 +117,7 @@ export const createTaskAction = async (data: TaskFormValues) => {
               },
               {
                 type: 'button',
-                action_id: 'task_status_update',
+                action_id: 'task_status_cancelled',
                 text: {
                   type: 'plain_text',
                   text: 'Mégse',

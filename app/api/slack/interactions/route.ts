@@ -65,7 +65,7 @@ export async function POST(request: Request) {
   }
 
   const action = payload.actions?.[0];
-  if (!action || action.action_id !== 'task_status_update') {
+  if (!action || !action.action_id?.startsWith('task_status_')) {
     return NextResponse.json({ ok: true });
   }
 
