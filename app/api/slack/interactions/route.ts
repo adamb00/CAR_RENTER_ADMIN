@@ -44,6 +44,10 @@ export async function POST(request: Request) {
   });
 
   if (!verified) {
+    console.error('Slack interaction rejected: invalid signature', {
+      hasTimestamp: Boolean(timestamp),
+      hasSignature: Boolean(signature),
+    });
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
@@ -85,18 +89,6 @@ export async function POST(request: Request) {
     });
   }
 
-  const actingUser = await db.user.findFirst({
-    where: { slackUserId },
-    select: { id: true },
-  });
-
-  if (!actingUser) {
-    return NextResponse.json({
-      response_type: 'ephemeral',
-      text: 'Ehhez a Slack fiókhoz nincs társított app user.',
-    });
-  }
-
   const task = await db.task.findUnique({
     where: { id: parsedAction.taskId },
     select: { id: true, title: true, assignedTo: true, status: true },
@@ -109,7 +101,29 @@ export async function POST(request: Request) {
     });
   }
 
-  if (task.assignedTo !== actingUser.id) {
+  if (!task.assignedTo) {
+    return NextResponse.json({
+      response_type: 'ephemeral',
+      text: 'Ehhez a feladathoz nincs kijelölt felelős.',
+    });
+  }
+
+  const assignedUser = await db.user.findUnique({
+    where: { id: task.assignedTo },
+    select: { slackUserId: true },
+  });
+
+  const normalizedAssignedSlackId = assignedUser?.slackUserId?.trim().toUpperCase();
+  const normalizedActorSlackId = slackUserId.toUpperCase();
+
+  if (!normalizedAssignedSlackId || normalizedAssignedSlackId === 'NULL') {
+    return NextResponse.json({
+      response_type: 'ephemeral',
+      text: 'A feladathoz rendelt usernél nincs Slack user ID beállítva.',
+    });
+  }
+
+  if (normalizedAssignedSlackId !== normalizedActorSlackId) {
     return NextResponse.json({
       response_type: 'ephemeral',
       text: 'Csak a kijelölt felhasználó módosíthatja ezt a feladatot.',

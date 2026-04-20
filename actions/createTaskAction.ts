@@ -5,8 +5,15 @@ import { createTaskNotification } from '@/data-service/notifications';
 import { createTask } from '@/data-service/tasks';
 import { getUserById } from '@/data-service/user';
 import { getTransporter, MAIL_USER } from '@/lib/mailer';
-import { formatTaskPriorityLabel, normalizeTaskPriority } from '@/lib/task-priority';
-import { buildTaskStatusActionValue, hasSlackConfig, sendSlackDirectMessage } from '@/lib/slack';
+import {
+  formatTaskPriorityLabel,
+  normalizeTaskPriority,
+} from '@/lib/task-priority';
+import {
+  buildTaskStatusActionValue,
+  hasSlackConfig,
+  sendSlackDirectMessage,
+} from '@/lib/slack';
 import { redirect } from 'next/navigation';
 
 export const createTaskAction = async (data: TaskFormValues) => {
@@ -34,6 +41,7 @@ export const createTaskAction = async (data: TaskFormValues) => {
   const taskDescription = data.description?.trim() || 'Nincs megadva.';
   const priority = normalizeTaskPriority(data.priority);
   const priorityLabel = formatTaskPriorityLabel(priority);
+  const dueDateLabel = new Date(data.dueDate).toLocaleString('hu-HU');
 
   if (response.assignedTo) {
     await createTaskNotification({
@@ -52,7 +60,7 @@ export const createTaskAction = async (data: TaskFormValues) => {
     });
   }
 
-  const text = `Cím: ${data.title}\nLeírás: ${taskDescription}\nPrioritás: ${priorityLabel}\nHatáridő: ${data.dueDate}\nLétrehozta: ${createdByUser.name}`;
+  const text = `Cím: ${data.title}\nLeírás: ${taskDescription}\nPrioritás: ${priorityLabel}\nHatáridő: ${dueDateLabel}\nLétrehozta: ${createdByUser.name}`;
   const html = text.replace(/\n/g, '<br>');
 
   try {
@@ -74,11 +82,11 @@ export const createTaskAction = async (data: TaskFormValues) => {
   if (slackUserId && slackUserId !== 'NULL' && hasSlackConfig()) {
     try {
       const slackBlockText = clampSlackText(
-        `*Új feladatot kaptál*\n*Cím:* ${data.title}\n*Leírás:* ${taskDescription}\n*Prioritás:* ${priorityLabel}\n*Határidő:* ${data.dueDate}\n*Létrehozta:* ${createdByUser.name}`,
+        `*Új feladatot kaptál*\n*Cím:* ${data.title}\n*Leírás:* ${taskDescription}\n*Prioritás:* ${priorityLabel}\n*Határidő:* ${dueDateLabel}\n*Létrehozta:* ${createdByUser.name}`,
       );
       await sendSlackDirectMessage({
         slackUserId,
-        text: `Új feladatot kaptál.\nCím: ${data.title}\nLeírás: ${taskDescription}\nPrioritás: ${priorityLabel}\nHatáridő: ${data.dueDate}\nLétrehozta: ${createdByUser.name}`,
+        text: `Új feladatot kaptál.\nCím: ${data.title}\nLeírás: ${taskDescription}\nPrioritás: ${priorityLabel}\nHatáridő: ${dueDateLabel}\nLétrehozta: ${createdByUser.name}`,
         blocks: [
           {
             type: 'section',
@@ -113,19 +121,6 @@ export const createTaskAction = async (data: TaskFormValues) => {
                 value: buildTaskStatusActionValue({
                   taskId: response.id,
                   status: 'COMPLETED',
-                }),
-              },
-              {
-                type: 'button',
-                action_id: 'task_status_cancelled',
-                text: {
-                  type: 'plain_text',
-                  text: 'Mégse',
-                },
-                style: 'danger',
-                value: buildTaskStatusActionValue({
-                  taskId: response.id,
-                  status: 'CANCELLED',
                 }),
               },
             ],
