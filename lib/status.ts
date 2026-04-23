@@ -22,9 +22,12 @@ const LABELS = buildRecord([
   [RENT_STATUS_NEW, 'Új'],
   ['new', 'Új'],
   ['uj', 'Új'],
+  ['available', 'Elérhető'],
   ['contacted', 'Ajánlat kiküldve'],
   ['pending', 'Ajánlat kiküldve'],
+  ['PENDING', 'Függőben'],
   ['in_progress', 'Ajánlat kiküldve'],
+  ['IN_PROGRESS', 'Folyamatban'],
   [CONTACT_STATUS_QUOTE_SENT, 'Ajánlat kiküldve'],
   ['answered', 'Ajánlat kiküldve'],
   ['ajanlat_kikuldve', 'Ajánlat kiküldve'],
@@ -35,6 +38,7 @@ const LABELS = buildRecord([
   [RENT_STATUS_FORM_SUBMITTED, 'Foglalási űrlap kitöltve'],
   ['foglalasi_urlap_kitoltve', 'Foglalási űrlap kitöltve'],
   ['done', 'Foglalási űrlap kitöltve'],
+  ['COMPLETED', 'Teljesítve'],
   [RENT_STATUS_ACCEPTED, 'Elfogadott'],
   ['elfogadott', 'Elfogadott'],
   [RENT_STATUS_REGISTERED, 'Regisztrált'],
@@ -44,6 +48,7 @@ const LABELS = buildRecord([
   ['torolt', 'Törölt'],
   ['canceled', 'Törölt'],
   ['cancelled', 'Törölt'],
+  ['CANCELLED', 'Törölt'],
 ]);
 
 const COLORS = buildRecord([
@@ -53,7 +58,9 @@ const COLORS = buildRecord([
   ['uj', 'bg-sky-100 text-sky-800 border-sky-200'],
   ['contacted', 'bg-amber-100 text-amber-800 border-amber-200'],
   ['pending', 'bg-amber-100 text-amber-800 border-amber-200'],
+  ['PENDING', 'bg-amber-100 text-amber-800 border-amber-200'],
   ['in_progress', 'bg-amber-100 text-amber-800 border-amber-200'],
+  ['IN_PROGRESS', 'bg-blue-100 text-blue-800 border-blue-200'],
   [CONTACT_STATUS_QUOTE_SENT, 'bg-amber-100 text-amber-800 border-amber-200'],
   ['answered', 'bg-amber-100 text-amber-800 border-amber-200'],
   ['ajanlat_kikuldve', 'bg-amber-100 text-amber-800 border-amber-200'],
@@ -67,6 +74,7 @@ const COLORS = buildRecord([
   [RENT_STATUS_FORM_SUBMITTED, 'bg-blue-100 text-blue-800 border-blue-200'],
   ['foglalasi_urlap_kitoltve', 'bg-blue-100 text-blue-800 border-blue-200'],
   ['done', 'bg-blue-100 text-blue-800 border-blue-200'],
+  ['COMPLETED', 'bg-emerald-100 text-emerald-800 border-emerald-200'],
   [RENT_STATUS_ACCEPTED, 'bg-emerald-100 text-emerald-800 border-emerald-200'],
   ['elfogadott', 'bg-emerald-100 text-emerald-800 border-emerald-200'],
   [RENT_STATUS_REGISTERED, 'bg-slate-900 text-white border-slate-900'],
@@ -76,6 +84,7 @@ const COLORS = buildRecord([
   ['torolt', 'bg-red-100 text-red-800 border-red-200'],
   ['canceled', 'bg-red-100 text-red-800 border-red-200'],
   ['cancelled', 'bg-red-100 text-red-800 border-red-200'],
+  ['CANCELLED', 'bg-red-100 text-red-800 border-red-200'],
 ]);
 
 export const getStatusMeta = (status?: string | null): StatusMeta => {

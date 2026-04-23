@@ -1,6 +1,6 @@
 import { auth } from '@/auth';
 import NewTask from '@/components/tasks/new-task';
-import { Booking, getBookingById } from '@/data-service/bookings';
+import { Booking, getBookingById, getBookings } from '@/data-service/bookings';
 import { getFleetCars } from '@/data-service/cars';
 import { getAllUser } from '@/data-service/user';
 import { FleetVehicle, User } from '@prisma/client';
@@ -15,8 +15,11 @@ export default async function page({
 }: {
   searchParams?: Promise<TaskNewPageSearchParams>;
 }) {
-  const fleet = await getFleetCars();
-  const users = await getAllUser();
+  const [fleet, users, bookings] = await Promise.all([
+    getFleetCars(),
+    getAllUser(),
+    getBookings(),
+  ]);
   const session = await auth();
   const resolvedSearchParams = await Promise.resolve(searchParams);
   const bookingId = Array.isArray(resolvedSearchParams?.bookingId)
@@ -26,6 +29,16 @@ export default async function page({
   let booking;
 
   if (bookingId) booking = await getBookingById(bookingId);
+
+  const bookingOptions = bookings.slice(0, 200).map((item) => ({
+    id: item.id,
+    label: item.humanId ?? item.id,
+    contactName: item.contactName,
+    rentalStart: item.rentalStart ?? null,
+    rentalEnd: item.rentalEnd ?? null,
+    status: item.status ?? null,
+    assignedCarId: item.assignedFleetVehicleId ?? null,
+  }));
 
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
@@ -39,6 +52,7 @@ export default async function page({
         currentUser={session?.user as User | undefined}
         booking={booking as Booking}
         fleet={fleet as FleetVehicle[]}
+        bookingOptions={bookingOptions}
       />
     </div>
   );

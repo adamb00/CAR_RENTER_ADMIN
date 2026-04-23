@@ -19,8 +19,19 @@ export interface TaskFormValues {
   assignedTo: string;
   createdBy?: string;
   assignedCar?: string;
+  assignedBookingId?: string;
   priority: number;
 }
+
+export type TaskBookingOption = {
+  id: string;
+  label: string;
+  contactName: string;
+  rentalStart: string | null;
+  rentalEnd: string | null;
+  status: string | null;
+  assignedCarId: string | null;
+};
 
 const TASK_TITLE_SUGGESTIONS = [
   'Autó kiadás',
@@ -35,11 +46,13 @@ export default function NewTask({
   currentUser,
   booking,
   fleet,
+  bookingOptions,
 }: {
   users: User[];
   currentUser: User | undefined;
   fleet: FleetVehicle[];
   booking?: Booking;
+  bookingOptions: TaskBookingOption[];
 }) {
   const [isPending, startTransition] = useTransition();
   const titleSuggestionsListId = useId();
@@ -62,12 +75,17 @@ export default function NewTask({
       assignedTo: '',
       createdBy: currentUser?.id || 'Unknown',
       assignedCar: defaultAssignedCar,
+      assignedBookingId: booking?.id ?? '',
       priority: defaultPriority,
     },
   });
 
   const dueDate = form.watch('dueDate');
   const assignedCar = form.watch('assignedCar');
+  const bookingById = useMemo(
+    () => new Map(bookingOptions.map((item) => [item.id, item])),
+    [bookingOptions],
+  );
 
   useEffect(() => {
     if (form.formState.dirtyFields.priority) return;
@@ -76,6 +94,14 @@ export default function NewTask({
   }, [assignedCar, dueDate, form]);
 
   const handleOnSubmit = async (data: TaskFormValues) => {
+    if (!data.assignedTo?.trim()) {
+      form.setError('assignedTo', {
+        type: 'required',
+        message: 'A címzett kiválasztása kötelező.',
+      });
+      return;
+    }
+
     Object.assign(data, {
       dueDate: new Date(data.dueDate).toISOString(),
       createdBy: currentUser?.id || 'Unknown',
@@ -119,7 +145,9 @@ export default function NewTask({
                       value={field.value}
                       label='Feladat küldése neki:'
                       alwaysFloatLabel
+                      required
                     >
+                      <option value=''>Válassz felhasználót</option>
                       {users.map((user) => (
                         <option key={user.id} value={user.id}>
                           {user.name}
@@ -166,6 +194,43 @@ export default function NewTask({
             )}
           />
           <div className='flex gap-4'>
+            <FormField
+              control={form.control}
+              name='assignedBookingId'
+              render={({ field }) => (
+                <FormItem className='flex-1'>
+                  <FormControl>
+                    <FloatingSelect
+                      {...field}
+                      value={field.value || ''}
+                      label='Kapcsolt foglalás:'
+                      alwaysFloatLabel
+                      onChange={(event) => {
+                        const bookingId = event.target.value;
+                        field.onChange(bookingId);
+                        const selectedBooking = bookingById.get(bookingId);
+                        form.setValue(
+                          'assignedCar',
+                          selectedBooking?.assignedCarId ?? '',
+                          { shouldDirty: true },
+                        );
+                      }}
+                    >
+                      <option value=''>Nincs kapcsolt foglalás</option>
+                      {bookingOptions.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {`${item.label} • ${item.contactName}${
+                            item.rentalStart && item.rentalEnd
+                              ? ` • ${item.rentalStart} - ${item.rentalEnd}`
+                              : ''
+                          }`}
+                        </option>
+                      ))}
+                    </FloatingSelect>
+                  </FormControl>
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name='dueDate'
