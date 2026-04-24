@@ -49,6 +49,15 @@ export default async function AnalyticsPage({
   }
 
   const summaryRows = getSummaryRows(monthData);
+  const monthlyCostBreakdown = [
+    ...monthData.totals.costBreakdown,
+    {
+      slug: 'service',
+      label: 'Szerviz',
+      category: 'expense' as const,
+      total: monthData.totals.service,
+    },
+  ];
 
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
@@ -148,7 +157,7 @@ export default async function AnalyticsPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {monthData.totals.costBreakdown.length === 0 ? (
+                  {monthlyCostBreakdown.length === 0 ? (
                     <tr>
                       <td
                         className='px-3 py-4 text-muted-foreground'
@@ -158,11 +167,16 @@ export default async function AnalyticsPage({
                       </td>
                     </tr>
                   ) : (
-                    monthData.totals.costBreakdown.map((item) => (
-                      <tr key={`${item.category}:${item.slug}`} className='border-t'>
+                    monthlyCostBreakdown.map((item) => (
+                      <tr
+                        key={`${item.category}:${item.slug}`}
+                        className='border-t'
+                      >
                         <td className='px-3 py-2 font-medium'>{item.label}</td>
                         <td className='px-3 py-2 text-muted-foreground'>
-                          {item.category === 'deduction' ? 'Levonás' : 'Költség'}
+                          {item.category === 'deduction'
+                            ? 'Levonás'
+                            : 'Költség'}
                         </td>
                         <td className='px-3 py-2 text-right'>
                           {formatMoney(item.total)}
