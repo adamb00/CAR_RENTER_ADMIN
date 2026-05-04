@@ -9,7 +9,7 @@ import {
 
 type HandoverCostPageRow = {
   id: string;
-  bookingId: string;
+  bookingId: string | null;
   bookingHumanId: string | null;
   contactName: string;
   direction: 'out' | 'in' | null;
@@ -37,10 +37,11 @@ type CostTypeOptionRow = {
 
 const formatBookingLabel = (
   bookingHumanId: string | null,
-  bookingId: string,
+  bookingId: string | null,
   contactName: string,
   createdAt: Date,
 ) => {
+  if (!bookingId) return 'Nincs foglaláshoz kötve';
   const bookingCode = bookingHumanId?.trim() || bookingId.slice(0, 8);
   const created = new Intl.DateTimeFormat('hu-HU', {
     year: 'numeric',
@@ -68,7 +69,7 @@ export default async function CostsPage() {
         c."createdAt"
       FROM "BookingHandoverCosts" c
       LEFT JOIN "HandoverCustomCostTypes" t ON t."slug" = c."customCostTypeSlug"
-      INNER JOIN "RentRequests" rr ON rr."id" = c."bookingId"
+      LEFT JOIN "RentRequests" rr ON rr."id" = c."bookingId"
       ORDER BY c."createdAt" DESC, c."id" DESC
     `,
     db.$queryRaw<BookingOptionRow[]>`

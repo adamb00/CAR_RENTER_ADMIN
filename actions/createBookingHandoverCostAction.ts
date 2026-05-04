@@ -44,10 +44,6 @@ export const createBookingHandoverCostAction = async (
       : null
     : null;
 
-  if (!bookingId) {
-    return { error: 'A foglalás kiválasztása kötelező.' };
-  }
-
   if (direction && !normalizedDirection) {
     return { error: 'Az irány érvénytelen.' };
   }
@@ -64,13 +60,15 @@ export const createBookingHandoverCostAction = async (
     return { error: 'Az összeg megadása kötelező.' };
   }
 
-  const booking = await db.rentRequests.findUnique({
-    where: { id: bookingId },
-    select: { id: true },
-  });
+  if (bookingId) {
+    const booking = await db.rentRequests.findUnique({
+      where: { id: bookingId },
+      select: { id: true },
+    });
 
-  if (!booking) {
-    return { error: 'A kiválasztott foglalás nem található.' };
+    if (!booking) {
+      return { error: 'A kiválasztott foglalás nem található.' };
+    }
   }
 
   const isDefaultType = isDefaultHandoverCostTypeSlug(costType);
@@ -105,10 +103,12 @@ export const createBookingHandoverCostAction = async (
 
     revalidatePath('/costs');
     revalidatePath('/analitycs');
-    revalidatePath(`/${bookingId}`);
-    revalidatePath(`/bookings/${bookingId}/edit`);
-    revalidatePath(`/bookings/${bookingId}/carout`);
-    revalidatePath(`/bookings/${bookingId}/carin`);
+    if (bookingId) {
+      revalidatePath(`/${bookingId}`);
+      revalidatePath(`/bookings/${bookingId}/edit`);
+      revalidatePath(`/bookings/${bookingId}/carout`);
+      revalidatePath(`/bookings/${bookingId}/carin`);
+    }
 
     return { success: 'A handover cost elmentve.' };
   } catch (error) {

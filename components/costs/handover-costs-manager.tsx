@@ -21,7 +21,7 @@ import {
 
 type HandoverCostRow = {
   id: string;
-  bookingId: string;
+  bookingId: string | null;
   bookingLabel: string;
   contactName: string;
   direction: 'out' | 'in' | null;
@@ -312,7 +312,7 @@ export function HandoverCostsManager({
           <div className='space-y-1'>
             <h2 className='text-base font-semibold'>Új költség</h2>
             <p className='text-sm text-muted-foreground'>
-              Rögzíts új költséget egy meglévő foglaláshoz.
+              Rögzíts új költséget foglaláshoz vagy általános költségként.
             </p>
           </div>
 
@@ -323,9 +323,9 @@ export function HandoverCostsManager({
               onChange={(event) =>
                 updateCostField('bookingId', event.target.value)
               }
-              disabled={isCostPending || bookingOptions.length === 0}
+              disabled={isCostPending}
             >
-              <option value=''>Válassz foglalást</option>
+              <option value=''>Nincs foglaláshoz kötve</option>
               {bookingOptions.map((booking) => (
                 <option key={booking.id} value={booking.id}>
                   {booking.label}
@@ -379,7 +379,6 @@ export function HandoverCostsManager({
               type='submit'
               disabled={
                 isCostPending ||
-                bookingOptions.length === 0 ||
                 costTypeOptions.length === 0
               }
             >
@@ -530,12 +529,18 @@ export function HandoverCostsManager({
                 {paginatedRows.map((row) => (
                   <tr key={row.id} className='border-t'>
                     <td className='px-3 py-2 font-medium'>
-                      <Link
-                        href={`/bookings/${encodeURIComponent(row.bookingId)}/edit`}
-                        className='hover:underline'
-                      >
-                        {row.bookingLabel}
-                      </Link>
+                      {row.bookingId ? (
+                        <Link
+                          href={`/bookings/${encodeURIComponent(row.bookingId)}/edit`}
+                          className='hover:underline'
+                        >
+                          {row.bookingLabel}
+                        </Link>
+                      ) : (
+                        <span className='text-muted-foreground'>
+                          {row.bookingLabel}
+                        </span>
+                      )}
                     </td>
 
                     <td className='px-3 py-2 text-muted-foreground'>
