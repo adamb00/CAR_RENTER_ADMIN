@@ -16,8 +16,19 @@ import { formatDate } from '@/lib/format/format-date';
 import {
   getHandoverCostTypeCategoryLabel,
   HandoverCostTypeCategory,
-  HANDOVER_COST_TYPE_CATEGORY_OPTIONS,
 } from '@/lib/handover-cost-types';
+import { ArrowRightIcon, MoreHorizontalIcon, Trash2Icon } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
+import {
+  deleteHandoverCostAction,
+  editHandoverCostAction,
+} from '@/actions/handoverCostAction';
 
 type HandoverCostRow = {
   id: string;
@@ -101,6 +112,8 @@ export function HandoverCostsManager({
   const [pageIndex, setPageIndex] = useState(0);
   const [isCostPending, startCostTransition] = useTransition();
   const [isTypePending, startTypeTransition] = useTransition();
+  const [editableRowId, setEditableRowId] = useState<string | null>(null);
+  const [editableAmount, setEditableAmount] = useState('');
 
   useEffect(() => {
     if (costTypeOptions.length === 0) {
@@ -140,6 +153,30 @@ export function HandoverCostsManager({
       setSelectedMonth(availableMonths[0]);
     }
   }, [availableMonths, selectedMonth]);
+
+  useEffect(() => {
+    if (!editableRowId) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      const activeRow = document.querySelector<HTMLElement>(
+        `[data-row-id="${editableRowId}"]`,
+      );
+      if (!activeRow) {
+        setEditableRowId(null);
+        return;
+      }
+
+      if (!activeRow.contains(target)) {
+        setEditableRowId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [editableRowId]);
 
   const monthFilteredRows = useMemo(() => {
     return rows.filter((row) => {
@@ -302,6 +339,16 @@ export function HandoverCostsManager({
     });
   };
 
+  const handleOnDelete = async (id: string) => {
+    await deleteHandoverCostAction(id);
+  };
+
+  const handleOnEdit = async (id: string, amount: number) => {
+    await editHandoverCostAction(id, amount);
+    setEditableRowId(null);
+    setEditableAmount('');
+  };
+
   return (
     <div className='space-y-6'>
       <div className='grid gap-6 xl:grid-cols-[1.4fr,1fr]'>
@@ -377,10 +424,7 @@ export function HandoverCostsManager({
           <div className='flex justify-end'>
             <Button
               type='submit'
-              disabled={
-                isCostPending ||
-                costTypeOptions.length === 0
-              }
+              disabled={isCostPending || costTypeOptions.length === 0}
             >
               {isCostPending ? 'Mentés...' : 'Költség létrehozása'}
             </Button>
@@ -527,7 +571,7 @@ export function HandoverCostsManager({
               </thead>
               <tbody>
                 {paginatedRows.map((row) => (
-                  <tr key={row.id} className='border-t'>
+                  <tr key={row.id} className='border-t' data-row-id={row.id}>
                     <td className='px-3 py-2 font-medium'>
                       {row.bookingId ? (
                         <Link
@@ -546,9 +590,58 @@ export function HandoverCostsManager({
                     <td className='px-3 py-2 text-muted-foreground'>
                       <div>{row.costTypeLabel}</div>
                     </td>
-                    <td className='px-3 py-2 text-right'>{row.amount} €</td>
+                    <td className='px-3 py-2 text-right'>
+                      {editableRowId === row.id ? (
+                        <div className='flex items-center justify-center gap-4'>
+                          <Input
+                            label=''
+                            value={editableAmount}
+                            onChange={(event) =>
+                              setEditableAmount(event.target.value)
+                            }
+                            className='text-right'
+                          />
+                          <Button
+                            onClick={() =>
+                              handleOnEdit(row.id, Number(editableAmount))
+                            }
+                          >
+                            Mentés
+                          </Button>
+                        </div>
+                      ) : (
+                        `${row.amount} €`
+                      )}
+                    </td>
                     <td className='px-3 py-2 text-muted-foreground'>
                       {formatDate(row.createdAt, 'long')}
+                    </td>
+                    <td className='px-3 py-2 text-muted-foreground'>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <MoreHorizontalIcon cursor={'pointer'} />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className='w-48 rounded-lg'>
+                          <DropdownMenuItem
+                            className='hover:bg-slate-200! cursor-pointer'
+                            onClick={() => {
+                              setEditableRowId(row.id);
+                              setEditableAmount(row.amount);
+                            }}
+                          >
+                            <ArrowRightIcon className='text-muted-foreground' />
+                            <span>Módosítás</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className='hover:bg-slate-200! cursor-pointer'
+                            onClick={() => handleOnDelete(row.id)}
+                          >
+                            <Trash2Icon className='text-muted-foreground' />
+                            <span>Törlés</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 ))}
