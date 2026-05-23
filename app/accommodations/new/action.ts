@@ -10,7 +10,7 @@ import QRCode from 'qrcode';
 const BASE_URL =
   process.env.NODE_ENV === 'development'
     ? 'http://192.168.0.33:3001/en'
-    : process.env.BASE_URL;
+    : process.env.PUBLIC_URL;
 
 const QR_SIZE = 300;
 const BRAND_DARK_COLOR = '#219ebc';
