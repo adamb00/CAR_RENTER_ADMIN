@@ -13,7 +13,7 @@ export const createCarAction = async (values: CreateCarInput) => {
       return { error: 'Hibás adatok, kérjük ellenőrizd az űrlapot.' };
    }
 
-   const { colors, monthlyPrices, ...carData } = validated.data;
+   const { colors, monthlyPrices, accommodationPrices, ...carData } = validated.data;
    const uniqueColors = Array.from(new Set(colors));
 
    try {
@@ -21,6 +21,7 @@ export const createCarAction = async (values: CreateCarInput) => {
          data: {
             ...carData,
             monthlyPrices,
+            accommodationPrices,
             colors: {
                connectOrCreate: uniqueColors.map((color) => ({
                   where: { name: color },

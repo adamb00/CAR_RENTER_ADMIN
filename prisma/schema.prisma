@@ -76,6 +76,7 @@ model Car {
   fuel          CarFuel         @default(petrol)
   transmission  CarTransmission @default(manual)
   monthlyPrices Int[]           @default(dbgenerated("array_fill(0, ARRAY[12])"))
+  accommodationPrices Json      @default("[]")
   fleetVehicles FleetVehicle[]
   colors        Color[]         @relation("CarColors")
 

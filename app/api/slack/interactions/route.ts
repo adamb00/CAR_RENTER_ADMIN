@@ -1,6 +1,5 @@
 import { db } from '@/lib/db';
 import { sendBookingRequestEmailAction } from '@/actions/sendBookingRequestEmailAction';
-import { findAccommodationDailyPrice } from '@/lib/default-accommodation-prices';
 import {
   hasSlackSigningSecret,
   parseTaskStatusActionValue,
@@ -18,6 +17,12 @@ type SlackInteractionPayload = {
     action_id?: string;
     value?: string;
   }>;
+};
+
+type AccommodationDailyPrice = {
+  days: number;
+  price_eur: number;
+  full_insurance_eur: number;
 };
 
 const QUOTE_SEND_EMAIL_PREFIX = 'quote_send_email:';
@@ -172,7 +177,35 @@ export async function POST(request: Request) {
       });
     }
 
-    const dailyPrice = findAccommodationDailyPrice(quote.carname, rentalDays);
+    const car = await db.car.findUnique({
+      where: { id: quote.carid },
+      select: { accommodationPrices: true },
+    });
+
+    const dailyPrice: AccommodationDailyPrice | null = Array.isArray(
+      car?.accommodationPrices,
+    )
+      ? ((car.accommodationPrices
+          .map((entry) => {
+            if (!entry || typeof entry !== 'object') return null;
+            const candidate = entry as Record<string, unknown>;
+            return {
+              days: Number(candidate.days),
+              price_eur: Number(candidate.price_eur),
+              full_insurance_eur: Number(candidate.full_insurance_eur),
+            };
+          })
+          .filter(
+            (entry): entry is AccommodationDailyPrice =>
+              entry !== null &&
+              Number.isFinite(entry.days) &&
+              Number.isFinite(entry.price_eur) &&
+              Number.isFinite(entry.full_insurance_eur),
+          )
+          .find((entry) => entry.days === rentalDays) ?? null) as
+          | AccommodationDailyPrice
+          | null)
+      : null;
 
     if (!dailyPrice) {
       return NextResponse.json({
@@ -203,8 +236,8 @@ export async function POST(request: Request) {
           carId: quote.carid,
           carName: quote.carname,
           appliesToCars: Number(quote.cars) > 0 ? Number(quote.cars) : 1,
-          rentalFee: String(dailyPrice.priceEur),
-          insurance: String(dailyPrice.fullInsuranceEur),
+          rentalFee: String(dailyPrice.price_eur),
+          insurance: String(dailyPrice.full_insurance_eur),
           deliveryFee: '0',
           extrasFee: '0',
         },

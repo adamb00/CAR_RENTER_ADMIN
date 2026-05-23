@@ -9,6 +9,34 @@ import { getFleetPlaceColor, getFleetPlaceLabel } from '@/lib/fleet-places';
 import { formatDateForInput } from '@/lib/format/format-date';
 import type { CreateCarFormValues } from '@/schemas/carSchema';
 
+const normalizeAccommodationPrices = (value: unknown): CreateCarFormValues['accommodationPrices'] => {
+  const normalized = (Array.isArray(value) ? value : [])
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return null;
+      const parsed = entry as Record<string, unknown>;
+      return {
+        days: Number(parsed.days),
+        price_eur: Number(parsed.price_eur),
+        full_insurance_eur: Number(parsed.full_insurance_eur),
+      };
+    })
+    .filter(
+      (entry): entry is CreateCarFormValues['accommodationPrices'][number] =>
+        entry !== null &&
+        Number.isFinite(entry.days) &&
+        Number.isFinite(entry.price_eur) &&
+        Number.isFinite(entry.full_insurance_eur),
+    );
+  if (normalized.length > 0) {
+    return normalized.sort((a, b) => a.days - b.days);
+  }
+  return Array.from({ length: 7 }, (_, index) => ({
+    days: index + 1,
+    price_eur: 0,
+    full_insurance_eur: 0,
+  }));
+};
+
 export default async function EditCarPage({
   params,
 }: {
@@ -59,6 +87,7 @@ export default async function EditCarPage({
     fuel: car.fuel,
     transmission: car.transmission,
     monthlyPrices: car.monthlyPrices,
+    accommodationPrices: normalizeAccommodationPrices(car.accommodationPrices),
     colors: car.colors
       .map((color: { name: string }) => color.name)
       .filter((name: string): name is CarColorOption =>

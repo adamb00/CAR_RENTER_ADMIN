@@ -11,6 +11,7 @@ import { ColorsSection } from './colors-section';
 import { ImagesSection } from './images-section';
 import { MonthlyPricesSection } from './monthly-prices-section';
 import type { NewCarFormProps } from './types';
+import AccommodationPricesSection from './accommodation-prices-section';
 
 export function NewCarForm({ className, ...props }: NewCarFormProps) {
   const formModel = useNewCarForm(props);
@@ -32,6 +33,7 @@ export function NewCarForm({ className, ...props }: NewCarFormProps) {
           >
             <BaseSection formModel={formModel} />
             <MonthlyPricesSection formModel={formModel} />
+            <AccommodationPricesSection formModel={formModel} />
             <ColorsSection formModel={formModel} />
             <ImagesSection formModel={formModel} />
 

@@ -13,6 +13,18 @@ const positiveInt = (fieldLabel: string, minValue = 1) =>
 const nonNegativeInt = (fieldLabel: string) =>
   z.coerce.number().int().min(0, `${fieldLabel} minimum 0.`);
 
+const AccommodationPriceSchema = z.object({
+  days: positiveInt('Napok száma'),
+  price_eur: nonNegativeInt('Szállodai ár (EUR)').max(
+    10_000_000,
+    'Az ár nem lehet 10 000 000 felett.',
+  ),
+  full_insurance_eur: nonNegativeInt('Teljes biztosítás (EUR)').max(
+    10_000_000,
+    'A biztosítás nem lehet 10 000 000 felett.',
+  ),
+});
+
 export const CreateCarFormSchema = z
   .object({
     manufacturer: z.string().min(2, 'A gyártó neve legalább 2 karakter legyen.'),
@@ -31,6 +43,9 @@ export const CreateCarFormSchema = z
         )
       )
       .length(12, 'Mind a 12 hónaphoz adj meg árat.'),
+    accommodationPrices: z
+      .array(AccommodationPriceSchema)
+      .min(1, 'Adj meg legalább egy szállodai napi árat.'),
     colors: z.array(z.enum(CAR_COLORS)).min(1, 'Legalább egy színt válassz.').max(
       CAR_COLORS.length,
       'Túl sok színt jelöltél be.'
@@ -40,7 +55,20 @@ export const CreateCarFormSchema = z
       .min(1, 'Adj meg legalább egy képet.')
       .max(3, 'Legfeljebb 3 képet tölthetsz fel.'),
   })
-  .superRefine(() => undefined);
+  .superRefine((data, ctx) => {
+    const seen = new Set<number>();
+    data.accommodationPrices.forEach((entry, index) => {
+      if (seen.has(entry.days)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['accommodationPrices', index, 'days'],
+          message: 'Ez a nap már szerepel a listában.',
+        });
+      } else {
+        seen.add(entry.days);
+      }
+    });
+  });
 
 export type CreateCarFormValues = z.output<typeof CreateCarFormSchema>;
 export type CreateCarFormInput = z.input<typeof CreateCarFormSchema>;
@@ -58,6 +86,9 @@ export const CreateCarSchema = z
     monthlyPrices: z
       .array(z.number().int().min(0).max(10_000_000))
       .length(12, 'Mind a 12 hónaphoz adj meg árat.'),
+    accommodationPrices: z
+      .array(AccommodationPriceSchema)
+      .min(1, 'Adj meg legalább egy szállodai napi árat.'),
     colors: z
       .array(z.enum(CAR_COLORS))
       .min(1, 'Legalább egy színt válassz.')
@@ -67,7 +98,20 @@ export const CreateCarSchema = z
       .min(1, 'Adj meg legalább egy képet.')
       .max(3, 'Legfeljebb 3 képet tölthetsz fel.'),
   })
-  .superRefine(() => undefined);
+  .superRefine((data, ctx) => {
+    const seen = new Set<number>();
+    data.accommodationPrices.forEach((entry, index) => {
+      if (seen.has(entry.days)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['accommodationPrices', index, 'days'],
+          message: 'Ez a nap már szerepel a listában.',
+        });
+      } else {
+        seen.add(entry.days);
+      }
+    });
+  });
 
 export type CreateCarInput = z.infer<typeof CreateCarSchema>;
 
@@ -76,6 +120,20 @@ export const transformCarFormValues = (values: CreateCarFormValues): CreateCarIn
   const monthlyPrices = (values.monthlyPrices ?? []).map((price) =>
     typeof price === 'number' ? price : Number(price)
   );
+  const accommodationPrices = (values.accommodationPrices ?? [])
+    .map((entry) => ({
+      days:
+        typeof entry.days === 'number' ? entry.days : Number(entry.days),
+      price_eur:
+        typeof entry.price_eur === 'number'
+          ? entry.price_eur
+          : Number(entry.price_eur),
+      full_insurance_eur:
+        typeof entry.full_insurance_eur === 'number'
+          ? entry.full_insurance_eur
+          : Number(entry.full_insurance_eur),
+    }))
+    .sort((a, b) => a.days - b.days);
 
   return {
     manufacturer: values.manufacturer.trim(),
@@ -87,6 +145,7 @@ export const transformCarFormValues = (values: CreateCarFormValues): CreateCarIn
     fuel: values.fuel,
     transmission: values.transmission,
     monthlyPrices,
+    accommodationPrices,
     colors: normalizedColors,
     images: values.images,
   };

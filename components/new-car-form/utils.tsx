@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import type { CreateCarFormInput } from '@/schemas/carSchema';
 
 export const MAX_IMAGES = 3;
-export const FORM_STORAGE_KEY = 'new-car-form-state-v5';
+export const FORM_STORAGE_KEY = 'new-car-form-state-v6';
 
 export const MONTH_LABELS = [
   'Január',
@@ -31,6 +31,11 @@ const DEFAULT_VALUES: Partial<CreateCarFormInput> = {
   fuel: 'petrol',
   transmission: 'manual',
   monthlyPrices: Array(12).fill(undefined),
+  accommodationPrices: Array.from({ length: 7 }, (_, index) => ({
+    days: index + 1,
+    price_eur: 0,
+    full_insurance_eur: 0,
+  })),
   colors: [],
   images: [],
 };
