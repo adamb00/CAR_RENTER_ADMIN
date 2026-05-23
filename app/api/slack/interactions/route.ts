@@ -1,4 +1,6 @@
 import { db } from '@/lib/db';
+import { sendBookingRequestEmailAction } from '@/actions/sendBookingRequestEmailAction';
+import { findAccommodationDailyPrice } from '@/lib/default-accommodation-prices';
 import {
   hasSlackSigningSecret,
   parseTaskStatusActionValue,
@@ -16,6 +18,27 @@ type SlackInteractionPayload = {
     action_id?: string;
     value?: string;
   }>;
+};
+
+const QUOTE_SEND_EMAIL_PREFIX = 'quote_send_email:';
+
+const computeRentalDays = (
+  rentalDays: number | null | undefined,
+  rentalStart: Date | null | undefined,
+  rentalEnd: Date | null | undefined,
+) => {
+  if (
+    typeof rentalDays === 'number' &&
+    Number.isFinite(rentalDays) &&
+    rentalDays > 0
+  ) {
+    return Math.trunc(rentalDays);
+  }
+  if (!rentalStart || !rentalEnd) return null;
+  const diffMs = rentalEnd.getTime() - rentalStart.getTime();
+  if (!Number.isFinite(diffMs) || diffMs < 0) return null;
+  const dayMs = 24 * 60 * 60 * 1000;
+  return Math.max(1, Math.ceil(diffMs / dayMs));
 };
 
 const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
@@ -70,7 +93,140 @@ export async function POST(request: Request) {
   }
 
   const action = payload.actions?.[0];
-  if (!action || !action.action_id?.startsWith('task_status_')) {
+  if (!action?.action_id) {
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action.action_id === 'quote_send_email_auto_offer') {
+    const value = action.value?.trim() ?? '';
+    if (!value.startsWith(QUOTE_SEND_EMAIL_PREFIX)) {
+      return NextResponse.json({
+        response_type: 'ephemeral',
+        text: 'Érvénytelen quote művelet.',
+      });
+    }
+
+    const quoteId = value.slice(QUOTE_SEND_EMAIL_PREFIX.length).trim();
+    if (!quoteId) {
+      return NextResponse.json({
+        response_type: 'ephemeral',
+        text: 'Hiányzó quote azonosító.',
+      });
+    }
+
+    const quote = await db.contactQuotes.findUnique({
+      where: { id: quoteId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        locale: true,
+        carid: true,
+        carname: true,
+        rentaldays: true,
+        rentalstart: true,
+        rentalend: true,
+        cars: true,
+        accommodationId: true,
+      },
+    });
+
+    if (!quote) {
+      return NextResponse.json({
+        response_type: 'ephemeral',
+        text: 'A quote nem található.',
+      });
+    }
+
+    if (!quote.accommodationId) {
+      return NextResponse.json({
+        response_type: 'ephemeral',
+        text: 'Ez a quote nem accommodation forrásból érkezett.',
+      });
+    }
+
+    if (!quote.email?.trim()) {
+      return NextResponse.json({
+        response_type: 'ephemeral',
+        text: 'A quote-hoz nincs e-mail cím.',
+      });
+    }
+
+    if (!quote.carid?.trim() || !quote.carname?.trim()) {
+      return NextResponse.json({
+        response_type: 'ephemeral',
+        text: 'A quote-hoz nincs autó kiválasztva.',
+      });
+    }
+
+    const rentalDays = computeRentalDays(
+      quote.rentaldays,
+      quote.rentalstart,
+      quote.rentalend,
+    );
+
+    if (!rentalDays || rentalDays <= 0) {
+      return NextResponse.json({
+        response_type: 'ephemeral',
+        text: 'A quote-hoz nincs érvényes bérlési nap szám vagy dátumtartomány.',
+      });
+    }
+
+    const dailyPrice = findAccommodationDailyPrice(quote.carname, rentalDays);
+
+    if (!dailyPrice) {
+      return NextResponse.json({
+        response_type: 'ephemeral',
+        text: `Nincs accommodation árlista ehhez: ${quote.carname} / ${rentalDays} nap.`,
+      });
+    }
+
+    const actorSlackUserId = payload.user?.id?.trim() ?? '';
+    const actor = actorSlackUserId
+      ? await db.user.findFirst({
+          where: { slackUserId: actorSlackUserId },
+          select: { name: true },
+        })
+      : null;
+    const adminName = actor?.name?.trim() || 'Admin';
+
+    const result = await sendBookingRequestEmailAction({
+      quoteId: quote.id,
+      email: quote.email,
+      name: quote.name,
+      locale: quote.locale,
+      rentalStart: quote.rentalstart?.toISOString().slice(0, 10) ?? null,
+      rentalEnd: quote.rentalend?.toISOString().slice(0, 10) ?? null,
+      adminName,
+      offers: [
+        {
+          carId: quote.carid,
+          carName: quote.carname,
+          appliesToCars: Number(quote.cars) > 0 ? Number(quote.cars) : 1,
+          rentalFee: String(dailyPrice.priceEur),
+          insurance: String(dailyPrice.fullInsuranceEur),
+          deliveryFee: '0',
+          extrasFee: '0',
+        },
+      ],
+    });
+
+    if (result.error) {
+      return NextResponse.json({
+        response_type: 'ephemeral',
+        text: `Az e-mail küldése sikertelen: ${result.error}`,
+      });
+    }
+
+    return NextResponse.json({
+      response_type: 'ephemeral',
+      text:
+        result.success ??
+        `Ajánlat e-mail elküldve (${quote.carname}, ${rentalDays} nap).`,
+    });
+  }
+
+  if (!action.action_id.startsWith('task_status_')) {
     return NextResponse.json({ ok: true });
   }
 
@@ -114,7 +270,9 @@ export async function POST(request: Request) {
     select: { slackUserId: true },
   });
 
-  const normalizedAssignedSlackId = assignedUser?.slackUserId?.trim().toUpperCase();
+  const normalizedAssignedSlackId = assignedUser?.slackUserId
+    ?.trim()
+    .toUpperCase();
   const normalizedActorSlackId = slackUserId.toUpperCase();
 
   if (!normalizedAssignedSlackId || normalizedAssignedSlackId === 'NULL') {

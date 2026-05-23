@@ -10,11 +10,6 @@ import {
   getAssignedFleetVehicleIdFromPayload,
   isCancelledBookingStatus,
 } from '@/lib/booking-conflicts';
-import { buildContractDataFromBooking } from '@/lib/contract-data';
-import {
-  buildContractTemplate,
-  formatContractText,
-} from '@/lib/contract-template';
 import { db } from '@/lib/db';
 import { formatPlaceType } from '@/lib/format/format-place';
 import Link from 'next/link';

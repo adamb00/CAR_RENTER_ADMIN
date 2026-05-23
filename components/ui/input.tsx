@@ -75,6 +75,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             className={cn(
                'absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-base transition-all',
                'peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-gray-400',
+               'peer-not-placeholder-shown:-top-0.5 peer-not-placeholder-shown:text-sm peer-not-placeholder-shown:text-slate-600 peer-not-placeholder-shown:translate-x-2 peer-not-placeholder-shown:bg-background peer-not-placeholder-shown:px-2',
                'peer-focus:-top-3 peer-focus:text-sm peer-focus:text-slate-600 peer-focus:-translate-y-0 peer-focus:translate-x-2 peer-focus:bg-background peer-focus:px-2',
                shouldFloat &&
                  '-top-0.5 text-sm text-slate-600 translate-x-2 bg-background px-2',

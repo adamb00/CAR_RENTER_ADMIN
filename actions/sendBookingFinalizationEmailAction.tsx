@@ -13,7 +13,7 @@ import {
   RENT_STATUS_REGISTERED,
 } from '@/lib/constants';
 import {
-  BOOKING_FROM_ADDRESS,
+  FROM_ADDRESS,
   MAIL_USER,
   getTransporter,
   hasMailerConfig,
@@ -208,7 +208,7 @@ export const sendBookingFinalizationEmailAction = async ({
     return { error: 'Ehhez a foglaláshoz nincs megadható e-mail cím.' };
   }
 
-  if (!hasMailerConfig() || !BOOKING_FROM_ADDRESS) {
+  if (!hasMailerConfig() || !FROM_ADDRESS) {
     return {
       error:
         'Az e-mail küldéséhez hiányzik a konfiguráció (MAIL_HOST/PORT/USER/PASS vagy BOOKING_EMAIL_FROM/EMAIL_FROM).',
@@ -418,7 +418,7 @@ export const sendBookingFinalizationEmailAction = async ({
   try {
     const transporter = await getTransporter();
     await transporter.sendMail({
-      from: BOOKING_FROM_ADDRESS,
+      from: FROM_ADDRESS,
       to: recipient,
       subject,
       text,

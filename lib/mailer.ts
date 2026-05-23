@@ -13,7 +13,8 @@ const formatFromAddress = () => {
   return MAIL_USER;
 };
 
-export const BOOKING_FROM_ADDRESS = formatFromAddress();
+export const FROM_ADDRESS = formatFromAddress();
+export const BOOKING_FROM_ADDRESS = FROM_ADDRESS;
 
 const createTransporter = async () => {
   const nodemailerModule = await import('nodemailer');
@@ -35,10 +36,10 @@ let cachedTransporter: Awaited<ReturnType<typeof createTransporter>> | null =
 export const hasMailerConfig = () =>
   Boolean(
     MAIL_HOST &&
-      MAIL_PORT &&
-      Number.isFinite(MAIL_PORT) &&
-      MAIL_USER &&
-      MAIL_PASS
+    MAIL_PORT &&
+    Number.isFinite(MAIL_PORT) &&
+    MAIL_USER &&
+    MAIL_PASS,
   );
 
 export const getTransporter = async () => {

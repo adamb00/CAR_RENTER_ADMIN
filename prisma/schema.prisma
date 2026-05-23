@@ -40,6 +40,28 @@ model Account {
   @@map("Accounts")
 }
 
+model Accommodation {
+  id          String @id @default(cuid())
+  name        String
+  country     String
+  postalCode  String
+  city        String
+  street      String
+  houseNumber String
+  island      String
+  quoteCount  Int    @default(0)
+  rentCount   Int    @default(0)
+
+  qrCode        String?         @default("NULL")
+  email         String?         @default("NULL")
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  contactQuotes ContactQuotes[]
+  rentRequests  RentRequests[]
+
+  @@map("Accommodations")
+}
+
 model Car {
   id            String          @id @default(cuid())
   manufacturer  String
@@ -99,6 +121,8 @@ model ContactQuotes {
   offerSent          DateTime?      @db.Date
   signerName         String?
   RentRequests       RentRequests[]
+  Accommodation      Accommodation? @relation(fields: [accommodationId], references: [id])
+  accommodationId    String?
 
   @@index([createdAt], map: "idx_contactquotes_created_at")
   @@index([status], map: "idx_contactquotes_status")
@@ -135,6 +159,8 @@ model RentRequests {
   bookingDeliveryDetails  BookingDeliveryDetails?
   bookingHandoverCosts    BookingHandoverCost[]
   bookingFleetAssignments BookingFleetAssignment[]
+  Accommodation           Accommodation?           @relation(fields: [accommodationId], references: [id])
+  accommodationId         String?
 
   @@index([carid], map: "idx_rentrequests_car")
   @@index([assignedFleetVehicleId], map: "idx_rentrequests_assigned_fleet_vehicle")

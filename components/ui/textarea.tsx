@@ -53,6 +53,7 @@ const FloatingTextarea = React.forwardRef<HTMLTextAreaElement, FloatingTextareaP
           className={cn(
             'absolute left-3 top-3 text-gray-500 text-sm transition-all',
             'peer-placeholder-shown:top-3 peer-placeholder-shown:text-gray-400',
+            'peer-not-placeholder-shown:-top-2 peer-not-placeholder-shown:text-xs peer-not-placeholder-shown:text-slate-600 peer-not-placeholder-shown:bg-background peer-not-placeholder-shown:px-2',
             'peer-focus:-top-2 peer-focus:text-xs peer-focus:text-slate-600 peer-focus:bg-background peer-focus:px-2',
             hasValue && '-top-2 text-xs text-slate-600 bg-background px-2',
             'peer-autofill:-top-2 peer-autofill:text-xs peer-autofill:text-slate-600 peer-autofill:bg-background peer-autofill:px-2'

@@ -6,7 +6,7 @@ import {
   CONTACT_STATUS_QUOTE_SENT,
 } from '@/lib/constants';
 import {
-  BOOKING_FROM_ADDRESS,
+  FROM_ADDRESS,
   MAIL_USER,
   getTransporter,
   hasMailerConfig,
@@ -176,7 +176,7 @@ export const sendBookingRequestEmailAction = async (
     return { error: 'Az ajánlat(ok)ban nincs autó kiválasztva.' };
   }
 
-  if (!hasMailerConfig() || !BOOKING_FROM_ADDRESS) {
+  if (!hasMailerConfig() || !FROM_ADDRESS) {
     return {
       error:
         'Az e-mail küldéshez hiányzik a konfiguráció (MAIL_HOST/PORT/USER/PASS vagy BOOKING_EMAIL_FROM/EMAIL_FROM).',
@@ -209,7 +209,7 @@ export const sendBookingRequestEmailAction = async (
   try {
     const transporter = await getTransporter();
     await transporter.sendMail({
-      from: BOOKING_FROM_ADDRESS,
+      from: FROM_ADDRESS,
       to: recipient,
       subject: copy.subject,
       text,

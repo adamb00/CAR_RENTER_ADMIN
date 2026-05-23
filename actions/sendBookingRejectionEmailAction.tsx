@@ -12,7 +12,7 @@ import {
 } from '@/lib/constants';
 import { db } from '@/lib/db';
 import {
-  BOOKING_FROM_ADDRESS,
+  FROM_ADDRESS,
   MAIL_USER,
   getTransporter,
   hasMailerConfig,
@@ -91,7 +91,7 @@ export const sendBookingRejectionEmailAction = async ({
     return { error: 'Ehhez a foglaláshoz nincs megadható e-mail cím.' };
   }
 
-  if (!hasMailerConfig() || !BOOKING_FROM_ADDRESS) {
+  if (!hasMailerConfig() || !FROM_ADDRESS) {
     return {
       error:
         'Az e-mail küldéshez hiányzik a konfiguráció (MAIL_HOST/PORT/USER/PASS vagy BOOKING_EMAIL_FROM/EMAIL_FROM).',
@@ -106,7 +106,8 @@ export const sendBookingRejectionEmailAction = async ({
     locale: localeRaw,
     carLabel:
       booking.carLabel ?? booking.carId ?? booking.payload?.carId ?? null,
-    rentalStart: booking.rentalStart ?? booking.payload?.rentalPeriod?.startDate,
+    rentalStart:
+      booking.rentalStart ?? booking.payload?.rentalPeriod?.startDate,
     rentalEnd: booking.rentalEnd ?? booking.payload?.rentalPeriod?.endDate,
     signerName: trimmedName,
   };
@@ -121,7 +122,7 @@ export const sendBookingRejectionEmailAction = async ({
   try {
     const transporter = await getTransporter();
     await transporter.sendMail({
-      from: BOOKING_FROM_ADDRESS,
+      from: FROM_ADDRESS,
       to: recipient,
       subject: `${copy.subject} (${emailInput.bookingCode})`,
       text,

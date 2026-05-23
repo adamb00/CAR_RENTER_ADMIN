@@ -5,6 +5,7 @@ import {
   BookOpen,
   CalendarClock,
   Car,
+  HotelIcon,
   Inbox,
   UserIcon,
   UserRoundCog,
@@ -58,7 +59,6 @@ export const navItems = (unreadBadgeCount: number) =>
         title: 'Autók',
         url: '#',
         icon: Car,
-        isActive: true,
         items: [
           {
             title: 'Összes autó',
@@ -67,6 +67,21 @@ export const navItems = (unreadBadgeCount: number) =>
           {
             title: 'Új autó hozzáadása',
             url: '/cars/new',
+          },
+        ],
+      },
+      {
+        title: 'Szállások',
+        url: '#',
+        icon: HotelIcon,
+        items: [
+          {
+            title: 'Összes szállás',
+            url: '/accommodations',
+          },
+          {
+            title: 'Új szállás hozzáadása',
+            url: '/accommodations/new',
           },
         ],
       },
