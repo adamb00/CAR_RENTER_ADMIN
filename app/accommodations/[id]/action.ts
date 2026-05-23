@@ -18,8 +18,15 @@ type UpdateAccommodationInput = {
 const QR_SIZE = 300;
 const BRAND_DARK_COLOR = '#219ebc';
 const QR_LIGHT_COLOR = '#fff';
-const ACCOMMODATION_QR_TARGET_URL =
-  process.env.PUBLIC_URL || 'https://zodiacsrentacar.com/en';
+
+const buildAccommodationContactUrl = (accommodationId: string) => {
+  const publicUrl = process.env.PUBLIC_URL;
+  if (!publicUrl) return null;
+
+  const registerUrl = new URL('/contact', publicUrl);
+  registerUrl.searchParams.set('accommodationId', accommodationId);
+  return decodeURIComponent(registerUrl.toString());
+};
 
 export const updateAccommodationAction = async ({
   id,
@@ -60,8 +67,13 @@ export const sendQrCode = async (id: string) => {
     return { error: 'Nem található email cím a szálláshoz.' };
   }
 
+  const qrTargetUrl = buildAccommodationContactUrl(accommodation.id);
+  if (!qrTargetUrl) {
+    return { error: 'A PUBLIC_URL nincs beállítva.' };
+  }
+
   try {
-    const qrPng = await QRCode.toBuffer(ACCOMMODATION_QR_TARGET_URL, {
+    const qrPng = await QRCode.toBuffer(qrTargetUrl, {
       type: 'png',
       width: QR_SIZE,
       margin: 2,

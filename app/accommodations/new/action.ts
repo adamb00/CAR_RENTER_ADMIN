@@ -7,12 +7,18 @@ import {
 import { redirect } from 'next/navigation';
 import QRCode from 'qrcode';
 
-const ACCOMMODATION_QR_TARGET_URL =
-  process.env.PUBLIC_URL || 'https://zodiacsrentacar.com/en';
-
 const QR_SIZE = 300;
 const BRAND_DARK_COLOR = '#219ebc';
 const QR_LIGHT_COLOR = '#fff';
+
+const buildAccommodationContactUrl = (accommodationId: string) => {
+  const publicUrl = process.env.PUBLIC_URL;
+  if (!publicUrl) return null;
+
+  const registerUrl = new URL('/contact', publicUrl);
+  registerUrl.searchParams.set('accommodationId', accommodationId);
+  return decodeURIComponent(registerUrl.toString());
+};
 
 export const createNewAccommodationAction = async (
   values: NewAccommodationValues,
@@ -28,7 +34,12 @@ export const createNewAccommodationAction = async (
   });
 
   if (res && res.id) {
-    const qrSvg = await QRCode.toString(ACCOMMODATION_QR_TARGET_URL, {
+    const qrTargetUrl = buildAccommodationContactUrl(res.id);
+    if (!qrTargetUrl) {
+      throw new Error('A PUBLIC_URL nincs beállítva.');
+    }
+
+    const qrSvg = await QRCode.toString(qrTargetUrl, {
       type: 'svg',
       width: QR_SIZE,
       margin: 2,
