@@ -1,6 +1,7 @@
 import { getAllAccommodations } from '@/data-service/accommodations';
 
 import AccommodationsTable from './accommodations-table';
+import { Button } from '@/components/ui/button';
 
 export default async function page() {
   const accommodations = await getAllAccommodations();
@@ -8,13 +9,16 @@ export default async function page() {
   if (accommodations.length === 0) {
     return (
       <div className='flex h-full flex-col gap-4 p-6'>
-        <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
+        <div className='flex gap-4 sm:flex-row sm:items-start sm:justify-between'>
           <div>
             <h1 className='text-2xl font-semibold tracking-tight'>Szállások</h1>
             <p className='text-muted-foreground'>
               Itt jelennek meg a rendszerbe felvett szállások.
             </p>
           </div>
+          <Button type='button'>
+            <a href='/accommodations/new'>Új szállás felvétele</a>
+          </Button>
         </div>
         <div className='flex flex-1 items-center justify-center rounded-lg border border-dashed p-12 text-muted-foreground'>
           Még nincs felvett szállás.

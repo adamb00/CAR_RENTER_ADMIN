@@ -7,10 +7,8 @@ import {
 import { redirect } from 'next/navigation';
 import QRCode from 'qrcode';
 
-const BASE_URL =
-  process.env.NODE_ENV === 'development'
-    ? 'http://192.168.0.33:3001/en'
-    : process.env.PUBLIC_URL;
+const ACCOMMODATION_QR_TARGET_URL =
+  process.env.PUBLIC_URL || 'https://zodiacsrentacar.com/en';
 
 const QR_SIZE = 300;
 const BRAND_DARK_COLOR = '#219ebc';
@@ -25,19 +23,12 @@ export const createNewAccommodationAction = async (
     throw new Error(validated.error.message);
   }
 
-  if (!BASE_URL) {
-    throw new Error('BASE_URL nincs beállítva.');
-  }
-
   const res = await db.accommodation.create({
     data: validated.data,
   });
 
   if (res && res.id) {
-    const registerUrl = new URL('/contact', BASE_URL);
-    registerUrl.searchParams.set('accommodationId', res.id);
-    const decoded = decodeURIComponent(registerUrl.toString());
-    const qrSvg = await QRCode.toString(decoded, {
+    const qrSvg = await QRCode.toString(ACCOMMODATION_QR_TARGET_URL, {
       type: 'svg',
       width: QR_SIZE,
       margin: 2,
