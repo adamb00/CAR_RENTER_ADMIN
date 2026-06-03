@@ -125,6 +125,13 @@ export type BookingPayload = {
     address?: BookingAddress;
     same?: boolean;
   };
+  accommodation?: {
+    id?: string;
+    name?: string;
+    address?: string;
+    island?: string;
+    email?: string | null;
+  };
   tax?: {
     id?: string;
     companyName?: string;
@@ -164,6 +171,7 @@ export type Booking = {
   carLabel?: string;
   quoteId?: string;
   renterId?: string | null;
+  accommodationId?: string | null;
   contactName: string;
   contactEmail: string | null;
   contactPhone?: string | null;
@@ -1034,6 +1042,8 @@ const normalizeBooking = (booking: BookingWithQuote): Booking => {
           )
         : undefined),
     quoteId: booking.quoteid ?? undefined,
+    accommodationId:
+      booking.accommodationId ?? normalizedPayload?.accommodation?.id ?? null,
     contactName: booking.contactname ?? '',
     contactEmail: booking.contactemail ?? null,
     contactPhone: booking.contactphone ?? null,

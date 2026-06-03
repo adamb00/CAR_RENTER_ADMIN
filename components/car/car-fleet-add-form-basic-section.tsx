@@ -61,6 +61,13 @@ export function CarFleetAddFormBasicSection({
           formModel.updateField('addedAt', event.target.value)
         }
       />
+      <Input
+        label='Key kód'
+        value={formModel.form.keyCode}
+        onChange={(event) =>
+          formModel.updateField('keyCode', event.target.value)
+        }
+      />
       <div className='relative w-full'>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

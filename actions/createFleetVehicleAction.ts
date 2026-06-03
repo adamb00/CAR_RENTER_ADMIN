@@ -39,6 +39,7 @@ export async function createFleetVehicleAction(
         notes: data.notes?.trim() || null,
         damages: data.damages?.trim() || null,
         damagesImages: data.damagesImages ?? [],
+        keyCode: data.keyCode,
       },
       select: {
         id: true,

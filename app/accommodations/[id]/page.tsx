@@ -3,8 +3,6 @@ import EditAccommodationForm from '@/components/accommodation/edit-accommodation
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { notFound } from 'next/navigation';
 import { getStatusMeta } from '@/lib/status';
-import { Button } from '@/components/ui/button';
-import { sendQrCode } from './action';
 import SendQR from './send-qr-button';
 
 export default async function page({
@@ -29,7 +27,7 @@ export default async function page({
 
   return (
     <div className='flex h-full flex-1 flex-col gap-6 p-6'>
-      <div className='space-y-1 flex justify-between'>
+      <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
         <div>
           <h1 className='text-2xl font-semibold tracking-tight'>
             {`Szállás szerkesztése: ${accommodationDetails.name}`}

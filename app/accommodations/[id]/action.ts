@@ -15,9 +15,53 @@ type UpdateAccommodationInput = {
   values: NewAccommodationValues;
 };
 
+type QrDownloadResult =
+  | {
+      error: string;
+      success?: never;
+      dataUrl?: never;
+      fileName?: never;
+    }
+  | {
+      error?: never;
+      success: string;
+      dataUrl: string;
+      fileName: string;
+    };
+
+type QrSendResult =
+  | {
+      error: string;
+      success?: never;
+    }
+  | {
+      error?: never;
+      success: string;
+    };
+
 const QR_SIZE = 300;
 const BRAND_DARK_COLOR = '#219ebc';
 const QR_LIGHT_COLOR = '#fff';
+
+const QR_BASE_OPTIONS = {
+  width: QR_SIZE,
+  margin: 2,
+  color: {
+    dark: BRAND_DARK_COLOR,
+    light: QR_LIGHT_COLOR,
+  },
+  errorCorrectionLevel: 'H' as const,
+};
+
+const QR_BUFFER_OPTIONS = {
+  ...QR_BASE_OPTIONS,
+  type: 'png' as const,
+};
+
+const QR_DATA_URL_OPTIONS = {
+  ...QR_BASE_OPTIONS,
+  type: 'image/png' as const,
+};
 
 const buildAccommodationContactUrl = (accommodationId: string) => {
   const publicUrl = process.env.PUBLIC_URL;
@@ -26,6 +70,19 @@ const buildAccommodationContactUrl = (accommodationId: string) => {
   const registerUrl = new URL('/contact', publicUrl);
   registerUrl.searchParams.set('accommodationId', accommodationId);
   return decodeURIComponent(registerUrl.toString());
+};
+
+const buildQrFileName = (name?: string | null) => {
+  const baseName =
+    name
+      ?.trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'accommodation';
+
+  return `${baseName}-qr.png`;
 };
 
 export const updateAccommodationAction = async ({
@@ -56,7 +113,38 @@ export const updateAccommodationAction = async ({
   }
 };
 
-export const sendQrCode = async (id: string) => {
+export const downloadQrCode = async (
+  id: string,
+): Promise<QrDownloadResult> => {
+  const accommodation = await db.accommodation.findFirst({
+    where: { id },
+    select: { id: true, name: true },
+  });
+
+  if (!accommodation) {
+    return { error: 'Nem található szállás vagy QR kód.' };
+  }
+
+  const qrTargetUrl = buildAccommodationContactUrl(accommodation.id);
+  if (!qrTargetUrl) {
+    return { error: 'A PUBLIC_URL nincs beállítva.' };
+  }
+
+  try {
+    const dataUrl = await QRCode.toDataURL(qrTargetUrl, QR_DATA_URL_OPTIONS);
+
+    return {
+      success: 'A QR kód letöltése elindult.',
+      dataUrl,
+      fileName: buildQrFileName(accommodation.name),
+    };
+  } catch (err) {
+    console.error('downloadQrCode', err);
+    return { error: 'Nem sikerült előkészíteni a QR kód letöltését.' };
+  }
+};
+
+export const sendQrCode = async (id: string): Promise<QrSendResult> => {
   const accommodation = await db.accommodation.findFirst({ where: { id } });
 
   if (!accommodation) {
@@ -73,16 +161,7 @@ export const sendQrCode = async (id: string) => {
   }
 
   try {
-    const qrPng = await QRCode.toBuffer(qrTargetUrl, {
-      type: 'png',
-      width: QR_SIZE,
-      margin: 2,
-      color: {
-        dark: BRAND_DARK_COLOR,
-        light: QR_LIGHT_COLOR,
-      },
-      errorCorrectionLevel: 'H',
-    });
+    const qrPng = await QRCode.toBuffer(qrTargetUrl, QR_BUFFER_OPTIONS);
 
     const transporter = await getTransporter();
 
@@ -94,7 +173,7 @@ export const sendQrCode = async (id: string) => {
       text: `Hello ${accommodation.name},\n\nAttached you can find your accommodation QR code in PNG format.\n\nBest regards,\nZodiacs Rent a Car`,
       attachments: [
         {
-          filename: `${accommodation.name || 'accommodation'}-qr.png`,
+          filename: buildQrFileName(accommodation.name),
           content: qrPng,
           contentType: 'image/png',
         },

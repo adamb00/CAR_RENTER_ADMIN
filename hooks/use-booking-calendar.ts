@@ -75,29 +75,6 @@ const clampBookingToRange = (
   };
 };
 
-// const adjustRangeStartForBookingEnds = (
-//   requestedStartIso: string,
-//   bookings: BookingCalendarBooking[],
-// ) => {
-//   const requestedStartDate = toDate(requestedStartIso);
-//   if (!requestedStartDate) return requestedStartIso;
-//
-//   const bookingEndDates = new Set(
-//     bookings
-//       .map((booking) => booking.rentalEnd?.trim())
-//       .filter((value): value is string => Boolean(value)),
-//   );
-//
-//   const adjusted = new Date(requestedStartDate);
-//   let guard = 0;
-//   while (guard < 366 && bookingEndDates.has(toIsoDate(adjusted))) {
-//     adjusted.setUTCDate(adjusted.getUTCDate() - 1);
-//     guard += 1;
-//   }
-//
-//   return toIsoDate(adjusted);
-// };
-
 const getTodayIso = () => new Date().toISOString().slice(0, 10);
 
 export function useBookingCalendar({
@@ -132,13 +109,6 @@ export function useBookingCalendar({
   >(null);
   const timelineViewportRef = useRef<HTMLDivElement | null>(null);
   const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
-
-  // useEffect(() => {
-  //   const adjustedStart = adjustRangeStartForBookingEnds(rangeStart, bookings);
-  //   if (adjustedStart !== rangeStart) {
-  //     setRangeStart(adjustedStart);
-  //   }
-  // }, [bookings, rangeStart]);
 
   useEffect(() => {
     const viewport = timelineViewportRef.current;

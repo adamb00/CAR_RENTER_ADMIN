@@ -127,6 +127,8 @@ export default async function CalendarPage() {
         handoverOutAt: handoverTimes?.outAt ?? null,
         handoverInAt: handoverTimes?.inAt ?? null,
         status: booking.status ?? null,
+        accommodationId:
+          booking.accommodationId ?? booking.payload?.accommodation?.id ?? null,
         assignedFleetVehicleId: assignedSlot?.fleetVehicleId,
         carLabel: booking.carLabel ?? null,
         deliveryLocation,

@@ -77,6 +77,7 @@ export async function submitRegisterNewRentAction(input: RegisterNewRentInput) {
       rentalend: rentalEnd,
       rentaldays: rentalDays ?? undefined,
       humanId: humanId ?? undefined,
+      accommodationId: accommodation.id,
       payload: {
         source: 'register-new-rent',
         preferredChannel: data.preferredChannel,

@@ -130,6 +130,7 @@ export type BookingCalendarBooking = {
   handoverOutAt?: string | null;
   handoverInAt?: string | null;
   status?: string | null;
+  accommodationId?: string | null;
   assignedFleetVehicleId?: string;
   carLabel?: string | null;
   deliveryLocation?: string | null;

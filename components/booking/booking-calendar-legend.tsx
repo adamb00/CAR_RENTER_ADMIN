@@ -9,9 +9,7 @@ type BookingCalendarLegendProps = {
   items: LocationLegendItem[];
 };
 
-export function BookingCalendarLegend({
-  items,
-}: BookingCalendarLegendProps) {
+export function BookingCalendarLegend({ items }: BookingCalendarLegendProps) {
   return (
     <div className='flex flex-col flex-wrap items-start gap-2 rounded-lg border border-slate-200 bg-muted/20 px-3 py-2 text-xs text-muted-foreground'>
       <div className='flex flex-wrap gap-4'>
@@ -73,6 +71,13 @@ export function BookingCalendarLegend({
               {item.label}
             </span>
           ))}
+          <span className='inline-flex items-center gap-2 bg-background/80 px-2 py-1 text-foreground'>
+            <span
+              className='h-2.5 w-2.5 rounded-full border border-black/10 bg-green-600'
+              aria-hidden
+            />
+            Szálloda
+          </span>
         </div>
       )}
     </div>

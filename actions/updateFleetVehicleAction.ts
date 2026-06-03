@@ -52,6 +52,7 @@ export async function updateFleetVehicleAction(
         notes: data.notes?.trim() || null,
         damages: data.damages?.trim() || null,
         damagesImages: data.damagesImages ?? [],
+        keyCode: data.keyCode,
       },
     });
 

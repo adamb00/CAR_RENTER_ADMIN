@@ -107,6 +107,8 @@ export function BookingCalendarBookingChip({
     bookingId: String(booking.bookingId),
   }).toString();
 
+  const hasAccommodation = Boolean(booking.accommodationId?.trim());
+
   return (
     <DropdownMenu
       open={contextMenuBookingId === booking.id}
@@ -127,6 +129,7 @@ export function BookingCalendarBookingChip({
           <div
             className={cn(
               'my-0 min-w-0 flex flex-col items-center justify-center gap-1 overflow-hidden rounded-md px-2 py-1 text-primary-foreground shadow-sm',
+              hasAccommodation && 'bg-green-600',
               hasOut || isPending
                 ? 'cursor-default'
                 : 'cursor-grab active:cursor-grabbing',
@@ -140,7 +143,7 @@ export function BookingCalendarBookingChip({
               top: 4,
               zIndex: 2,
               boxSizing: 'border-box',
-              backgroundColor: bookingColor,
+              ...(hasAccommodation ? {} : { backgroundColor: bookingColor }),
               backgroundImage: `repeating-linear-gradient(to right, transparent 0, transparent ${
                 dayColumnWidth - 1
               }px, rgba(255,255,255,0.28) ${dayColumnWidth - 1}px, rgba(255,255,255,0.28) ${dayColumnWidth}px)`,

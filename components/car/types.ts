@@ -116,6 +116,7 @@ export const emptyFleetForm = {
   serviceCosts: [] as ServiceCostDraft[],
   damages: '',
   damagesImages: [] as string[],
+  keyCode: '' as string,
 };
 
 export type FleetFormValues = typeof emptyFleetForm;

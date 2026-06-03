@@ -18,4 +18,5 @@ export const fleetVehicleSchema = z.object({
   notes: z.string().optional(),
   damages: z.string().optional(),
   damagesImages: z.array(z.string()).optional(),
+  keyCode: z.coerce.string().optional(),
 });

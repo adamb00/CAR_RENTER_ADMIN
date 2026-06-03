@@ -56,6 +56,7 @@ export async function FleetEditContent({
     notes: fleetVehicle.notes ?? '',
     damages: fleetVehicle.damages ?? '',
     damagesImages: fleetVehicle.damagesImages ?? [],
+    keyCode: fleetVehicle.keyCode ?? '',
   };
 
   return (

@@ -240,6 +240,7 @@ export const buildFleetFormSubmission = (
         notes: string;
         damages: string;
         damagesImages: string[];
+        keyCode: string;
       };
     } => {
   const hasIncompleteNextServiceWindow =
@@ -318,6 +319,7 @@ export const buildFleetFormSubmission = (
       ),
       damages: form.damages,
       damagesImages: form.damagesImages,
+      keyCode: form.keyCode,
     },
   };
 };

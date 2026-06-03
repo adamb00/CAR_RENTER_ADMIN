@@ -63,22 +63,22 @@ model Accommodation {
 }
 
 model Car {
-  id            String          @id @default(cuid())
-  manufacturer  String
-  model         String
-  seats         Int
-  images        String[]        @default([])
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  smallLuggage  Int             @default(0)
-  largeLuggage  Int             @default(0)
-  bodyType      CarBodyType     @default(sedan)
-  fuel          CarFuel         @default(petrol)
-  transmission  CarTransmission @default(manual)
-  monthlyPrices Int[]           @default(dbgenerated("array_fill(0, ARRAY[12])"))
-  accommodationPrices Json      @default("[]")
-  fleetVehicles FleetVehicle[]
-  colors        Color[]         @relation("CarColors")
+  id                  String          @id @default(cuid())
+  manufacturer        String
+  model               String
+  seats               Int
+  images              String[]        @default([])
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  smallLuggage        Int             @default(0)
+  largeLuggage        Int             @default(0)
+  bodyType            CarBodyType     @default(sedan)
+  fuel                CarFuel         @default(petrol)
+  transmission        CarTransmission @default(manual)
+  monthlyPrices       Int[]           @default(dbgenerated("array_fill(0, ARRAY[12])"))
+  accommodationPrices Json            @default("[]")
+  fleetVehicles       FleetVehicle[]
+  colors              Color[]         @relation("CarColors")
 
   @@map("Cars")
 }
@@ -329,6 +329,7 @@ model FleetVehicle {
   lastServiceAt      DateTime?
   status             FleetStatus              @default(available)
   year               Int?
+  keyCode            String?                  @default("NULL")
   firstRegistration  DateTime?
   location           String?
   vin                String?
