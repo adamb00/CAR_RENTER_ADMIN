@@ -21,7 +21,8 @@ export const DEFAULT_HANDOVER_COST_TYPES: Array<{
   { slug: 'tip', label: 'Jatt', category: 'deduction', sortOrder: 10 },
   { slug: 'fuel', label: 'Tankolás', category: 'expense', sortOrder: 20 },
   { slug: 'ferry', label: 'Komp', category: 'expense', sortOrder: 30 },
-  // { slug: 'cleaning', label: 'Takarítás', category: 'expense', sortOrder: 40 },
+  { slug: 'cleaning', label: 'Takarítás', category: 'expense', sortOrder: 40 },
+  { slug: 'parking', label: 'Parkolás', category: 'expense', sortOrder: 50 },
   {
     slug: 'commission',
     label: 'Jutalék',
