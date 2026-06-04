@@ -14,6 +14,7 @@ type CreateBookingHandoverCostInput = {
   direction?: string;
   costType?: string;
   amount?: string;
+  createdAt?: string;
 };
 
 const toOptionalString = (value?: string | null) => {
@@ -31,6 +32,15 @@ const parseAmount = (value?: string) => {
   return Number(parsed.toFixed(2));
 };
 
+const parseCostDate = (value?: string | null) => {
+  const normalized = toOptionalString(value);
+  if (!normalized) return null;
+
+  const parsed = new Date(`${normalized}T12:00:00.000Z`);
+  if (!Number.isFinite(parsed.getTime())) return undefined;
+  return parsed;
+};
+
 export const createBookingHandoverCostAction = async (
   input: CreateBookingHandoverCostInput,
 ) => {
@@ -38,6 +48,7 @@ export const createBookingHandoverCostAction = async (
   const direction = toOptionalString(input.direction);
   const costType = toOptionalString(input.costType);
   const amount = parseAmount(input.amount);
+  const costDate = parseCostDate(input.createdAt);
   const normalizedDirection = direction
     ? HANDOVER_DIRECTIONS.includes(direction as HandoverDirectionValue)
       ? (direction as HandoverDirectionValue)
@@ -58,6 +69,10 @@ export const createBookingHandoverCostAction = async (
 
   if (amount == null) {
     return { error: 'Az összeg megadása kötelező.' };
+  }
+
+  if (costDate === undefined) {
+    return { error: 'A dátum érvénytelen.' };
   }
 
   if (bookingId) {
@@ -84,22 +99,38 @@ export const createBookingHandoverCostAction = async (
   }
 
   try {
-    await db.$executeRaw`
-      INSERT INTO "BookingHandoverCosts" (
-        "bookingId",
-        "direction",
-        "costType",
-        "customCostTypeSlug",
-        "amount"
-      )
-      VALUES (
-        ${bookingId}::uuid,
-        ${normalizedDirection}::"HandoverDirection",
-        CAST(${isDefaultType ? costType : 'custom'} AS "HandoverCostType"),
-        ${isDefaultType ? null : costType},
-        ${amount}
-      )
-    `;
+    await db.$transaction(async (tx) => {
+      if (bookingId) {
+        await tx.$executeRaw`
+          DELETE FROM "BookingHandoverCosts"
+          WHERE "bookingId" = ${bookingId}::uuid
+            AND "direction" IS NOT DISTINCT FROM ${normalizedDirection}::"HandoverDirection"
+            AND "costType" = CAST(${isDefaultType ? costType : 'custom'} AS "HandoverCostType")
+            AND "customCostTypeSlug" IS NOT DISTINCT FROM ${isDefaultType ? null : costType}::varchar(64)
+        `;
+      }
+
+      await tx.$executeRaw`
+        INSERT INTO "BookingHandoverCosts" (
+          "bookingId",
+          "direction",
+          "costType",
+          "customCostTypeSlug",
+          "amount",
+          "createdAt",
+          "updatedAt"
+        )
+        VALUES (
+          ${bookingId}::uuid,
+          ${normalizedDirection}::"HandoverDirection",
+          CAST(${isDefaultType ? costType : 'custom'} AS "HandoverCostType"),
+          ${isDefaultType ? null : costType},
+          ${amount},
+          COALESCE(${costDate}, timezone('utc'::text, now())),
+          COALESCE(${costDate}, timezone('utc'::text, now()))
+        )
+      `;
+    });
 
     revalidatePath('/costs');
     revalidatePath('/analitycs');

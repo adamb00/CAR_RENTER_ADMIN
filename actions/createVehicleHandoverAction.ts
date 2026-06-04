@@ -113,6 +113,15 @@ export async function createVehicleHandoverAction(
           },
         ]
       : []),
+    ...(data.parkingCost != null
+      ? [
+          {
+            direction: direction as 'out' | 'in',
+            costType: 'parking' as const,
+            amount: data.parkingCost,
+          },
+        ]
+      : []),
     ...(direction === 'out' && data.commission != null
       ? [
           {
@@ -181,6 +190,14 @@ export async function createVehicleHandoverAction(
       });
 
       for (const cost of costUpdates) {
+        await tx.$executeRaw`
+          DELETE FROM "BookingHandoverCosts"
+          WHERE "bookingId" = ${data.bookingId}::uuid
+            AND "direction" = CAST(${cost.direction} AS "HandoverDirection")
+            AND "costType" = CAST(${cost.costType} AS "HandoverCostType")
+            AND "customCostTypeSlug" IS NULL
+        `;
+
         await tx.$executeRaw`
           INSERT INTO "BookingHandoverCosts" (
             "bookingId",

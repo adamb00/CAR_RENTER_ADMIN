@@ -78,6 +78,26 @@ const getMonthLabel = (monthKey: string) => {
   return `${MONTHS[parsed.month - 1]} ${parsed.year}`;
 };
 
+const getTodayInputValue = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getMonthKeyFromInputValue = (value: string) => {
+  const [year, month] = value.split('-').map(Number);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return null;
+  return buildMonthKey(year, month);
+};
+
+const getDateInputValue = (value: string) => {
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) return getTodayInputValue();
+  return parsed.toISOString().slice(0, 10);
+};
+
 export function HandoverCostsManager({
   rows,
   bookingOptions,
@@ -89,6 +109,7 @@ export function HandoverCostsManager({
     direction: '',
     costType: costTypeOptions[0]?.slug ?? '',
     amount: '',
+    createdAt: getTodayInputValue(),
   });
   const [typeForm, setTypeForm] = useState<{
     label: string;
@@ -114,6 +135,7 @@ export function HandoverCostsManager({
   const [isTypePending, startTypeTransition] = useTransition();
   const [editableRowId, setEditableRowId] = useState<string | null>(null);
   const [editableAmount, setEditableAmount] = useState('');
+  const [editableCreatedAt, setEditableCreatedAt] = useState('');
 
   useEffect(() => {
     if (costTypeOptions.length === 0) {
@@ -166,11 +188,15 @@ export function HandoverCostsManager({
       );
       if (!activeRow) {
         setEditableRowId(null);
+        setEditableAmount('');
+        setEditableCreatedAt('');
         return;
       }
 
       if (!activeRow.contains(target)) {
         setEditableRowId(null);
+        setEditableAmount('');
+        setEditableCreatedAt('');
       }
     };
 
@@ -310,6 +336,10 @@ export function HandoverCostsManager({
         direction: '',
         amount: '',
       }));
+      const submittedMonth = getMonthKeyFromInputValue(costForm.createdAt);
+      if (submittedMonth) {
+        setSelectedMonth(submittedMonth);
+      }
       setCostMessage({
         type: 'success',
         text: result.success ?? 'A költség elmentve.',
@@ -343,10 +373,16 @@ export function HandoverCostsManager({
     await deleteHandoverCostAction(id);
   };
 
-  const handleOnEdit = async (id: string, amount: number) => {
-    await editHandoverCostAction(id, amount);
+  const handleOnEdit = async (id: string, amount: number, createdAt: string) => {
+    await editHandoverCostAction(id, amount, createdAt);
     setEditableRowId(null);
     setEditableAmount('');
+    setEditableCreatedAt('');
+    const editedMonth = getMonthKeyFromInputValue(createdAt);
+    if (editedMonth) {
+      setSelectedMonth(editedMonth);
+    }
+    router.refresh();
   };
 
   return (
@@ -363,7 +399,7 @@ export function HandoverCostsManager({
             </p>
           </div>
 
-          <div className='grid gap-4 lg:grid-cols-3'>
+          <div className='grid gap-4 lg:grid-cols-5'>
             <FloatingSelect
               label='Foglalás'
               value={costForm.bookingId}
@@ -376,6 +412,22 @@ export function HandoverCostsManager({
               {bookingOptions.map((booking) => (
                 <option key={booking.id} value={booking.id}>
                   {booking.label}
+                </option>
+              ))}
+            </FloatingSelect>
+
+            <FloatingSelect
+              label='Irány'
+              value={costForm.direction}
+              onChange={(event) =>
+                updateCostField('direction', event.target.value)
+              }
+              disabled={isCostPending}
+            >
+              <option value=''>Nincs irány</option>
+              {DIRECTION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </FloatingSelect>
@@ -404,6 +456,16 @@ export function HandoverCostsManager({
               value={costForm.amount}
               onChange={(event) =>
                 updateCostField('amount', event.target.value)
+              }
+              disabled={isCostPending}
+            />
+
+            <Input
+              label='Dátum'
+              type='date'
+              value={costForm.createdAt}
+              onChange={(event) =>
+                updateCostField('createdAt', event.target.value)
               }
               disabled={isCostPending}
             />
@@ -561,6 +623,7 @@ export function HandoverCostsManager({
                   <th className='px-3 py-2 font-medium'>
                     {renderSortHeader('Típus', 'costTypeLabel')}
                   </th>
+                  <th className='px-3 py-2 font-medium'>Irány</th>
                   <th className='px-3 py-2 text-right font-medium'>
                     {renderSortHeader('Összeg', 'amount', 'right')}
                   </th>
@@ -590,20 +653,38 @@ export function HandoverCostsManager({
                     <td className='px-3 py-2 text-muted-foreground'>
                       <div>{row.costTypeLabel}</div>
                     </td>
+                    <td className='px-3 py-2 text-muted-foreground'>
+                      {getDirectionLabel(row.direction)}
+                    </td>
                     <td className='px-3 py-2 text-right'>
                       {editableRowId === row.id ? (
-                        <div className='flex items-center justify-center gap-4'>
+                        <div className='flex items-center justify-center gap-3'>
                           <Input
                             label=''
+                            type='number'
+                            min='0'
+                            step='0.01'
                             value={editableAmount}
                             onChange={(event) =>
                               setEditableAmount(event.target.value)
                             }
                             className='text-right'
                           />
+                          <Input
+                            label=''
+                            type='date'
+                            value={editableCreatedAt}
+                            onChange={(event) =>
+                              setEditableCreatedAt(event.target.value)
+                            }
+                          />
                           <Button
                             onClick={() =>
-                              handleOnEdit(row.id, Number(editableAmount))
+                              handleOnEdit(
+                                row.id,
+                                Number(editableAmount),
+                                editableCreatedAt,
+                              )
                             }
                           >
                             Mentés
@@ -627,6 +708,9 @@ export function HandoverCostsManager({
                             onClick={() => {
                               setEditableRowId(row.id);
                               setEditableAmount(row.amount);
+                              setEditableCreatedAt(
+                                getDateInputValue(row.createdAt),
+                              );
                             }}
                           >
                             <ArrowRightIcon className='text-muted-foreground' />

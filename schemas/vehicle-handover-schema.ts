@@ -12,6 +12,7 @@ export const vehicleHandoverSchema = z.object({
   fuelCost: z.coerce.number().min(0).optional(),
   ferryCost: z.coerce.number().min(0).optional(),
   cleaningCost: z.coerce.number().min(0).optional(),
+  parkingCost: z.coerce.number().min(0).optional(),
   commission: z.coerce.number().min(0).optional(),
   notes: z.string().optional(),
   damages: z.string().optional(),

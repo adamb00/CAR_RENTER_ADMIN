@@ -478,28 +478,7 @@ export default function CarinForm({
             setForm((prev) => ({ ...prev, parkingCost: e.target.value }))
           }
         />
-        {/* <Input
-          label='Komp (opcionális)'
-          type='number'
-          inputMode='decimal'
-          min={0}
-          step='0.01'
-          value={form.ferryCost}
-          onChange={(e) =>
-            setForm((prev) => ({ ...prev, ferryCost: e.target.value }))
-          }
-        />
-        <Input
-          label='Takarítás (opcionális)'
-          type='number'
-          inputMode='decimal'
-          min={0}
-          step='0.01'
-          value={form.cleaningCost}
-          onChange={(e) =>
-            setForm((prev) => ({ ...prev, cleaningCost: e.target.value }))
-          }
-        /> */}
+
         <div className='md:col-span-2'>
           <FloatingTextarea
             label='Megjegyzések'

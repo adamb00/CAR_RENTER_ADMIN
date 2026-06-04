@@ -4,6 +4,7 @@ export const DEFAULT_HANDOVER_COST_TYPE_SLUGS = [
   'ferry',
   'cleaning',
   'commission',
+  'parking',
 ] as const;
 
 export type DefaultHandoverCostTypeSlug =
