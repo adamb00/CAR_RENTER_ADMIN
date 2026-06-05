@@ -9,6 +9,8 @@ import {
   type NewAccommodationValues,
 } from '@/schemas/accommodationSchema';
 import { FROM_ADDRESS, getTransporter, MAIL_USER } from '@/lib/mailer';
+import { getAccommodationBookingCommissionByIds } from '@/data-service/accommodations';
+import { auth } from '@/auth';
 
 type UpdateAccommodationInput = {
   id: string;
@@ -113,9 +115,7 @@ export const updateAccommodationAction = async ({
   }
 };
 
-export const downloadQrCode = async (
-  id: string,
-): Promise<QrDownloadResult> => {
+export const downloadQrCode = async (id: string): Promise<QrDownloadResult> => {
   const accommodation = await db.accommodation.findFirst({
     where: { id },
     select: { id: true, name: true },
@@ -185,4 +185,31 @@ export const sendQrCode = async (id: string): Promise<QrSendResult> => {
     console.error('sendQrCode', err);
     return { error: 'Nem sikerült elküldeni a QR kódot emailben.' };
   }
+};
+
+export const bookTipsAction = async (ids: string[]) => {
+  const session = await auth();
+  if (!session?.user) return null;
+
+  const accommodationBookingCommissions =
+    await getAccommodationBookingCommissionByIds(ids);
+  const accommodationIds = new Set(
+    accommodationBookingCommissions.map(
+      (commission) => commission.accommodationId,
+    ),
+  );
+
+  await Promise.all(
+    accommodationBookingCommissions.map(({ id }) =>
+      db.accommodationBookingCommission.update({
+        where: { id },
+        data: { status: 'paid', paidAt: new Date(), userId: session.user?.id },
+      }),
+    ),
+  );
+
+  revalidatePath('/accommodations');
+  accommodationIds.forEach((accommodationId) => {
+    revalidatePath(`/accommodations/${accommodationId}`);
+  });
 };

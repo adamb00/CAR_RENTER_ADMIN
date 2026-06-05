@@ -6,7 +6,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useState, useTransition } from 'react';
 
 import type {
-  CarOption,
+  AccommodationOption,
   ChildDraft,
   DriverDraft,
   FormState,
@@ -33,6 +33,7 @@ export function useManualBookingForm({
   renters,
   initialValues,
   lockFleetVehicle = false,
+  accommodationOptions,
 }: ManualBookingFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -79,7 +80,12 @@ export function useManualBookingForm({
         drivers: nextDrivers,
       };
     });
-  }, [primaryDriverMatchesContact, form.contactEmail, form.contactName, form.contactPhone]);
+  }, [
+    primaryDriverMatchesContact,
+    form.contactEmail,
+    form.contactName,
+    form.contactPhone,
+  ]);
 
   useEffect(() => {
     if (!contactMatchesPrimaryDriver) return;
@@ -126,7 +132,10 @@ export function useManualBookingForm({
     });
   }, [contactMatchesPrimaryDriver, form.drivers]);
 
-  const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+  const updateField = <K extends keyof FormState>(
+    key: K,
+    value: FormState[K],
+  ) => {
     setForm((previous) => ({ ...previous, [key]: value }));
     if (
       key === 'contactName' ||
@@ -169,7 +178,8 @@ export function useManualBookingForm({
         invoiceName: renter.companyName || renter.name,
         invoiceEmail: renter.email ?? '',
         invoicePhoneNumber: renter.phone ?? '',
-        invoiceCountry: primaryDriver?.locationCountry ?? previous.invoiceCountry,
+        invoiceCountry:
+          primaryDriver?.locationCountry ?? previous.invoiceCountry,
         invoicePostalCode:
           primaryDriver?.locationPostalCode ?? previous.invoicePostalCode,
         invoiceCity: primaryDriver?.locationCity ?? previous.invoiceCity,
@@ -204,7 +214,9 @@ export function useManualBookingForm({
 
   const handleFleetVehicleChange = (fleetVehicleId: string) => {
     if (lockFleetVehicle) return;
-    const selectedFleet = fleetOptions.find((option) => option.id === fleetVehicleId);
+    const selectedFleet = fleetOptions.find(
+      (option) => option.id === fleetVehicleId,
+    );
     setForm((previous) => ({
       ...previous,
       fleetVehicleId,
@@ -215,6 +227,23 @@ export function useManualBookingForm({
 
   const handleCarChange = (carId: string) => {
     updateField('carId', carId);
+  };
+
+  const applyAccommodation = (accommodation: AccommodationOption) => {
+    setForm((previous) => ({
+      ...previous,
+      deliveryPlaceType: 'accommodation',
+      deliveryAccommodationId: accommodation.id,
+      deliveryLocationName: accommodation.name,
+      deliveryIsland: accommodation.island,
+      deliveryCountry: accommodation.country,
+      deliveryPostalCode: accommodation.postalCode,
+      deliveryCity: accommodation.city,
+      deliveryStreet: accommodation.street,
+      deliveryStreetType: '',
+      deliveryDoorNumber: accommodation.houseNumber,
+      pricingDeliveryLocation: accommodation.name,
+    }));
   };
 
   const updateChild = (index: number, key: keyof ChildDraft, value: string) => {
@@ -273,10 +302,13 @@ export function useManualBookingForm({
     }));
   };
 
-  const isFieldInvalid = (field: ValidationField) => invalidFields.includes(field);
+  const isFieldInvalid = (field: ValidationField) =>
+    invalidFields.includes(field);
 
   const focusField = (formElement: HTMLFormElement, field: ValidationField) => {
-    const target = formElement.querySelector<HTMLElement>(`[data-field="${field}"]`);
+    const target = formElement.querySelector<HTMLElement>(
+      `[data-field="${field}"]`,
+    );
     if (!target) return;
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     if (
@@ -295,7 +327,9 @@ export function useManualBookingForm({
     const formElement = event.currentTarget;
 
     startTransition(async () => {
-      const result = await createManualBookingAction(buildManualBookingPayload(form));
+      const result = await createManualBookingAction(
+        buildManualBookingPayload(form),
+      );
 
       if (result?.error) {
         setMessage({ type: 'error', text: result.error });
@@ -339,6 +373,7 @@ export function useManualBookingForm({
     fleetOptions,
     carOptions,
     renters,
+    accommodationOptions,
     lockFleetVehicle,
     isPending,
     message,
@@ -351,6 +386,7 @@ export function useManualBookingForm({
     applyRenter,
     handleFleetVehicleChange,
     handleCarChange,
+    applyAccommodation,
     updateChild,
     updateDriver,
     addChild,

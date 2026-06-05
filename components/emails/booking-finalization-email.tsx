@@ -2,13 +2,13 @@
 import * as React from 'react';
 
 import { BRAND } from '@/lib/constants';
+import { formatDatePeriod } from '@/lib/format/format-date';
+import { formatPriceValue } from '@/lib/format/format-price';
 import {
   EmailSignatureBlock,
   resolveEmailSignatureData,
 } from './email-signature';
 import type { BookingFinalizationCopy } from './utils/finalization-copy';
-import { formatDate, formatDatePeriod } from '@/lib/format/format-date';
-import { formatPriceValue } from '@/lib/format/format-price';
 
 export type BookingFinalizationEmailInput = {
   bookingCode: string;

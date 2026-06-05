@@ -88,6 +88,7 @@ type CreateManualBookingInput = {
   };
   delivery?: {
     placeType?: string;
+    accommodationId?: string;
     island?: string;
     locationName?: string;
     arrivalFlight?: string;
@@ -163,7 +164,11 @@ const toOptionalDate = (value?: string | null): Date | null => {
   const year = Number.parseInt(yearText, 10);
   const month = Number.parseInt(monthText, 10);
   const day = Number.parseInt(dayText, 10);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day)
+  ) {
     return null;
   }
   const parsed = new Date(Date.UTC(year, month - 1, day));
@@ -219,7 +224,9 @@ const toOptionalInteger = (value: unknown): number | undefined => {
   return undefined;
 };
 
-const toOptionalBoolean = (value: OptionalBooleanInput): boolean | undefined => {
+const toOptionalBoolean = (
+  value: OptionalBooleanInput,
+): boolean | undefined => {
   if (typeof value === 'boolean') return value;
   if (value === 'true') return true;
   if (value === 'false') return false;
@@ -379,9 +386,12 @@ export async function createManualBookingAction({
     linkedQuoteId = linkedQuote?.id ?? null;
   }
 
-  let selectedFleet:
-    | { id: string; carId: string; plate: string; notes: string | null }
-    | null = null;
+  let selectedFleet: {
+    id: string;
+    carId: string;
+    plate: string;
+    notes: string | null;
+  } | null = null;
 
   if (trimmedFleetVehicleId) {
     selectedFleet = await db.fleetVehicle.findUnique({
@@ -396,10 +406,9 @@ export async function createManualBookingAction({
       ? requestedStatus
       : undefined;
 
-  const effectiveStatus =
-    selectedFleet
-      ? RENT_STATUS_REGISTERED
-      : (normalizedStatus ?? RENT_STATUS_ACCEPTED);
+  const effectiveStatus = selectedFleet
+    ? RENT_STATUS_REGISTERED
+    : (normalizedStatus ?? RENT_STATUS_ACCEPTED);
 
   const normalizedRentalDays = toOptionalInteger(rentalDays);
   const effectiveRentalDays =
@@ -411,7 +420,9 @@ export async function createManualBookingAction({
 
   const normalizedAdults = toOptionalInteger(adults);
   const effectiveAdults =
-    normalizedAdults != null && normalizedAdults >= 0 ? normalizedAdults : undefined;
+    normalizedAdults != null && normalizedAdults >= 0
+      ? normalizedAdults
+      : undefined;
 
   const normalizedExtras =
     extras
@@ -473,12 +484,14 @@ export async function createManualBookingAction({
           ? normalizedDriver
           : null;
       })
-      .filter((driver): driver is NonNullable<typeof driver> => Boolean(driver)) ??
-    [];
+      .filter((driver): driver is NonNullable<typeof driver> =>
+        Boolean(driver),
+      ) ?? [];
 
   const normalizedPaymentMethod = toOptionalString(consents?.paymentMethod);
   const effectivePaymentMethod =
-    normalizedPaymentMethod && PAYMENT_METHOD_VALUES.has(normalizedPaymentMethod)
+    normalizedPaymentMethod &&
+    PAYMENT_METHOD_VALUES.has(normalizedPaymentMethod)
       ? normalizedPaymentMethod
       : undefined;
 
@@ -568,23 +581,57 @@ export async function createManualBookingAction({
   };
 
   const normalizedDeliveryAddress = normalizeAddress(delivery?.address);
+  const normalizedDeliveryPlaceType = toOptionalString(delivery?.placeType);
+  const normalizedAccommodationId = toOptionalString(delivery?.accommodationId);
+  const selectedAccommodation =
+    normalizedAccommodationId && normalizedDeliveryPlaceType === 'accommodation'
+      ? await db.accommodation.findUnique({
+          where: { id: normalizedAccommodationId },
+          select: {
+            id: true,
+            name: true,
+            country: true,
+            postalCode: true,
+            city: true,
+            street: true,
+            houseNumber: true,
+            island: true,
+            email: true,
+          },
+        })
+      : null;
   const normalizedDeliveryLocationName =
     toOptionalString(delivery?.locationName) ??
+    selectedAccommodation?.name ??
     normalizedPricing.deliveryLocation;
-  const normalizedDeliveryAddressLine = toAddressLine(normalizedDeliveryAddress);
+  const effectiveDeliveryAddress = {
+    country:
+      normalizedDeliveryAddress?.country ?? selectedAccommodation?.country,
+    postalCode:
+      normalizedDeliveryAddress?.postalCode ??
+      selectedAccommodation?.postalCode,
+    city: normalizedDeliveryAddress?.city ?? selectedAccommodation?.city,
+    street: normalizedDeliveryAddress?.street ?? selectedAccommodation?.street,
+    streetType: normalizedDeliveryAddress?.streetType,
+    doorNumber:
+      normalizedDeliveryAddress?.doorNumber ??
+      selectedAccommodation?.houseNumber,
+  };
+  const normalizedDeliveryAddressLine = toAddressLine(effectiveDeliveryAddress);
   const deliveryAddressLineForIsland = [
     normalizedDeliveryAddressLine,
-    normalizedDeliveryAddress?.street,
-    normalizedDeliveryAddress?.city,
-    normalizedDeliveryAddress?.country,
+    effectiveDeliveryAddress.street,
+    effectiveDeliveryAddress.city,
+    effectiveDeliveryAddress.country,
   ]
     .filter((value): value is string => Boolean(value))
     .join(' ');
 
   const normalizedDelivery = {
-    placeType: toOptionalString(delivery?.placeType),
+    placeType: normalizedDeliveryPlaceType,
     island:
       normalizeDeliveryIsland(delivery?.island) ??
+      normalizeDeliveryIsland(selectedAccommodation?.island) ??
       resolveDeliveryIsland({
         locationName: normalizedDeliveryLocationName ?? null,
         addressLine: deliveryAddressLineForIsland || null,
@@ -638,9 +685,7 @@ export async function createManualBookingAction({
     payload.driver = normalizedDrivers;
   }
 
-  if (
-    Object.values(normalizedInvoice).some((value) => value != null)
-  ) {
+  if (Object.values(normalizedInvoice).some((value) => value != null)) {
     payload.invoice = normalizedInvoice;
   }
 
@@ -650,6 +695,24 @@ export async function createManualBookingAction({
 
   if (Object.values(normalizedConsents).some((value) => value != null)) {
     payload.consents = normalizedConsents;
+  }
+
+  if (selectedAccommodation) {
+    payload.accommodation = {
+      id: selectedAccommodation.id,
+      name: selectedAccommodation.name,
+      address: [
+        selectedAccommodation.country,
+        selectedAccommodation.postalCode,
+        selectedAccommodation.city,
+        selectedAccommodation.street,
+        selectedAccommodation.houseNumber,
+      ]
+        .filter(Boolean)
+        .join(' '),
+      island: selectedAccommodation.island,
+      email: selectedAccommodation.email,
+    };
   }
 
   const sanitizedPayload = pruneUndefined(payload);
@@ -762,6 +825,7 @@ export async function createManualBookingAction({
               updated: trimmedSelfServiceEventsJson ?? null,
               payload: payloadForStorage,
               humanId: nextHumanId ?? undefined,
+              accommodationId: selectedAccommodation?.id ?? null,
               ...(hasPricingSnapshot
                 ? {
                     bookingPricingSnapshot: {
@@ -779,6 +843,25 @@ export async function createManualBookingAction({
             },
             select: { id: true },
           });
+
+          if (selectedAccommodation) {
+            await tx.accommodation.update({
+              where: { id: selectedAccommodation.id },
+              data: {
+                rentCount: {
+                  increment: 1,
+                },
+              },
+            });
+            await tx.accommodationBookingCommission.create({
+              data: {
+                bookingId: createdBooking.id,
+                accommodationId: selectedAccommodation.id,
+                amount: Math.round(Number(pricingSnapshotData.rentalFee) * 0.1),
+                status: 'pending',
+              },
+            });
+          }
 
           for (const row of handoverCostRows) {
             await tx.$executeRaw`

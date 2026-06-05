@@ -3,6 +3,7 @@
 import { FloatingSelect } from '@/components/ui/floating-select';
 import { Input } from '@/components/ui/input';
 import type { ManualBookingFormModel } from '@/hooks/use-manual-booking-form';
+import { useEffect, useMemo, useState } from 'react';
 
 import { islandOptions, placeTypeOptions } from './constants';
 
@@ -11,6 +12,52 @@ type DeliverySectionProps = {
 };
 
 export function DeliverySection({ formModel }: DeliverySectionProps) {
+  const [isAccommodationStoredInBooking, setIsAccommodationStoredInBooking] =
+    useState({ status: false, id: '' });
+  const [isAccommodationListOpen, setIsAccommodationListOpen] = useState(false);
+  const isAccommodationPickup =
+    formModel.form.deliveryPlaceType === 'accommodation';
+  const accommodationSearch = formModel.form.deliveryLocationName.trim();
+  const filteredAccommodations = useMemo(() => {
+    if (!isAccommodationPickup) return [];
+
+    const normalizedSearch = accommodationSearch.toLowerCase();
+    return formModel.accommodationOptions
+      .filter((accommodation) => {
+        if (!normalizedSearch) return true;
+        return [
+          accommodation.name,
+          accommodation.city,
+          accommodation.street,
+          accommodation.houseNumber,
+          accommodation.island,
+        ]
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedSearch);
+      })
+      .slice(0, 8);
+  }, [
+    accommodationSearch,
+    formModel.accommodationOptions,
+    isAccommodationPickup,
+  ]);
+
+  const handlePlaceTypeChange = (value: string) => {
+    formModel.updateField('deliveryPlaceType', value);
+    if (value !== 'accommodation') {
+      formModel.updateField('deliveryAccommodationId', '');
+      setIsAccommodationListOpen(false);
+    }
+  };
+
+  const handleAccommodationNameChange = (value: string) => {
+    formModel.updateField('deliveryLocationName', value);
+    formModel.updateField('deliveryAccommodationId', '');
+
+    setIsAccommodationListOpen(isAccommodationPickup);
+  };
+
   return (
     <div className='rounded-lg border p-4 space-y-4'>
       <h2 className='text-base font-semibold'>Átvétel</h2>
@@ -18,9 +65,7 @@ export function DeliverySection({ formModel }: DeliverySectionProps) {
         <FloatingSelect
           label='Átvétel helye'
           value={formModel.form.deliveryPlaceType}
-          onChange={(event) =>
-            formModel.updateField('deliveryPlaceType', event.target.value)
-          }
+          onChange={(event) => handlePlaceTypeChange(event.target.value)}
         >
           {placeTypeOptions.map((option) => (
             <option key={option.value} value={option.value}>
@@ -28,13 +73,57 @@ export function DeliverySection({ formModel }: DeliverySectionProps) {
             </option>
           ))}
         </FloatingSelect>
-        <Input
-          label='Helyszín neve'
-          value={formModel.form.deliveryLocationName}
-          onChange={(event) =>
-            formModel.updateField('deliveryLocationName', event.target.value)
-          }
-        />
+        <div className='relative'>
+          <Input
+            label='Helyszín neve'
+            value={formModel.form.deliveryLocationName}
+            onFocus={() => setIsAccommodationListOpen(isAccommodationPickup)}
+            onBlur={() => {
+              window.setTimeout(() => setIsAccommodationListOpen(false), 120);
+            }}
+            onChange={(event) => {
+              handleAccommodationNameChange(event.target.value);
+            }}
+            autoComplete='off'
+          />
+          {isAccommodationPickup &&
+            isAccommodationListOpen &&
+            filteredAccommodations.length > 0 && (
+              <div className='absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-md border bg-background shadow-lg'>
+                {filteredAccommodations.map((accommodation) => (
+                  <button
+                    key={accommodation.id}
+                    type='button'
+                    className='block w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground'
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      formModel.applyAccommodation(accommodation);
+                      setIsAccommodationListOpen(false);
+                      setIsAccommodationStoredInBooking({
+                        status: true,
+                        id: accommodation.id,
+                      });
+                    }}
+                  >
+                    <span className='block font-medium'>
+                      {accommodation.name}
+                    </span>
+                    <span className='block text-xs text-muted-foreground'>
+                      {[
+                        accommodation.postalCode,
+                        accommodation.city,
+                        accommodation.street,
+                        accommodation.houseNumber,
+                        accommodation.island,
+                      ]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+        </div>
         <FloatingSelect
           label='Sziget'
           value={formModel.form.deliveryIsland}

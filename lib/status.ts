@@ -87,11 +87,37 @@ const COLORS = buildRecord([
   ['CANCELLED', 'bg-red-100 text-red-800 border-red-200'],
 ]);
 
+const COMMISSION_LABELS = buildRecord([
+  ['pending', 'Függőben'],
+  ['approved', 'Jóváhagyva'],
+  ['paid', 'Kifizetve'],
+  ['cancelled', 'Törölve'],
+]);
+
+const COMMISSION_COLORS = buildRecord([
+  ['pending', 'bg-amber-100 text-amber-800 border-amber-200'],
+  ['approved', 'bg-blue-100 text-blue-800 border-blue-200'],
+  ['paid', 'bg-emerald-100 text-emerald-800 border-emerald-200'],
+  ['cancelled', 'bg-red-100 text-red-800 border-red-200'],
+]);
+
 export const getStatusMeta = (status?: string | null): StatusMeta => {
   const key = status ?? '';
   const label = key ? (LABELS[key] ?? key) : '—';
   const badge = key
     ? (COLORS[key] ?? 'bg-muted text-foreground border-border')
+    : 'bg-muted text-foreground border-border';
+  const color = badge;
+  return { label, color, badge };
+};
+
+export const getCommissionStatusMeta = (
+  status?: string | null,
+): StatusMeta => {
+  const key = status ?? '';
+  const label = key ? (COMMISSION_LABELS[key] ?? key) : '—';
+  const badge = key
+    ? (COMMISSION_COLORS[key] ?? 'bg-muted text-foreground border-border')
     : 'bg-muted text-foreground border-border';
   const color = badge;
   return { label, color, badge };

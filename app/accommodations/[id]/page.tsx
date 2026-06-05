@@ -1,6 +1,9 @@
 import EditAccommodationForm from '@/components/accommodation/edit-accommodation-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getOneAccommodation } from '@/data-service/accommodations';
+import {
+  getAccommodationBookingCommission,
+  getOneAccommodation,
+} from '@/data-service/accommodations';
 import { notFound } from 'next/navigation';
 import SendQR from './send-qr-button';
 import AccommodationBookingTable from './AccommodationBookingTable';
@@ -12,6 +15,13 @@ export default async function page({
 }) {
   const { id } = await params;
   const accommodationDetails = await getOneAccommodation(id);
+  const accommodationBookingDetails =
+    await getAccommodationBookingCommission(id);
+  const serializableAccommodationBookingDetails =
+    accommodationBookingDetails.map((commission) => ({
+      ...commission,
+      amount: commission.amount?.toString() ?? null,
+    }));
 
   if (!accommodationDetails) {
     notFound();
@@ -51,7 +61,9 @@ export default async function page({
           />
         </CardContent>
       </Card>
-      <AccommodationBookingTable accommodationDetails={accommodationDetails} />
+      <AccommodationBookingTable
+        accommodationDetails={serializableAccommodationBookingDetails}
+      />
     </div>
   );
 }

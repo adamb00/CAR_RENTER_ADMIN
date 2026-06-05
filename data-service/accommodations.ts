@@ -28,3 +28,37 @@ export const getOneAccommodation = async (
     include: accommodationInclude,
   });
 };
+
+const accommodationBookingCommissionInclude = {
+  booking: {
+    select: {
+      id: true,
+      humanId: true,
+      status: true,
+      rentalstart: true,
+      rentalend: true,
+    },
+  },
+} satisfies Prisma.AccommodationBookingCommissionInclude;
+
+export type AccommodationBookingCommissionDetails =
+  Prisma.AccommodationBookingCommissionGetPayload<{
+    include: typeof accommodationBookingCommissionInclude;
+  }>;
+export const getAccommodationBookingCommission = async (
+  accommodationId: string,
+): Promise<AccommodationBookingCommissionDetails[]> => {
+  return await db.accommodationBookingCommission.findMany({
+    where: { accommodationId },
+    include: accommodationBookingCommissionInclude,
+  });
+};
+
+export const getAccommodationBookingCommissionByIds = async (
+  ids: string[],
+): Promise<AccommodationBookingCommissionDetails[]> => {
+  return await db.accommodationBookingCommission.findMany({
+    where: { id: { in: ids } },
+    include: accommodationBookingCommissionInclude,
+  });
+};

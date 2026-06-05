@@ -48,13 +48,6 @@ export default function ConfirmButton({
   return (
     <div className='rounded-lg border bg-card p-4 space-y-3'>
       <div className='space-y-2'>
-        {/* <Input
-          type='text'
-          value={signerName}
-          onChange={(event) => setSignerName(event.target.value)}
-          label='Aláíró neve'
-        /> */}
-
         <FloatingSelect
           label='Aláíró neve'
           alwaysFloatLabel

@@ -88,6 +88,7 @@ export const buildInitialManualBookingForm = (
   taxId: '',
   taxCompanyName: '',
   deliveryPlaceType: '',
+  deliveryAccommodationId: '',
   deliveryIsland: '',
   deliveryLocationName: '',
   arrivalFlight: '',
@@ -257,6 +258,7 @@ export const buildManualBookingPayload = (form: FormState) => ({
   },
   delivery: {
     placeType: form.deliveryPlaceType,
+    accommodationId: form.deliveryAccommodationId,
     island: form.deliveryIsland,
     locationName: form.deliveryLocationName,
     arrivalFlight: form.arrivalFlight,

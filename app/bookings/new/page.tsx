@@ -90,7 +90,7 @@ export default async function ManualBookingPage({
   const requestedRentalStart = firstParam(resolvedSearchParams?.rentalStart);
   const requestedRentalEnd = firstParam(resolvedSearchParams?.rentalEnd);
 
-  const [fleetVehicles, cars, renters] = await Promise.all([
+  const [fleetVehicles, cars, renters, accommodations] = await Promise.all([
     db.fleetVehicle.findMany({
       include: {
         car: {
@@ -123,6 +123,20 @@ export default async function ManualBookingPage({
       FROM "Renters"
       ORDER BY "name" ASC, "updatedAt" DESC
     `,
+    db.accommodation.findMany({
+      select: {
+        id: true,
+        name: true,
+        country: true,
+        postalCode: true,
+        city: true,
+        street: true,
+        houseNumber: true,
+        island: true,
+        email: true,
+      },
+      orderBy: [{ name: 'asc' }, { city: 'asc' }],
+    }),
   ]);
 
   const fleetOptions = fleetVehicles.map((vehicle) => ({
@@ -144,6 +158,17 @@ export default async function ManualBookingPage({
     companyName: renter.companyName,
     paymentMethod: renter.paymentMethod,
     primaryDriver: toRenterPrimaryDriver(renter.primaryDriver),
+  }));
+  const accommodationOptions = accommodations.map((accommodation) => ({
+    id: accommodation.id,
+    name: accommodation.name,
+    country: accommodation.country,
+    postalCode: accommodation.postalCode,
+    city: accommodation.city,
+    street: accommodation.street,
+    houseNumber: accommodation.houseNumber,
+    island: accommodation.island,
+    email: accommodation.email,
   }));
 
   const preselectedFleet = requestedFleetVehicleId
@@ -173,6 +198,7 @@ export default async function ManualBookingPage({
           fleetOptions={fleetOptions}
           carOptions={carOptions}
           renters={renterOptions}
+          accommodationOptions={accommodationOptions}
           initialValues={initialValues}
           lockFleetVehicle={lockFleetVehicle}
         />

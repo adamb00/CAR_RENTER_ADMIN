@@ -51,10 +51,23 @@ export type RenterOption = {
   primaryDriver: RenterPrimaryDriver | null;
 };
 
+export type AccommodationOption = {
+  id: string;
+  name: string;
+  country: string;
+  postalCode: string;
+  city: string;
+  street: string;
+  houseNumber: string;
+  island: string;
+  email: string | null;
+};
+
 export type ManualBookingFormProps = {
   fleetOptions: FleetOption[];
   carOptions: CarOption[];
   renters: RenterOption[];
+  accommodationOptions: AccommodationOption[];
   initialValues?: {
     fleetVehicleId?: string;
     rentalStart?: string;
@@ -145,6 +158,7 @@ export type FormState = {
   taxId: string;
   taxCompanyName: string;
   deliveryPlaceType: string;
+  deliveryAccommodationId: string;
   deliveryIsland: string;
   deliveryLocationName: string;
   arrivalFlight: string;
