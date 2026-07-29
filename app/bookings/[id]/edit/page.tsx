@@ -13,6 +13,7 @@ import {
 } from '@/lib/booking-conflicts';
 import { db } from '@/lib/db';
 import Link from 'next/link';
+import { SendContractEmailButton } from './send-contract-email-button';
 
 const stringifyJson = (value: unknown) =>
   JSON.stringify(value ?? null, null, 2);
@@ -730,12 +731,15 @@ export default async function BookingEditPage({
 
         <div className='flex flex-wrap gap-3'>
           {booking?.id && (bookingContract || bookingContractInvite) ? (
-            <a
+            <SendContractEmailButton bookingId={booking.id} />
+          ) : null}
+          {booking?.id && (bookingContract || bookingContractInvite) ? (
+            <Link
               className='inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-accent'
               href={`/api/bookings/${booking.id}/contract/pdf`}
             >
               Szerződés letöltése
-            </a>
+            </Link>
           ) : null}
           {booking?.id && (
             <Link

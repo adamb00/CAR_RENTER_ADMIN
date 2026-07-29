@@ -1,33 +1,55 @@
 import type { Booking } from '@/data-service/bookings';
 import { formatDate, formatDatePeriod } from '@/lib/format/format-date';
 import { formatLocale } from '@/lib/format/format-locale';
+import { RENT_STATUS_NEW } from '@/lib/constants';
 import { getStatusMeta } from '@/lib/status';
+import { cn } from '@/lib/utils';
 import { ColumnDef } from '@tanstack/react-table';
+
+const TWO_DAYS_IN_MS = 2 * 24 * 60 * 60 * 1000;
+
+const isStaleNewBooking = (booking: Booking) => {
+  if (booking.status?.toLowerCase() !== RENT_STATUS_NEW || !booking.createdAt) {
+    return false;
+  }
+
+  const createdAt = new Date(booking.createdAt).getTime();
+  return Number.isFinite(createdAt) && Date.now() - createdAt >= TWO_DAYS_IN_MS;
+};
 
 export const BookingTableColumns: ColumnDef<Booking>[] = [
   {
     header: 'Foglaló',
-    cell: ({ row }) => (
-      <div className='flex flex-col gap-1'>
-        <div className='text-base font-semibold text-foreground'>
-          {row.original.contactName || '—'}
+    cell: ({ row }) => {
+      const shouldHighlightContactName = isStaleNewBooking(row.original);
+
+      return (
+        <div className='flex flex-col gap-1'>
+          <div
+            className={cn(
+              'text-base font-semibold text-foreground',
+              shouldHighlightContactName && 'text-red-600',
+            )}
+          >
+            {row.original.contactName || '—'}
+          </div>
+          <div className='text-base font-semibold text-foreground'>
+            {row.original.humanId || '—'}
+          </div>
+          <div className='text-sm text-muted-foreground'>
+            {row.original.contactEmail || '—'}
+          </div>
+          <div className='text-xs text-muted-foreground'>
+            {row.original.contactPhone || '—'}
+          </div>
+          <div className='text-xs text-muted-foreground'>
+            {row.original.assignedFleetPlate && row.original.carLabel
+              ? `${row.original.carLabel} - ${row.original.assignedFleetPlate}`
+              : ''}
+          </div>
         </div>
-        <div className='text-base font-semibold text-foreground'>
-          {row.original.humanId || '—'}
-        </div>
-        <div className='text-sm text-muted-foreground'>
-          {row.original.contactEmail || '—'}
-        </div>
-        <div className='text-xs text-muted-foreground'>
-          {row.original.contactPhone || '—'}
-        </div>
-        <div className='text-xs text-muted-foreground'>
-          {row.original.assignedFleetPlate && row.original.carLabel
-            ? `${row.original.carLabel} - ${row.original.assignedFleetPlate}`
-            : ''}
-        </div>
-      </div>
-    ),
+      );
+    },
   },
   {
     header: 'Időszak',

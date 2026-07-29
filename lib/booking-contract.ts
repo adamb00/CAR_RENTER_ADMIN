@@ -242,6 +242,7 @@ export const buildBookingContractPdf = async ({
   renterSignatureDataUrl,
   lessorSignatureDataUrl,
   locale,
+  contractText,
 }: BuildBookingContractPdfInput) => {
   const booking = await getBookingById(bookingId);
   if (!booking) {
@@ -256,9 +257,11 @@ export const buildBookingContractPdf = async ({
 
   return buildContractPdf({
     template: renderData.template,
-    contractText: formatContractText(renderData.template, {
-      includeTitle: false,
-    }),
+    contractText: contractText?.trim()
+      ? stripContractTitle(contractText)
+      : formatContractText(renderData.template, {
+          includeTitle: false,
+        }),
     signerName: signerName ?? null,
     signedAt: signedAt ?? null,
     renterSignatureDataUrl: renterSignatureDataUrl ?? '',
