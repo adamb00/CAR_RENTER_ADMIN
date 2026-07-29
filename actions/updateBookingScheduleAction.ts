@@ -14,6 +14,7 @@ import {
   RENT_STATUS_ACCEPTED,
   RENT_STATUS_REGISTERED,
 } from '@/lib/constants';
+import { refreshBookingContractSnapshots } from '@/lib/booking-contract';
 import { db } from '@/lib/db';
 import {
   getFleetServiceWindowRangeFromNotes,
@@ -274,6 +275,10 @@ export async function updateBookingScheduleAction({
     data,
   });
 
+  await refreshBookingContractSnapshots(booking.id);
+
   revalidatePath('/calendar');
+  revalidatePath(`/bookings/${booking.id}/contract`);
+  revalidatePath(`/bookings/${booking.id}/edit`);
   return { success: 'Foglalás frissítve.' };
 }

@@ -1,4 +1,4 @@
-import { Booking } from '@/data-service/bookings';
+import type { Booking } from '@/data-service/bookings';
 import { formatDate, formatDatePeriod } from '@/lib/format/format-date';
 import { formatLocale } from '@/lib/format/format-locale';
 import { getStatusMeta } from '@/lib/status';

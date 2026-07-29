@@ -6,12 +6,12 @@ import { BookingAdminInitialData } from '@/components/booking/types';
 import { getBookingById } from '@/data-service/bookings';
 import { getVehicleById } from '@/data-service/cars';
 import { getArchivedBookingIdSet } from '@/lib/booking-archive';
+import { buildCurrentBookingContractText } from '@/lib/booking-contract';
 import {
   getAssignedFleetVehicleIdFromPayload,
   isCancelledBookingStatus,
 } from '@/lib/booking-conflicts';
 import { db } from '@/lib/db';
-import { formatPlaceType } from '@/lib/format/format-place';
 import Link from 'next/link';
 
 const stringifyJson = (value: unknown) =>
@@ -171,6 +171,12 @@ type BookingDeliveryDetailsRow = {
   arrivalHour: string | null;
   arrivalMinute: string | null;
   same: boolean | null;
+  returnPlaceType: string | null;
+  returnLocationName: string | null;
+  returnAddressLine: string | null;
+  returnIsland: string | null;
+  returnHour: string | null;
+  returnMinute: string | null;
 };
 
 type BookingHandoverCostRow = {
@@ -242,7 +248,13 @@ export default async function BookingEditPage({
             "departureFlight",
             "arrivalHour",
             "arrivalMinute",
-            "same"
+            "same",
+            "returnPlaceType",
+            "returnLocationName",
+            "returnAddressLine",
+            "returnIsland",
+            "returnHour",
+            "returnMinute"
           FROM "BookingDeliveryDetails"
           WHERE "bookingId" = ${booking.id}::uuid
           LIMIT 1
@@ -305,6 +317,13 @@ export default async function BookingEditPage({
   const pricingSnapshot = pricingRows[0] ?? null;
   const deliveryDetails = deliveryRows[0] ?? null;
   const renter = renterRows[0] ?? null;
+  const currentContractText = bookingContract
+    ? await buildCurrentBookingContractText({
+        bookingId: booking.id,
+        signedAt: bookingContract.signedAt,
+        locale: booking.locale,
+      })
+    : '';
   const payload = isRecord(booking.payload) ? booking.payload : null;
   const payloadContact =
     payload && isRecord(payload.contact) ? payload.contact : null;
@@ -600,9 +619,8 @@ export default async function BookingEditPage({
     hasDeliveryDetails: Boolean(deliveryDetails),
     deliveryDetails: {
       placeType:
-        formatPlaceType(
-          firstString(deliveryDetails?.placeType, payloadDelivery?.placeType),
-        ) ?? '',
+        firstString(deliveryDetails?.placeType, payloadDelivery?.placeType) ??
+        '',
       locationName:
         firstString(
           deliveryDetails?.locationName,
@@ -637,6 +655,34 @@ export default async function BookingEditPage({
           payloadDelivery?.arrivalMinute,
         ) ?? '',
       same: firstBoolean(deliveryDetails?.same, payloadDelivery?.same) ?? false,
+      returnPlaceType:
+        firstString(
+          deliveryDetails?.returnPlaceType,
+          payloadDelivery?.returnPlaceType,
+        ) ?? '',
+      returnLocationName:
+        firstString(
+          deliveryDetails?.returnLocationName,
+          payloadDelivery?.returnLocationName,
+        ) ?? '',
+      returnAddressLine:
+        firstString(
+          deliveryDetails?.returnAddressLine,
+          toAddressLineFromPayload(payloadDelivery?.returnAddress),
+        ) ?? '',
+      returnIsland:
+        firstString(
+          deliveryDetails?.returnIsland,
+          payloadDelivery?.returnIsland,
+        ) ?? '',
+      returnHour:
+        firstString(deliveryDetails?.returnHour, payloadDelivery?.returnHour) ??
+        '',
+      returnMinute:
+        firstString(
+          deliveryDetails?.returnMinute,
+          payloadDelivery?.returnMinute,
+        ) ?? '',
     },
     handoverCosts: effectiveHandoverCosts,
     vehicleHandovers: vehicleHandovers.map((row) => ({
@@ -658,7 +704,7 @@ export default async function BookingEditPage({
       signerName: bookingContract?.signerName ?? '',
       signerEmail: bookingContract?.signerEmail ?? '',
       contractVersion: bookingContract?.contractVersion ?? '',
-      contractText: bookingContract?.contractText ?? '',
+      contractText: currentContractText,
       signatureData: bookingContract?.signatureData ?? '',
       lessorSignatureData: bookingContract?.lessorSignatureData ?? '',
       signedAt: toDateTimeInputValue(bookingContract?.signedAt),

@@ -91,7 +91,18 @@ export default async function CalendarPage() {
         departureFlight: booking.delivery?.departureFlight ?? null,
       });
 
-    const arrival = `${booking.delivery?.arrivalHour ?? '-'}:${booking.delivery?.arrivalMinute ?? '-'}`;
+    const formatTime = (hour?: string | null, minute?: string | null) => {
+      if (!hour && !minute) return '—';
+      return `${hour ?? '-'}:${minute ?? '-'}`;
+    };
+    const arrival = formatTime(
+      booking.delivery?.arrivalHour,
+      booking.delivery?.arrivalMinute,
+    );
+    const departure = formatTime(
+      booking.delivery?.returnHour,
+      booking.delivery?.returnMinute,
+    );
     const handoverTimes = handoverByBookingId.get(booking.id);
 
     const requiredCars = Math.max(1, booking.payload?.cars ?? 1);
@@ -135,6 +146,7 @@ export default async function CalendarPage() {
         deliveryIsland,
         pricing: splitPricingByCars(booking.pricing, requiredCars) ?? null,
         arrival,
+        departure,
         rentalDays: booking.rentalDays,
         slotIndex,
         requiredCars,

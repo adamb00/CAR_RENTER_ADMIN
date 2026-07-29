@@ -1,4 +1,4 @@
-import { Booking } from '@/data-service/bookings';
+import type { Booking } from '@/data-service/bookings';
 import { formatAddress } from '@/lib/format/format-address';
 import { booleanLabel } from '@/lib/format/format-boolean';
 import { formatDate } from '@/lib/format/format-date';

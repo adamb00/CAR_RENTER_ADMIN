@@ -41,7 +41,6 @@ import { resolveOfferRentalPricing } from '@/lib/quote-offer-pricing';
 import { useRouter } from 'next/navigation';
 import { SendQuoteButtonProps } from './types';
 import { FloatingSelect } from '@/components/ui/floating-select';
-import { getAllUser } from '@/data-service/user';
 import { getUserOptions } from '@/lib/user-options';
 
 export function SendQuoteButton({

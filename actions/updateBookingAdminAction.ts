@@ -11,6 +11,7 @@ import {
   getAssignedFleetVehicleIdFromPayload,
   hasAssignedFleetAssignment,
 } from '@/lib/booking-conflicts';
+import { refreshBookingContractSnapshots } from '@/lib/booking-contract';
 import { RENT_STATUS_REGISTERED } from '@/lib/constants';
 import { db } from '@/lib/db';
 import {
@@ -73,6 +74,12 @@ type BookingDeliveryDetailsInput = {
   arrivalHour?: unknown;
   arrivalMinute?: unknown;
   same?: unknown;
+  returnPlaceType?: unknown;
+  returnLocationName?: unknown;
+  returnAddressLine?: unknown;
+  returnIsland?: unknown;
+  returnHour?: unknown;
+  returnMinute?: unknown;
 };
 
 type BookingContractInput = {
@@ -721,6 +728,18 @@ export const updateBookingAdminAction = async (
         const arrivalMinute =
           toOptionalString(String(deliveryData.arrivalMinute ?? '')) ?? null;
         const same = toOptionalBoolean(deliveryData.same) ?? false;
+        const returnPlaceType =
+          toOptionalString(String(deliveryData.returnPlaceType ?? '')) ?? null;
+        const returnLocationName =
+          toOptionalString(String(deliveryData.returnLocationName ?? '')) ??
+          null;
+        const returnAddressLine =
+          toOptionalString(String(deliveryData.returnAddressLine ?? '')) ??
+          null;
+        const returnHour =
+          toOptionalString(String(deliveryData.returnHour ?? '')) ?? null;
+        const returnMinute =
+          toOptionalString(String(deliveryData.returnMinute ?? '')) ?? null;
         const island =
           normalizeDeliveryIsland(deliveryData.island) ??
           resolveDeliveryIsland({
@@ -729,6 +748,14 @@ export const updateBookingAdminAction = async (
             arrivalFlight,
             departureFlight,
           });
+        const returnIsland =
+          normalizeDeliveryIsland(deliveryData.returnIsland) ??
+          (same
+            ? island
+            : resolveDeliveryIsland({
+                locationName: returnLocationName,
+                addressLine: returnAddressLine,
+              }));
 
         await tx.$executeRaw`
           INSERT INTO "BookingDeliveryDetails" (
@@ -742,6 +769,12 @@ export const updateBookingAdminAction = async (
             "arrivalHour",
             "arrivalMinute",
             "same",
+            "returnPlaceType",
+            "returnLocationName",
+            "returnAddressLine",
+            "returnIsland",
+            "returnHour",
+            "returnMinute",
             "updatedAt"
           )
           VALUES (
@@ -755,6 +788,12 @@ export const updateBookingAdminAction = async (
             ${arrivalHour},
             ${arrivalMinute},
             ${same},
+            ${returnPlaceType},
+            ${returnLocationName},
+            ${returnAddressLine},
+            ${returnIsland},
+            ${returnHour},
+            ${returnMinute},
             timezone('utc'::text, now())
           )
           ON CONFLICT ("bookingId")
@@ -768,6 +807,12 @@ export const updateBookingAdminAction = async (
             "arrivalHour" = EXCLUDED."arrivalHour",
             "arrivalMinute" = EXCLUDED."arrivalMinute",
             "same" = EXCLUDED."same",
+            "returnPlaceType" = EXCLUDED."returnPlaceType",
+            "returnLocationName" = EXCLUDED."returnLocationName",
+            "returnAddressLine" = EXCLUDED."returnAddressLine",
+            "returnIsland" = EXCLUDED."returnIsland",
+            "returnHour" = EXCLUDED."returnHour",
+            "returnMinute" = EXCLUDED."returnMinute",
             "updatedAt" = timezone('utc'::text, now())
         `;
       }
@@ -914,9 +959,12 @@ export const updateBookingAdminAction = async (
     };
   }
 
+  await refreshBookingContractSnapshots(bookingId);
+
   revalidatePath('/');
   revalidatePath('/calendar');
   revalidatePath(`/${bookingId}`);
+  revalidatePath(`/bookings/${bookingId}/contract`);
   revalidatePath(`/bookings/${bookingId}/edit`);
   revalidatePath(`/bookings/${bookingId}/carout`);
   revalidatePath(`/bookings/${bookingId}/carin`);

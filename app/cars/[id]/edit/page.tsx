@@ -9,7 +9,9 @@ import { getFleetPlaceColor, getFleetPlaceLabel } from '@/lib/fleet-places';
 import { formatDateForInput } from '@/lib/format/format-date';
 import type { CreateCarFormValues } from '@/schemas/carSchema';
 
-const normalizeAccommodationPrices = (value: unknown): CreateCarFormValues['accommodationPrices'] => {
+const normalizeAccommodationPrices = (
+  value: unknown,
+): CreateCarFormValues['accommodationPrices'] => {
   const normalized = (Array.isArray(value) ? value : [])
     .map((entry) => {
       if (!entry || typeof entry !== 'object') return null;
@@ -37,6 +39,19 @@ const normalizeAccommodationPrices = (value: unknown): CreateCarFormValues['acco
   }));
 };
 
+const normalizeDailyMultipliers = (value: unknown): Record<string, number> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, number] =>
+        typeof entry[1] === 'number' && Number.isFinite(entry[1]),
+    ),
+  );
+};
+
 export default async function EditCarPage({
   params,
 }: {
@@ -58,6 +73,14 @@ export default async function EditCarPage({
           year: true,
           location: true,
           inspectionExpiry: true,
+        },
+      },
+      carPrices: {
+        select: {
+          date: true,
+          island: true,
+          price: true,
+          action: true,
         },
       },
     },
@@ -111,7 +134,29 @@ export default async function EditCarPage({
           Törlés
         </button>
       </form>
-      <NewCarForm mode='edit' initialValues={initialValues} carId={car.id} />
+      <NewCarForm
+        mode='edit'
+        initialValues={initialValues}
+        carId={car.id}
+        initialDailyMultipliers={normalizeDailyMultipliers(car.dailyMultiplier)}
+        initialPrices={car.carPrices.flatMap((price) => {
+          if (
+            price.island !== 'lanzarote' &&
+            price.island !== 'fuerteventura'
+          ) {
+            return [];
+          }
+
+          return [
+            {
+              date: price.date.toISOString().slice(0, 10),
+              island: price.island,
+              price: price.price,
+              action: price.action,
+            },
+          ];
+        })}
+      />
       <CarFleetSection
         carLabel={`${car.manufacturer} ${car.model}`}
         carId={car.id}

@@ -27,6 +27,16 @@ type BookingCalendarTimelineProps = {
   calendar: BookingCalendarModel;
 };
 
+const weekDays = [
+  'vasárnap',
+  'hétfő',
+  'kedd',
+  'szerda',
+  'csütörtök',
+  'péntek',
+  'szombat',
+];
+
 export function BookingCalendarTimeline({
   calendar,
 }: BookingCalendarTimelineProps) {
@@ -80,17 +90,22 @@ export function BookingCalendarTimeline({
                 className='grid h-11 border-b border-slate-300 text-xs font-semibold uppercase text-muted-foreground'
                 style={{ gridTemplateColumns: calendar.dayGridTemplate }}
               >
-                {calendar.days.map((day, idx) => (
-                  <div
-                    key={day.iso}
-                    className={cn(
-                      'flex items-center justify-center border-l border-slate-300 px-2 text-center first:border-l-0',
-                      getDayColumnClass(day, idx),
-                    )}
-                  >
-                    {day.label}
-                  </div>
-                ))}
+                {calendar.days.map((day, idx) => {
+                  const weekDay = weekDays[new Date(day.date).getUTCDay()];
+
+                  return (
+                    <div
+                      key={day.iso}
+                      className={cn(
+                        'flex flex-col items-center justify-center border-l border-slate-300 px-2 text-center first:border-l-0',
+                        getDayColumnClass(day, idx),
+                      )}
+                    >
+                      <span>{day.label}</span>
+                      <span>{weekDay}</span>
+                    </div>
+                  );
+                })}
               </div>
 
               {calendar.sortedFleetVehicles.map((vehicle, index) => {

@@ -4,6 +4,11 @@ import { ADMIN_SIGNATURE } from '@/lib/constants';
 
 type VehicleSummary = {
   plate?: string | null;
+  car?: {
+    manufacturer?: string | null;
+    model?: string | null;
+    fuel?: string | null;
+  } | null;
 };
 
 const formatAddress = (address?: {
@@ -39,6 +44,35 @@ const formatDriverName = (driver?: BookingDriver) => {
 
 const pickFirstValue = (...values: Array<string | null | undefined>) =>
   values.find((value) => value && value.trim().length > 0);
+
+const formatTime = (
+  hour?: string | null,
+  minute?: string | null,
+): string | undefined => {
+  const normalizedHour = hour?.trim();
+  const normalizedMinute = minute?.trim();
+  if (!normalizedHour && !normalizedMinute) return undefined;
+  return [normalizedHour, normalizedMinute].filter(Boolean).join(':');
+};
+
+const formatCarLabel = (
+  booking: Booking,
+  vehicle?: VehicleSummary | null,
+) => {
+  const vehicleLabel = [
+    vehicle?.car?.manufacturer?.trim(),
+    vehicle?.car?.model?.trim(),
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return pickFirstValue(
+    vehicleLabel,
+    booking.carLabel,
+    booking.carId,
+    booking.payload?.carId,
+  );
+};
 
 export const getPrimaryDriverFromBooking = (booking: Booking) =>
   booking.renter?.primaryDriver ?? booking.payload?.driver?.[0];
@@ -87,6 +121,12 @@ export const buildContractDataFromBooking = (
     booking.assignedFleetPlate ??
     booking.payload?.assignedFleetPlate ??
     undefined;
+  const returnAddress = delivery?.same
+    ? delivery?.address
+    : delivery?.returnAddress;
+  const returnLocation = delivery?.same
+    ? delivery?.locationName
+    : delivery?.returnLocationName;
 
   return {
     bookingId: booking.id,
@@ -106,15 +146,23 @@ export const buildContractDataFromBooking = (
     renterDrivingLicenseValidUntil:
       driver?.document?.drivingLicenceValidUntil ?? undefined,
     ownerCompanyName: ADMIN_SIGNATURE.company,
-    carLabel: booking.carLabel ?? booking.carId ?? undefined,
+    carLabel: formatCarLabel(booking, vehicle),
     plate,
+    fuelType: vehicle?.car?.fuel ?? undefined,
     rentalStart,
     rentalEnd,
     rentalDays: booking.rentalDays ?? undefined,
     rentalFee: pricing?.rentalFee ?? undefined,
     deposit: pricing?.deposit ?? undefined,
     insurance: pricing?.insurance ?? undefined,
+    deliveryFee: pricing?.deliveryFee ?? undefined,
+    extrasFee: pricing?.extrasFee ?? undefined,
+    tip: pricing?.tip ?? booking.payload?.handoverTip ?? undefined,
     pickupLocation: delivery?.locationName ?? undefined,
     pickupAddress: formatAddress(delivery?.address),
+    pickupTime: formatTime(delivery?.arrivalHour, delivery?.arrivalMinute),
+    returnLocation,
+    returnAddress: formatAddress(returnAddress),
+    returnTime: formatTime(delivery?.returnHour, delivery?.returnMinute),
   };
 };

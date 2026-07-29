@@ -1,5 +1,5 @@
-import { Booking } from '@/data-service/bookings';
-import { ContactQuote } from '@/data-service/quotes';
+import type { Booking } from '@/data-service/bookings';
+import type { ContactQuote } from '@/data-service/quotes';
 
 export type PricingBreakdown = {
   rentalFee?: string | null;

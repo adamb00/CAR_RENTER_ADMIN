@@ -1,5 +1,5 @@
 import { markNotificationReadAction } from '@/actions/notificationActions';
-import { SidebarNotification } from '@/data-service/notifications';
+import type { SidebarNotification } from '@/data-service/notifications';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import { toneStyles } from './tone-style';

@@ -1,4 +1,4 @@
-import { Booking } from '@/data-service/bookings';
+import type { Booking } from '@/data-service/bookings';
 import { capitalizeSlug } from '@/lib/capitalize-slug';
 import { getRentDetails } from '@/lib/rent-details';
 import Section from '../ui/section';

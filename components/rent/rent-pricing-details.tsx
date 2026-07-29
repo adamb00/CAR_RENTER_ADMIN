@@ -1,5 +1,5 @@
-import { Booking } from '@/data-service/bookings';
-import { ContactQuote } from '@/data-service/quotes';
+import type { Booking } from '@/data-service/bookings';
+import type { ContactQuote } from '@/data-service/quotes';
 import { useRentalPricing } from '@/hooks/use-rental-pricing';
 import { formatPriceValue } from '@/lib/format/format-price';
 import { Detail } from '../ui/detail';

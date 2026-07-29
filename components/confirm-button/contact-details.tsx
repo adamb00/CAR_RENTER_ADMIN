@@ -1,4 +1,4 @@
-import { Booking } from '@/data-service/bookings';
+import type { Booking } from '@/data-service/bookings';
 import { booleanLabel } from '@/lib/format/format-boolean';
 import { getRentDetails } from '@/lib/rent-details';
 import InfoGroup from '../ui/info-group';

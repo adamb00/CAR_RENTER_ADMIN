@@ -153,7 +153,7 @@ export default function ContractForm({
 
         <div className='rounded-xl border bg-card p-4 shadow-sm'>
           <p className='text-sm text-muted-foreground'>
-            Mentett szerződés tartalma
+            Aktuális szerződés tartalma
           </p>
           {downloadHref ? (
             <div className='mt-3'>

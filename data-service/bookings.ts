@@ -124,6 +124,12 @@ export type BookingPayload = {
     arrivalMinute?: string;
     address?: BookingAddress;
     same?: boolean;
+    returnPlaceType?: string;
+    returnLocationName?: string;
+    returnAddress?: BookingAddress;
+    returnIsland?: string;
+    returnHour?: string;
+    returnMinute?: string;
   };
   accommodation?: {
     id?: string;
@@ -654,6 +660,12 @@ type BookingDeliveryDetailsRow = {
   locationName: string | null;
   addressLine: string | null;
   island: string | null;
+  returnPlaceType: string | null;
+  returnLocationName: string | null;
+  returnAddressLine: string | null;
+  returnIsland: string | null;
+  returnHour: string | null;
+  returnMinute: string | null;
   arrivalFlight: string | null;
   departureFlight: string | null;
   arrivalHour: string | null;
@@ -763,6 +775,12 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
             "locationName",
             "addressLine",
             "island",
+            "returnPlaceType",
+            "returnLocationName",
+            "returnAddressLine",
+            "returnIsland",
+            "returnHour",
+            "returnMinute",
             "arrivalFlight",
             "departureFlight",
             "arrivalHour",
@@ -837,8 +855,16 @@ const getNormalizedPayloadPartsByBookingId = async (bookingIds: string[]) => {
       arrivalHour: row.arrivalHour ?? undefined,
       arrivalMinute: row.arrivalMinute ?? undefined,
       same: row.same ?? undefined,
+      returnPlaceType: row.returnPlaceType ?? undefined,
+      returnLocationName: row.returnLocationName ?? undefined,
+      returnIsland: row.returnIsland ?? undefined,
+      returnHour: row.returnHour ?? undefined,
+      returnMinute: row.returnMinute ?? undefined,
       address: row.addressLine
         ? ({ street: row.addressLine } as BookingAddress)
+        : undefined,
+      returnAddress: row.returnAddressLine
+        ? ({ street: row.returnAddressLine } as BookingAddress)
         : undefined,
     };
     deliveryByBookingId.set(
@@ -1365,10 +1391,17 @@ export const getDeliveryAddressByBookingId = async (
           "locationName",
           "addressLine",
           "island",
+          "returnPlaceType",
+          "returnLocationName",
+          "returnAddressLine",
+          "returnIsland",
+          "returnHour",
+          "returnMinute",
           "arrivalFlight",
           "departureFlight",
           "arrivalHour",
-          "arrivalMinute"
+          "arrivalMinute",
+          "same"
         FROM "BookingDeliveryDetails"
         WHERE "bookingId" = ${bookingId}::uuid
         LIMIT 1

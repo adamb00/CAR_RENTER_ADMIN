@@ -1,4 +1,4 @@
-import { BookingPricing } from '@/data-service/bookings';
+import type { BookingPricing } from '@/data-service/bookings';
 
 export type HandoverDirectionValue = 'out' | 'in';
 export type HandoverCostTypeValue = string;
@@ -22,6 +22,12 @@ export type BookingDeliveryDetailsForm = {
   arrivalHour: string;
   arrivalMinute: string;
   same: boolean;
+  returnPlaceType: string;
+  returnLocationName: string;
+  returnAddressLine: string;
+  returnIsland: string;
+  returnHour: string;
+  returnMinute: string;
 };
 
 export type BookingDriverForm = {
@@ -137,6 +143,7 @@ export type BookingCalendarBooking = {
   deliveryIsland?: string | null;
   pricing?: BookingPricing | null;
   arrival?: string;
+  departure?: string;
   rentalDays?: number;
   slotIndex?: number;
   requiredCars?: number;

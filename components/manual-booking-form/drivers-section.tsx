@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import type { ManualBookingFormModel } from '@/hooks/use-manual-booking-form';
 import { documentTypeOptions } from './constants';
 import type { DriverDraft } from './types';
+import { DatePicker } from '../ui/date-picker';
 
 type DriversSectionProps = {
   formModel: ManualBookingFormModel;
@@ -54,7 +55,7 @@ export function DriversSection({ formModel }: DriversSectionProps) {
             </label>
           ) : null}
 
-          <div className='grid gap-4 md:grid-cols-5'>
+          <div className='grid gap-4 md:grid-cols-4'>
             <Input
               label='Keresztnév'
               value={driver.firstName_1}
@@ -88,15 +89,18 @@ export function DriversSection({ formModel }: DriversSectionProps) {
               }
               disabled={index === 0 && formModel.primaryDriverMatchesContact}
             />
-            <Input
-              label='Születési dátum'
-              type='date'
-              value={driver.dateOfBirth}
-              onChange={(event) =>
-                formModel.updateDriver(index, 'dateOfBirth', event.target.value)
-              }
-            />
           </div>
+          <DatePicker
+            label='Születési dátum'
+            value={driver.dateOfBirth}
+            mode='select'
+            minYear={1920}
+            maxYear={new Date().getFullYear()}
+            className='md:col-span-2 xl:col-span-1'
+            onChange={(value) =>
+              formModel.updateDriver(index, 'dateOfBirth', value)
+            }
+          />
 
           <div className='space-y-3'>
             <h4 className='text-sm font-semibold text-muted-foreground'>

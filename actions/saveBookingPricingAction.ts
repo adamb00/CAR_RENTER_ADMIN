@@ -1,6 +1,7 @@
 'use server';
 
 import type { BookingPayload } from '@/data-service/bookings';
+import { refreshBookingContractSnapshots } from '@/lib/booking-contract';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
@@ -125,6 +126,8 @@ export const saveBookingPricingAction = async ({
     });
     revalidatePath('/');
     revalidatePath(`/${booking.id}`);
+    revalidatePath(`/bookings/${booking.id}/contract`);
+    revalidatePath(`/bookings/${booking.id}/edit`);
     revalidatePath(`/bookings/${booking.id}/carout`);
     revalidatePath(`/bookings/${booking.id}/carin`);
     revalidatePath('/analitycs');
@@ -132,6 +135,8 @@ export const saveBookingPricingAction = async ({
     console.error('saveBookingPricingAction update', error);
     return { error: normalizePersistenceError(error) };
   }
+
+  await refreshBookingContractSnapshots(booking.id);
 
   return {
     success: 'Díjak elmentve.',

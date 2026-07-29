@@ -67,7 +67,7 @@ type BuildBookingContractPdfInput = {
   renterSignatureDataUrl?: string | null;
   lessorSignatureDataUrl?: string | null;
   locale?: string | null;
-  contractText: string;
+  contractText?: string | null;
 };
 
 const CONTRACT_DISPATCH_EMAIL_COPY: Record<
@@ -113,7 +113,16 @@ const buildRenderData = async (
   const vehicle = vehicleId
     ? await db.fleetVehicle.findUnique({
         where: { id: vehicleId },
-        select: { plate: true },
+        select: {
+          plate: true,
+          car: {
+            select: {
+              manufacturer: true,
+              model: true,
+              fuel: true,
+            },
+          },
+        },
       })
     : null;
 
@@ -131,6 +140,101 @@ const buildRenderData = async (
   };
 };
 
+export const buildCurrentBookingContractText = async ({
+  bookingId,
+  signedAt,
+  locale,
+  includeTitle = true,
+}: {
+  bookingId: string;
+  signedAt?: Date | null;
+  locale?: string | null;
+  includeTitle?: boolean;
+}) => {
+  const booking = await getBookingById(bookingId);
+  if (!booking) {
+    throw new Error('A foglalás nem található.');
+  }
+
+  const renderData = await buildRenderData(
+    booking,
+    signedAt ?? new Date(),
+    locale ?? booking.locale ?? booking.payload?.locale ?? null,
+  );
+
+  return formatContractText(renderData.template, { includeTitle });
+};
+
+export const refreshBookingContractSnapshots = async (bookingId: string) => {
+  const trimmedBookingId = bookingId.trim();
+  if (!trimmedBookingId) return;
+
+  try {
+    const [contract, invites] = await Promise.all([
+      db.bookingContract.findUnique({
+        where: { bookingId: trimmedBookingId },
+        select: {
+          id: true,
+          signedAt: true,
+        },
+      }),
+      db.bookingContractInvite.findMany({
+        where: {
+          bookingId: trimmedBookingId,
+          revokedAt: null,
+          completedAt: null,
+        },
+        select: {
+          id: true,
+          sentAt: true,
+          locale: true,
+        },
+      }),
+    ]);
+
+    const updates: Promise<unknown>[] = [];
+    if (contract) {
+      updates.push(
+        buildCurrentBookingContractText({
+          bookingId: trimmedBookingId,
+          signedAt: contract.signedAt,
+          locale: null,
+        }).then((contractText) =>
+          db.bookingContract.update({
+            where: { id: contract.id },
+            data: {
+              contractVersion: CONTRACT_VERSION,
+              contractText,
+            },
+          }),
+        ),
+      );
+    }
+
+    for (const invite of invites) {
+      updates.push(
+        buildCurrentBookingContractText({
+          bookingId: trimmedBookingId,
+          signedAt: invite.sentAt,
+          locale: invite.locale,
+        }).then((contractText) =>
+          db.bookingContractInvite.update({
+            where: { id: invite.id },
+            data: {
+              contractVersion: CONTRACT_VERSION,
+              contractText,
+            },
+          }),
+        ),
+      );
+    }
+
+    await Promise.all(updates);
+  } catch (error) {
+    console.error('refreshBookingContractSnapshots', error);
+  }
+};
+
 export const buildBookingContractPdf = async ({
   bookingId,
   signerName,
@@ -138,7 +242,6 @@ export const buildBookingContractPdf = async ({
   renterSignatureDataUrl,
   lessorSignatureDataUrl,
   locale,
-  contractText,
 }: BuildBookingContractPdfInput) => {
   const booking = await getBookingById(bookingId);
   if (!booking) {
@@ -153,7 +256,9 @@ export const buildBookingContractPdf = async ({
 
   return buildContractPdf({
     template: renderData.template,
-    contractText: stripContractTitle(contractText),
+    contractText: formatContractText(renderData.template, {
+      includeTitle: false,
+    }),
     signerName: signerName ?? null,
     signedAt: signedAt ?? null,
     renterSignatureDataUrl: renterSignatureDataUrl ?? '',

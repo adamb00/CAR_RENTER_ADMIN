@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import type { z } from 'zod';
 
+import { refreshBookingContractSnapshots } from '@/lib/booking-contract';
 import { db } from '@/lib/db';
 import { DefaultHandoverCostTypeSlug } from '@/lib/handover-cost-types';
 import { vehicleHandoverSchema } from '@/schemas/vehicle-handover-schema';
@@ -145,10 +146,6 @@ export async function createVehicleHandoverAction(
         select: { id: true },
       });
 
-      const rangeField =
-        data.rangeKm != null
-          ? ({ rangeKm: data.rangeKm } as Record<string, unknown>)
-          : {};
       const handoverData = {
         bookingId: data.bookingId,
         fleetVehicleId: data.fleetVehicleId,
@@ -156,10 +153,10 @@ export async function createVehicleHandoverAction(
         handoverAt,
         handoverBy: data.handoverBy?.trim() || null,
         mileage: data.mileage,
+        rangeKm: data.rangeKm ?? null,
         notes: data.notes?.trim() || null,
         damages: data.damages?.trim() || null,
         damagesImages: data.damagesImages ?? [],
-        ...rangeField,
       };
       const createdRow = existingHandover
         ? await tx.vehicleHandover.update({
@@ -221,8 +218,12 @@ export async function createVehicleHandoverAction(
       return createdRow;
     });
 
+    await refreshBookingContractSnapshots(data.bookingId);
+
     revalidatePath('/bookings');
     revalidatePath('/calendar');
+    revalidatePath(`/bookings/${data.bookingId}/contract`);
+    revalidatePath(`/bookings/${data.bookingId}/edit`);
     revalidatePath(`/bookings/${data.bookingId}/carout`);
     revalidatePath(`/bookings/${data.bookingId}/carin`);
     revalidatePath('/analitycs');

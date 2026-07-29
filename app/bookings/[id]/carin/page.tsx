@@ -48,6 +48,32 @@ export default async function BookingReturnPage({
           select: { mileage: true },
         })
       : null;
+  const handoverInRecord =
+    booking?.id && vehicle?.id
+      ? await db.vehicleHandover.findFirst({
+          where: {
+            bookingId: booking.id,
+            fleetVehicleId: vehicle.id,
+            direction: 'in',
+          },
+          orderBy: [{ handoverAt: 'desc' }, { createdAt: 'desc' }],
+          select: {
+            handoverAt: true,
+            handoverBy: true,
+            mileage: true,
+            rangeKm: true,
+            notes: true,
+            damages: true,
+            damagesImages: true,
+          },
+        })
+      : null;
+  const handoverIn = handoverInRecord
+    ? {
+        ...handoverInRecord,
+        handoverAt: handoverInRecord.handoverAt.toISOString(),
+      }
+    : null;
 
   return (
     <div className='flex h-full flex-col gap-6 p-6'>
@@ -86,6 +112,7 @@ export default async function BookingReturnPage({
         vehicle={vehicle}
         handoverOutMileage={handoverOut?.mileage ?? null}
         users={users}
+        handoverIn={handoverIn}
       />
     </div>
   );

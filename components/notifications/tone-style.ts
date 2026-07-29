@@ -1,4 +1,4 @@
-import { SidebarNotification } from '@/data-service/notifications';
+import type { SidebarNotification } from '@/data-service/notifications';
 
 export const toneStyles: Record<
   SidebarNotification['tone'],

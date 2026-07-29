@@ -6,9 +6,10 @@ import { Input } from './ui/input';
 import { FloatingTextarea } from './ui/textarea';
 
 import { createVehicleHandoverAction } from '@/actions/createVehicleHandoverAction';
-import { Booking } from '@/data-service/bookings';
+import { saveBookingDeliveryAction } from '@/actions/saveBookingDeliveryAction';
+import type { Booking } from '@/data-service/bookings';
 import { formatAddress } from '@/lib/format/format-address';
-import { PricingBreakdown } from '@/hooks/use-rental-pricing';
+import type { PricingBreakdown } from '@/hooks/use-rental-pricing';
 import CarDamages from './car/car-damages';
 import { Button } from './ui/button';
 import { Detail } from './ui/detail';
@@ -25,6 +26,10 @@ const emptyForm = {
   cleaningCost: '',
   returnLocation: '',
   returnAddress: '',
+  returnPlaceType: '',
+  returnIsland: '',
+  returnHour: '',
+  returnMinute: '',
   sameAsDelivery: false,
   notes: '',
   damages: '',
@@ -37,15 +42,48 @@ type CarinFormProps = {
   vehicle: FleetVehicle | null;
   handoverOutMileage?: number | null;
   users: Pick<User, 'id' | 'name'>[];
+  handoverIn?: {
+    handoverAt: string;
+    handoverBy: string | null;
+    mileage: number | null;
+    rangeKm: number | null;
+    notes: string | null;
+    damages: string | null;
+    damagesImages: string[];
+  } | null;
 };
 
 type CarinFormValues = typeof emptyForm;
+const toParsedDate = (value?: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const toDateInputValue = (value?: string | null) => {
+  const parsed = toParsedDate(value);
+  if (!parsed) return '';
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const toTimeInputValue = (value?: string | null) => {
+  const parsed = toParsedDate(value);
+  if (!parsed) return '';
+  const hours = String(parsed.getHours()).padStart(2, '0');
+  const minutes = String(parsed.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
 export default function CarinForm({
   booking,
   pricing,
   vehicle,
   handoverOutMileage,
   users,
+  handoverIn,
 }: CarinFormProps) {
   const normalizedInitialValues = useMemo(() => emptyForm, []);
   const userOptions = useMemo(
@@ -72,15 +110,47 @@ export default function CarinForm({
       ? Math.max(handoverOutMileage, vehicle.odometer)
       : (handoverOutMileage ?? vehicle?.odometer ?? 0);
 
-  const deliveryLocation = booking?.delivery?.locationName ?? '';
-  const deliveryAddressRaw = booking?.delivery?.address
-    ? formatAddress(booking.delivery.address)
+  const delivery = booking?.delivery;
+  const deliveryLocation = delivery?.locationName ?? '';
+  const deliveryAddressRaw = delivery?.address
+    ? formatAddress(delivery.address)
     : '';
   const deliveryAddress = deliveryAddressRaw === '—' ? '' : deliveryAddressRaw;
   const hasDeliveryDetails = Boolean(deliveryLocation || deliveryAddress);
 
   React.useEffect(() => {
+    if (!delivery) return;
+    const formattedReturnAddress = delivery.returnAddress
+      ? formatAddress(delivery.returnAddress)
+      : '';
+    setForm((prev) => ({
+      ...prev,
+      sameAsDelivery: prev.sameAsDelivery || Boolean(delivery.same),
+      returnPlaceType:
+        prev.returnPlaceType ||
+        delivery.returnPlaceType ||
+        delivery.placeType ||
+        '',
+      returnLocation:
+        prev.returnLocation ||
+        delivery.returnLocationName ||
+        (delivery.same ? deliveryLocation : ''),
+      returnAddress:
+        prev.returnAddress ||
+        (formattedReturnAddress === '—' ? '' : formattedReturnAddress) ||
+        (delivery.same ? deliveryAddress : ''),
+      returnIsland:
+        prev.returnIsland ||
+        delivery.returnIsland ||
+        (delivery.same ? delivery.island || '' : ''),
+      returnHour: prev.returnHour || delivery.returnHour || '',
+      returnMinute: prev.returnMinute || delivery.returnMinute || '',
+    }));
+  }, [delivery, deliveryAddress, deliveryLocation]);
+
+  React.useEffect(() => {
     if (!hasDeliveryDetails) return;
+    if (delivery?.same === false) return;
     setForm((prev) => {
       if (
         prev.sameAsDelivery ||
@@ -142,12 +212,34 @@ export default function CarinForm({
     });
   }, [booking?.payload?.handoverCosts?.in]);
 
+  React.useEffect(() => {
+    if (!handoverIn) return;
+
+    setForm((prev) => ({
+      ...prev,
+      take: handoverIn.handoverBy ?? prev.take,
+      date: toDateInputValue(handoverIn.handoverAt) || prev.date,
+      time: toTimeInputValue(handoverIn.handoverAt) || prev.time,
+      milage:
+        handoverIn.mileage != null ? String(handoverIn.mileage) : prev.milage,
+      rangeKm:
+        handoverIn.rangeKm != null ? String(handoverIn.rangeKm) : prev.rangeKm,
+      notes: handoverIn.notes ?? prev.notes,
+      damages: handoverIn.damages ?? prev.damages,
+      damagesImages:
+        handoverIn.damagesImages.length > 0
+          ? handoverIn.damagesImages
+          : prev.damagesImages,
+    }));
+  }, [handoverIn]);
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setStatus(null);
 
     const bookingId = booking?.id;
     const fleetVehicleId =
+      vehicle?.id ??
       booking?.assignedFleetVehicleId ??
       booking?.payload?.assignedFleetVehicleId;
 
@@ -300,6 +392,34 @@ export default function CarinForm({
     const handoverAt = new Date(`${dateValue}T${timeValue}`).toISOString();
 
     startTransition(async () => {
+      if (delivery?.placeType) {
+        const deliveryResult = await saveBookingDeliveryAction({
+          bookingId,
+          delivery: {
+            placeType: delivery.placeType,
+            locationName: delivery.locationName,
+            address: delivery.address ? formatAddress(delivery.address) : '',
+            island: delivery.island,
+            arrivalFlight: delivery.arrivalFlight,
+            departureFlight: delivery.departureFlight,
+            arrivalHour: delivery.arrivalHour,
+            arrivalMinute: delivery.arrivalMinute,
+            same: form.sameAsDelivery,
+            returnPlaceType: form.returnPlaceType,
+            returnLocationName: form.returnLocation,
+            returnAddress: form.returnAddress,
+            returnIsland: form.returnIsland,
+            returnHour: form.returnHour,
+            returnMinute: form.returnMinute,
+          },
+        });
+
+        if (deliveryResult?.error) {
+          setStatus({ type: 'error', message: deliveryResult.error });
+          return;
+        }
+      }
+
       const result = await createVehicleHandoverAction({
         bookingId,
         fleetVehicleId,
@@ -371,8 +491,10 @@ export default function CarinForm({
               setForm((prev) => ({
                 ...prev,
                 sameAsDelivery: checked,
+                returnPlaceType: checked ? (delivery?.placeType ?? '') : '',
                 returnLocation: checked ? deliveryLocation : '',
                 returnAddress: checked ? deliveryAddress : '',
+                returnIsland: checked ? (delivery?.island ?? '') : '',
               }));
             }}
             disabled={!hasDeliveryDetails}
@@ -389,6 +511,20 @@ export default function CarinForm({
           }
           disabled={form.sameAsDelivery}
         />
+        <FloatingSelect
+          label='Visszaadás helye'
+          alwaysFloatLabel
+          value={form.returnPlaceType}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, returnPlaceType: e.target.value }))
+          }
+          disabled={form.sameAsDelivery}
+        >
+          <option value=''>Nincs megadva</option>
+          <option value='airport'>Reptér</option>
+          <option value='accommodation'>Szálloda</option>
+          <option value='office'>Iroda</option>
+        </FloatingSelect>
         <Input
           label='Visszavétel címe'
           value={form.returnAddress}
@@ -396,6 +532,33 @@ export default function CarinForm({
             setForm((prev) => ({ ...prev, returnAddress: e.target.value }))
           }
           disabled={form.sameAsDelivery}
+        />
+        <FloatingSelect
+          label='Visszaadás szigete'
+          alwaysFloatLabel
+          value={form.returnIsland}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, returnIsland: e.target.value }))
+          }
+          disabled={form.sameAsDelivery}
+        >
+          <option value=''>Nincs megadva</option>
+          <option value='Lanzarote'>Lanzarote</option>
+          <option value='Fuerteventura'>Fuerteventura</option>
+        </FloatingSelect>
+        <Input
+          label='Visszaadás órája'
+          value={form.returnHour}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, returnHour: e.target.value }))
+          }
+        />
+        <Input
+          label='Visszaadás perce'
+          value={form.returnMinute}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, returnMinute: e.target.value }))
+          }
         />
         <FloatingSelect
           label='Visszaveszi'
@@ -467,17 +630,30 @@ export default function CarinForm({
             setForm((prev) => ({ ...prev, rangeKm: e.target.value }))
           }
         />
-        <Input
-          label='Parkolás (opcionális)'
-          type='number'
-          inputMode='decimal'
-          min={0}
-          step='0.01'
-          value={form.parkingCost}
-          onChange={(e) =>
-            setForm((prev) => ({ ...prev, parkingCost: e.target.value }))
-          }
-        />
+        <div className='flex gap-4'>
+          <Input
+            label='Parkolás (opcionális)'
+            type='number'
+            inputMode='decimal'
+            min={0}
+            step='0.01'
+            value={form.parkingCost}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, parkingCost: e.target.value }))
+            }
+          />
+          <Input
+            label='Mosás (opcionális)'
+            type='number'
+            inputMode='decimal'
+            min={0}
+            step='0.01'
+            value={form.cleaningCost}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, cleaningCost: e.target.value }))
+            }
+          />
+        </div>
 
         <div className='md:col-span-2'>
           <FloatingTextarea

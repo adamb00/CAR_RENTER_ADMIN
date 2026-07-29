@@ -27,7 +27,9 @@ const AccommodationPriceSchema = z.object({
 
 export const CreateCarFormSchema = z
   .object({
-    manufacturer: z.string().min(2, 'A gyártó neve legalább 2 karakter legyen.'),
+    manufacturer: z
+      .string()
+      .min(2, 'A gyártó neve legalább 2 karakter legyen.'),
     model: z.string().min(2, 'Add meg a típus nevét.'),
     seats: positiveInt('Szállítható személyek száma'),
     smallLuggage: nonNegativeInt('Kis bőröndök száma'),
@@ -39,17 +41,18 @@ export const CreateCarFormSchema = z
       .array(
         positiveInt('Havi ár', 0).max(
           10_000_000,
-          'Az ár nem lehet 10 000 000 Ft felett.'
-        )
+          'Az ár nem lehet 10 000 000 Ft felett.',
+        ),
       )
       .length(12, 'Mind a 12 hónaphoz adj meg árat.'),
+    weeklyPrices: z.array(z.number().int()).optional(),
     accommodationPrices: z
       .array(AccommodationPriceSchema)
       .min(1, 'Adj meg legalább egy szállodai napi árat.'),
-    colors: z.array(z.enum(CAR_COLORS)).min(1, 'Legalább egy színt válassz.').max(
-      CAR_COLORS.length,
-      'Túl sok színt jelöltél be.'
-    ),
+    colors: z
+      .array(z.enum(CAR_COLORS))
+      .min(1, 'Legalább egy színt válassz.')
+      .max(CAR_COLORS.length, 'Túl sok színt jelöltél be.'),
     images: z
       .array(z.string().url('Adj meg érvényes kép URL-t.'))
       .min(1, 'Adj meg legalább egy képet.')
@@ -86,6 +89,9 @@ export const CreateCarSchema = z
     monthlyPrices: z
       .array(z.number().int().min(0).max(10_000_000))
       .length(12, 'Mind a 12 hónaphoz adj meg árat.'),
+
+    weeklyPrices: z.array(z.number().int()).optional(),
+
     accommodationPrices: z
       .array(AccommodationPriceSchema)
       .min(1, 'Adj meg legalább egy szállodai napi árat.'),
@@ -115,15 +121,16 @@ export const CreateCarSchema = z
 
 export type CreateCarInput = z.infer<typeof CreateCarSchema>;
 
-export const transformCarFormValues = (values: CreateCarFormValues): CreateCarInput => {
+export const transformCarFormValues = (
+  values: CreateCarFormValues,
+): CreateCarInput => {
   const normalizedColors = Array.from(new Set(values.colors ?? []));
   const monthlyPrices = (values.monthlyPrices ?? []).map((price) =>
-    typeof price === 'number' ? price : Number(price)
+    typeof price === 'number' ? price : Number(price),
   );
   const accommodationPrices = (values.accommodationPrices ?? [])
     .map((entry) => ({
-      days:
-        typeof entry.days === 'number' ? entry.days : Number(entry.days),
+      days: typeof entry.days === 'number' ? entry.days : Number(entry.days),
       price_eur:
         typeof entry.price_eur === 'number'
           ? entry.price_eur
@@ -145,6 +152,7 @@ export const transformCarFormValues = (values: CreateCarFormValues): CreateCarIn
     fuel: values.fuel,
     transmission: values.transmission,
     monthlyPrices,
+    weeklyPrices: values.weeklyPrices,
     accommodationPrices,
     colors: normalizedColors,
     images: values.images,

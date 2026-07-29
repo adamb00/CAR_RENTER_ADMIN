@@ -1,4 +1,4 @@
-import { Booking } from '@/data-service/bookings';
+import type { Booking } from '@/data-service/bookings';
 import type { PricingBreakdown } from '@/hooks/use-rental-pricing';
 import { formatArrivalTime } from '@/lib/format/format-date';
 import { Button } from '../ui/button';

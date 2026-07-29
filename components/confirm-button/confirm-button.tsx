@@ -2,9 +2,9 @@ import React, { useState, useTransition } from 'react';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { sendBookingFinalizationEmailAction } from '@/actions/sendBookingFinalizationEmailAction';
-import { Booking } from '@/data-service/bookings';
-import { StatusMessage } from './types';
-import { getUserOptions, UserOptionSource } from '@/lib/user-options';
+import type { Booking } from '@/data-service/bookings';
+import type { StatusMessage } from './types';
+import { getUserOptions, type UserOptionSource } from '@/lib/user-options';
 import { FloatingSelect } from '../ui/floating-select';
 
 type ConfirmButtonProps = {

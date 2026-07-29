@@ -1,4 +1,4 @@
-import { Booking } from '@/data-service/bookings';
+import type { Booking } from '@/data-service/bookings';
 import { Detail } from '../ui/detail';
 import Section from '../ui/section';
 import { getRentDetails } from '@/lib/rent-details';
@@ -6,7 +6,7 @@ import { getStatusMeta } from '@/lib/status';
 import { booleanLabel } from '@/lib/format/format-boolean';
 import Link from 'next/link';
 import { formatDate } from '@/lib/format/format-date';
-import { ContactQuote } from '@/data-service/quotes';
+import type { ContactQuote } from '@/data-service/quotes';
 
 type RentBaseDetailsProps = {
   booking: Booking;

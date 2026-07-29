@@ -1,4 +1,5 @@
 import {
+  ActivityIcon,
   BadgeDollarSign,
   BarChart3,
   Bell,
@@ -7,6 +8,7 @@ import {
   Car,
   HotelIcon,
   Inbox,
+  ShieldUser,
   UserIcon,
   UserRoundCog,
   UserStar,
@@ -55,6 +57,7 @@ export const navItems = (unreadBadgeCount: number) =>
       },
       { title: 'Bérlők', url: '/renters', icon: UserIcon },
       { title: 'Adminok', url: '/admins', icon: UserRoundCog },
+      { title: 'Biztosítás díjak', url: '/insurance', icon: ShieldUser },
       {
         title: 'Autók',
         url: '#',
@@ -100,6 +103,7 @@ export const navItems = (unreadBadgeCount: number) =>
           },
         ],
       },
+      { title: 'Audit', url: '/audit', icon: ActivityIcon },
     ],
     [unreadBadgeCount],
   );

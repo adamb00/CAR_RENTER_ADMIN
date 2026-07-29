@@ -1,4 +1,4 @@
-import { Booking } from '@/data-service/bookings';
+import type { Booking } from '@/data-service/bookings';
 import { formatLocale } from './format/format-locale';
 
 export const getRentDetails = (booking: Booking) => {

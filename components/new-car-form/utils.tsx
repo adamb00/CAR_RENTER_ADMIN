@@ -7,18 +7,18 @@ export const MAX_IMAGES = 3;
 export const FORM_STORAGE_KEY = 'new-car-form-state-v6';
 
 export const MONTH_LABELS = [
-  'Január',
-  'Február',
-  'Március',
-  'Április',
-  'Május',
-  'Június',
-  'Július',
-  'Augusztus',
-  'Szeptember',
-  'Október',
-  'November',
-  'December',
+  { name: 'Január', days: 31 },
+  { name: 'Február', days: 28 },
+  { name: 'Március', days: 31 },
+  { name: 'Április', days: 30 },
+  { name: 'Május', days: 31 },
+  { name: 'Június', days: 30 },
+  { name: 'Július', days: 31 },
+  { name: 'Augusztus', days: 31 },
+  { name: 'Szeptember', days: 30 },
+  { name: 'Október', days: 31 },
+  { name: 'November', days: 30 },
+  { name: 'December', days: 31 },
 ] as const;
 
 const DEFAULT_VALUES: Partial<CreateCarFormInput> = {

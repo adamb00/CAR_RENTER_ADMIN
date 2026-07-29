@@ -1,5 +1,3 @@
-import { Booking } from '@/data-service/bookings';
-
 const parseDateValue = (value?: Date | string | null) => {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);

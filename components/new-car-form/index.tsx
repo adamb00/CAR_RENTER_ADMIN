@@ -3,21 +3,23 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form } from '@/components/ui/form';
-import { cn } from '@/lib/utils';
 import { useNewCarForm } from '@/hooks/use-new-car-form';
+import { cn } from '@/lib/utils';
 
+import AccommodationPricesSection from './accommodation-prices-section';
 import { BaseSection } from './base-section';
 import { ColorsSection } from './colors-section';
+import { DailyPricesCalendar } from './daily-prices-calendar';
 import { ImagesSection } from './images-section';
-import { MonthlyPricesSection } from './monthly-prices-section';
 import type { NewCarFormProps } from './types';
-import AccommodationPricesSection from './accommodation-prices-section';
 
 export function NewCarForm({ className, ...props }: NewCarFormProps) {
   const formModel = useNewCarForm(props);
 
+  const carId = props.carId;
+
   return (
-    <Card className={cn('max-w-6xl', className)}>
+    <Card className={cn('w-full', className)}>
       <CardHeader>
         <CardTitle>
           {formModel.isEditMode
@@ -32,7 +34,15 @@ export function NewCarForm({ className, ...props }: NewCarFormProps) {
             onSubmit={formModel.form.handleSubmit(formModel.handleSubmit)}
           >
             <BaseSection formModel={formModel} />
-            <MonthlyPricesSection formModel={formModel} />
+            {/* <MonthlyPricesSection formModel={formModel} /> */}
+
+            {carId && (
+              <DailyPricesCalendar
+                carId={carId}
+                initialPrices={props.initialPrices}
+                initialDailyMultipliers={props.initialDailyMultipliers}
+              />
+            )}
             <AccommodationPricesSection formModel={formModel} />
             <ColorsSection formModel={formModel} />
             <ImagesSection formModel={formModel} />

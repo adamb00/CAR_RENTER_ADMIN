@@ -1,4 +1,4 @@
-import { Booking } from '@/data-service/bookings';
+import type { Booking } from '@/data-service/bookings';
 import { formatDate } from '@/lib/format/format-date';
 import { formatExtras } from '@/lib/format/format-extras';
 import { getRentDetails } from '@/lib/rent-details';

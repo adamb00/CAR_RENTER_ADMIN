@@ -11,6 +11,15 @@ export const getCarById = async (carId: string) => {
 export const getVehicleById = async (vehicleId: string) => {
   return db.fleetVehicle.findUnique({
     where: { id: vehicleId },
+    include: {
+      car: {
+        select: {
+          manufacturer: true,
+          model: true,
+          fuel: true,
+        },
+      },
+    },
   });
 };
 

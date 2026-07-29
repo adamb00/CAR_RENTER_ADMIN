@@ -5,11 +5,12 @@ import { FloatingSelect } from './ui/floating-select';
 import { Input } from './ui/input';
 import { FloatingTextarea } from './ui/textarea';
 
-import { Booking } from '@/data-service/bookings';
+import type { Booking } from '@/data-service/bookings';
 import CarDamages from './car/car-damages';
 import { Detail } from './ui/detail';
 import { Button } from './ui/button';
 import { createVehicleHandoverAction } from '@/actions/createVehicleHandoverAction';
+import { saveBookingDeliveryAction } from '@/actions/saveBookingDeliveryAction';
 import {
   DEFAULT_FLEET_PLACE,
   FLEET_PLACES,
@@ -17,8 +18,7 @@ import {
   getFleetPlaceValue,
 } from '@/lib/fleet-places';
 import { formatAddress } from '@/lib/format/format-address';
-import { formatArrivalTime } from '@/lib/format/format-date';
-import { PricingBreakdown } from '@/hooks/use-rental-pricing';
+import type { PricingBreakdown } from '@/hooks/use-rental-pricing';
 
 const emptyForm = {
   take: '',
@@ -32,6 +32,21 @@ const emptyForm = {
   ferryCost: '',
   cleaningCost: '',
   commission: '',
+  deliveryPlaceType: '',
+  deliveryLocationName: '',
+  deliveryAddress: '',
+  deliveryIsland: '',
+  arrivalFlight: '',
+  departureFlight: '',
+  arrivalHour: '',
+  arrivalMinute: '',
+  sameAsDelivery: false,
+  returnPlaceType: '',
+  returnLocationName: '',
+  returnAddress: '',
+  returnIsland: '',
+  returnHour: '',
+  returnMinute: '',
   location: DEFAULT_FLEET_PLACE,
   notes: '',
   damages: '',
@@ -105,6 +120,44 @@ export default function CaroutForm({
     message: string;
   } | null>(null);
   const [isPending, startTransition] = useTransition();
+  const delivery = booking?.delivery;
+
+  React.useEffect(() => {
+    if (!delivery) return;
+    const formattedAddress = delivery.address ? formatAddress(delivery.address) : '';
+    setForm((prev) => ({
+      ...prev,
+      deliveryPlaceType: prev.deliveryPlaceType || delivery.placeType || '',
+      deliveryLocationName:
+        prev.deliveryLocationName || delivery.locationName || '',
+      deliveryAddress:
+        prev.deliveryAddress || (formattedAddress === '—' ? '' : formattedAddress),
+      deliveryIsland: prev.deliveryIsland || delivery.island || '',
+      arrivalFlight: prev.arrivalFlight || delivery.arrivalFlight || '',
+      departureFlight: prev.departureFlight || delivery.departureFlight || '',
+      arrivalHour: prev.arrivalHour || delivery.arrivalHour || '',
+      arrivalMinute: prev.arrivalMinute || delivery.arrivalMinute || '',
+      sameAsDelivery: prev.sameAsDelivery || Boolean(delivery.same),
+      returnPlaceType:
+        prev.returnPlaceType || delivery.returnPlaceType || delivery.placeType || '',
+      returnLocationName:
+        prev.returnLocationName ||
+        delivery.returnLocationName ||
+        (delivery.same ? delivery.locationName || '' : ''),
+      returnAddress:
+        prev.returnAddress ||
+        (delivery.returnAddress
+          ? formatAddress(delivery.returnAddress)
+          : '') ||
+        (delivery.same ? (formattedAddress === '—' ? '' : formattedAddress) : ''),
+      returnIsland:
+        prev.returnIsland ||
+        delivery.returnIsland ||
+        (delivery.same ? delivery.island || '' : ''),
+      returnHour: prev.returnHour || delivery.returnHour || '',
+      returnMinute: prev.returnMinute || delivery.returnMinute || '',
+    }));
+  }, [delivery]);
 
   React.useEffect(() => {
     if (vehicle?.odometer == null) return;
@@ -360,6 +413,51 @@ export default function CaroutForm({
     const handoverAt = new Date(`${dateValue}T${timeValue}`).toISOString();
 
     startTransition(async () => {
+      const hasDeliveryFormValue = [
+        form.deliveryPlaceType,
+        form.deliveryLocationName,
+        form.deliveryAddress,
+        form.deliveryIsland,
+        form.arrivalFlight,
+        form.departureFlight,
+        form.arrivalHour,
+        form.arrivalMinute,
+        form.returnPlaceType,
+        form.returnLocationName,
+        form.returnAddress,
+        form.returnIsland,
+        form.returnHour,
+        form.returnMinute,
+      ].some((value) => value.trim().length > 0);
+
+      if (hasDeliveryFormValue) {
+        const deliveryResult = await saveBookingDeliveryAction({
+          bookingId,
+          delivery: {
+            placeType: form.deliveryPlaceType,
+            locationName: form.deliveryLocationName,
+            address: form.deliveryAddress,
+            island: form.deliveryIsland,
+            arrivalFlight: form.arrivalFlight,
+            departureFlight: form.departureFlight,
+            arrivalHour: form.arrivalHour,
+            arrivalMinute: form.arrivalMinute,
+            same: form.sameAsDelivery,
+            returnPlaceType: form.returnPlaceType,
+            returnLocationName: form.returnLocationName,
+            returnAddress: form.returnAddress,
+            returnIsland: form.returnIsland,
+            returnHour: form.returnHour,
+            returnMinute: form.returnMinute,
+          },
+        });
+
+        if (deliveryResult?.error) {
+          setStatus({ type: 'error', message: deliveryResult.error });
+          return;
+        }
+      }
+
       const result = await createVehicleHandoverAction({
         bookingId,
         fleetVehicleId,
@@ -422,28 +520,184 @@ export default function CaroutForm({
           value={pricing?.deliveryFee ? `${pricing.deliveryFee} €` : '0 €'}
         />
       </div>
-      <div className='grid gap-4 mb-6 md:grid-cols-3'>
-        <Detail
-          label='Kiszállítás helye'
-          value={booking?.delivery?.locationName ?? 'Nincs kiszállítva'}
-        />
-        <Detail
-          label='Kiszállítás címe'
-          value={
-            booking?.delivery?.address
-              ? formatAddress(booking.delivery.address)
-              : 'Nincs megadva'
-          }
-        />
-        <Detail
-          label='Érkezés ideje'
-          value={formatArrivalTime(
-            booking?.delivery?.arrivalHour,
-            booking?.delivery?.arrivalMinute,
-          )}
-        />
-      </div>
       <form onSubmit={handleSubmit} className='grid gap-4 md:grid-cols-2'>
+        <div className='md:col-span-2 rounded-lg border p-4'>
+          <h2 className='mb-4 text-base font-semibold'>Átvételi adatok</h2>
+          <div className='grid gap-4 md:grid-cols-4'>
+            <FloatingSelect
+              label='Átvétel helye'
+              alwaysFloatLabel
+              value={form.deliveryPlaceType}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  deliveryPlaceType: e.target.value,
+                }))
+              }
+            >
+              <option value=''>Nincs megadva</option>
+              <option value='airport'>Reptér</option>
+              <option value='accommodation'>Szálloda</option>
+              <option value='office'>Iroda</option>
+            </FloatingSelect>
+            <Input
+              label='Helyszín neve'
+              value={form.deliveryLocationName}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  deliveryLocationName: e.target.value,
+                }))
+              }
+            />
+            <Input
+              label='Cím'
+              value={form.deliveryAddress}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  deliveryAddress: e.target.value,
+                }))
+              }
+            />
+            <FloatingSelect
+              label='Sziget'
+              alwaysFloatLabel
+              value={form.deliveryIsland}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  deliveryIsland: e.target.value,
+                }))
+              }
+            >
+              <option value=''>Nincs megadva</option>
+              <option value='Lanzarote'>Lanzarote</option>
+              <option value='Fuerteventura'>Fuerteventura</option>
+            </FloatingSelect>
+            <Input
+              label='Érkező járat'
+              value={form.arrivalFlight}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, arrivalFlight: e.target.value }))
+              }
+            />
+            <Input
+              label='Távozó járat'
+              value={form.departureFlight}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  departureFlight: e.target.value,
+                }))
+              }
+            />
+            <Input
+              label='Érkezés órája'
+              value={form.arrivalHour}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, arrivalHour: e.target.value }))
+              }
+            />
+            <Input
+              label='Érkezés perce'
+              value={form.arrivalMinute}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, arrivalMinute: e.target.value }))
+              }
+            />
+          </div>
+        </div>
+        <div className='md:col-span-2 rounded-lg border p-4'>
+          <h2 className='mb-4 text-base font-semibold'>Visszavételi adatok</h2>
+          <div className='grid gap-4 md:grid-cols-4'>
+            <div className='flex items-center gap-2 text-sm text-muted-foreground md:col-span-4'>
+              <input
+                id='carout-return-same-as-delivery'
+                type='checkbox'
+                className='h-4 w-4 rounded border border-input'
+                checked={form.sameAsDelivery}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setForm((prev) => ({
+                    ...prev,
+                    sameAsDelivery: checked,
+                    returnPlaceType: checked ? prev.deliveryPlaceType : '',
+                    returnLocationName: checked ? prev.deliveryLocationName : '',
+                    returnAddress: checked ? prev.deliveryAddress : '',
+                    returnIsland: checked ? prev.deliveryIsland : '',
+                  }));
+                }}
+              />
+              <label htmlFor='carout-return-same-as-delivery'>
+                Visszavétel helye megegyezik az átvételi címmel
+              </label>
+            </div>
+            <FloatingSelect
+              label='Visszavétel helye'
+              alwaysFloatLabel
+              value={form.returnPlaceType}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  returnPlaceType: e.target.value,
+                }))
+              }
+              disabled={form.sameAsDelivery}
+            >
+              <option value=''>Nincs megadva</option>
+              <option value='airport'>Reptér</option>
+              <option value='accommodation'>Szálloda</option>
+              <option value='office'>Iroda</option>
+            </FloatingSelect>
+            <Input
+              label='Visszavétel helyszín neve'
+              value={form.returnLocationName}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  returnLocationName: e.target.value,
+                }))
+              }
+              disabled={form.sameAsDelivery}
+            />
+            <Input
+              label='Visszavétel címe'
+              value={form.returnAddress}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, returnAddress: e.target.value }))
+              }
+              disabled={form.sameAsDelivery}
+            />
+            <FloatingSelect
+              label='Visszavétel szigete'
+              alwaysFloatLabel
+              value={form.returnIsland}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, returnIsland: e.target.value }))
+              }
+              disabled={form.sameAsDelivery}
+            >
+              <option value=''>Nincs megadva</option>
+              <option value='Lanzarote'>Lanzarote</option>
+              <option value='Fuerteventura'>Fuerteventura</option>
+            </FloatingSelect>
+            <Input
+              label='Visszavétel órája'
+              value={form.returnHour}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, returnHour: e.target.value }))
+              }
+            />
+            <Input
+              label='Visszavétel perce'
+              value={form.returnMinute}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, returnMinute: e.target.value }))
+              }
+            />
+          </div>
+        </div>
         <FloatingSelect
           label='Viszi'
           alwaysFloatLabel

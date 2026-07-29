@@ -232,6 +232,12 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
           form.deliveryDetails.departureFlight,
           form.deliveryDetails.arrivalHour,
           form.deliveryDetails.arrivalMinute,
+          form.deliveryDetails.returnPlaceType,
+          form.deliveryDetails.returnLocationName,
+          form.deliveryDetails.returnAddressLine,
+          form.deliveryDetails.returnIsland,
+          form.deliveryDetails.returnHour,
+          form.deliveryDetails.returnMinute,
         ].some((value) => value.trim().length > 0) || form.deliveryDetails.same;
 
       const result = await updateBookingAdminAction({
@@ -784,6 +790,52 @@ export function BookingAdminEditForm({ initial }: BookingAdminEditFormProps) {
             <option value='true'>Igen</option>
             <option value='false'>Nem</option>
           </FloatingSelect>
+          <Input
+            label='Visszavétel hely típusa'
+            value={form.deliveryDetails.returnPlaceType}
+            onChange={(event) =>
+              updateDeliveryField('returnPlaceType', event.target.value)
+            }
+          />
+          <Input
+            label='Visszavétel helyszín neve'
+            value={form.deliveryDetails.returnLocationName}
+            onChange={(event) =>
+              updateDeliveryField('returnLocationName', event.target.value)
+            }
+          />
+          <Input
+            label='Visszavétel címe'
+            value={form.deliveryDetails.returnAddressLine}
+            onChange={(event) =>
+              updateDeliveryField('returnAddressLine', event.target.value)
+            }
+          />
+          <FloatingSelect
+            label='Visszavétel szigete'
+            value={form.deliveryDetails.returnIsland}
+            onChange={(event) =>
+              updateDeliveryField('returnIsland', event.target.value)
+            }
+          >
+            <option value=''>Nincs megadva</option>
+            <option value='Lanzarote'>Lanzarote</option>
+            <option value='Fuerteventura'>Fuerteventura</option>
+          </FloatingSelect>
+          <Input
+            label='Visszavétel órája'
+            value={form.deliveryDetails.returnHour}
+            onChange={(event) =>
+              updateDeliveryField('returnHour', event.target.value)
+            }
+          />
+          <Input
+            label='Visszavétel perce'
+            value={form.deliveryDetails.returnMinute}
+            onChange={(event) =>
+              updateDeliveryField('returnMinute', event.target.value)
+            }
+          />
         </div>
       </div>
 

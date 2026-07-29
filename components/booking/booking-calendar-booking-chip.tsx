@@ -199,6 +199,9 @@ export function BookingCalendarBookingChip({
             <strong>Érkezés:</strong> {booking.arrival ?? '—'}
           </div>
           <div>
+            <strong>Távozás:</strong> {booking.departure ?? '—'}
+          </div>
+          <div>
             <strong>Státusz:</strong> {getStatusMeta(booking.status).label}
           </div>
           <div>

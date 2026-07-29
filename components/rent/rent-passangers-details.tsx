@@ -1,4 +1,4 @@
-import { Booking } from '@/data-service/bookings';
+import type { Booking } from '@/data-service/bookings';
 import { getRentDetails } from '@/lib/rent-details';
 import { Detail } from '../ui/detail';
 import Section from '../ui/section';

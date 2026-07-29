@@ -143,7 +143,16 @@ export const sendBookingContractInviteAction = async (
   const vehicle = vehicleId
     ? await db.fleetVehicle.findUnique({
         where: { id: vehicleId },
-        select: { plate: true },
+        select: {
+          plate: true,
+          car: {
+            select: {
+              manufacturer: true,
+              model: true,
+              fuel: true,
+            },
+          },
+        },
       })
     : null;
 
