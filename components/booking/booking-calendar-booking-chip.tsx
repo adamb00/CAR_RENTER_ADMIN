@@ -51,7 +51,6 @@ type BookingCalendarBookingChipProps = {
     event: DragEvent<HTMLElement>,
     booking: VisibleBooking,
     vehicleId: string,
-    disabled?: boolean,
   ) => void;
   onBookingDragEnd: () => void;
 };
@@ -130,7 +129,7 @@ export function BookingCalendarBookingChip({
             className={cn(
               'my-0 min-w-0 flex flex-col items-center justify-center gap-1 overflow-hidden rounded-md px-2 py-1 text-primary-foreground shadow-sm',
               hasAccommodation && 'bg-green-600',
-              hasOut || isPending
+              isPending
                 ? 'cursor-default'
                 : 'cursor-grab active:cursor-grabbing',
             )}
@@ -149,14 +148,14 @@ export function BookingCalendarBookingChip({
               }px, rgba(255,255,255,0.28) ${dayColumnWidth - 1}px, rgba(255,255,255,0.28) ${dayColumnWidth}px)`,
               boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.2)',
             }}
-            draggable={!isPending && !hasOut}
+            draggable={!isPending}
             onContextMenu={(event) => {
               event.preventDefault();
               onOpenBookingMenu(event, booking.id);
             }}
             onClick={(event) => onOpenBookingMenu(event, booking.id)}
             onDragStart={(event) =>
-              onBookingDragStart(event, booking, vehicle.id, hasOut)
+              onBookingDragStart(event, booking, vehicle.id)
             }
             onDragEnd={onBookingDragEnd}
           >

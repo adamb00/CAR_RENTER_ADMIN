@@ -46,17 +46,6 @@ export function SendContractEmailButton({
         <Mail className='h-4 w-4' />
         {isPending ? 'Küldés...' : 'Szerződés küldése emailben'}
       </Button>
-      {/* {status && (
-        <div
-          className={
-            status.type === 'success'
-              ? 'max-w-sm rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900'
-              : 'max-w-sm rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground'
-          }
-        >
-          {status.message}
-        </div>
-      )} */}
     </div>
   );
 }

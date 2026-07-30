@@ -476,13 +476,7 @@ export function useBookingCalendar({
     event: DragEvent<HTMLElement>,
     booking: BookingCalendarBooking,
     sourceVehicleId?: string,
-    disabled?: boolean,
   ) => {
-    if (disabled) {
-      event.preventDefault();
-      return;
-    }
-
     const payload = buildDragPayload(booking, sourceVehicleId);
     if (!payload) {
       event.preventDefault();
