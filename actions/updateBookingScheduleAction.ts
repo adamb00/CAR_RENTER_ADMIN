@@ -66,6 +66,8 @@ export async function updateBookingScheduleAction({
         select: {
           arrivalHour: true,
           arrivalMinute: true,
+          returnHour: true,
+          returnMinute: true,
         },
       },
       vehicleHandovers: {
@@ -226,6 +228,8 @@ export async function updateBookingScheduleAction({
       rentalEnd: effectiveRentalEnd,
       arrivalHour: booking.bookingDeliveryDetails?.arrivalHour ?? null,
       arrivalMinute: booking.bookingDeliveryDetails?.arrivalMinute ?? null,
+      returnHour: booking.bookingDeliveryDetails?.returnHour ?? null,
+      returnMinute: booking.bookingDeliveryDetails?.returnMinute ?? null,
       handoverOutAt,
       handoverInAt,
     });

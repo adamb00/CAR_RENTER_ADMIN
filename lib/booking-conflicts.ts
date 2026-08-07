@@ -125,6 +125,8 @@ export const findFleetVehicleBookingConflict = async ({
   rentalEnd,
   arrivalHour,
   arrivalMinute,
+  returnHour,
+  returnMinute,
   handoverOutAt,
   handoverInAt,
 }: {
@@ -134,6 +136,8 @@ export const findFleetVehicleBookingConflict = async ({
   rentalEnd: Date;
   arrivalHour?: string | null;
   arrivalMinute?: string | null;
+  returnHour?: string | null;
+  returnMinute?: string | null;
   handoverOutAt?: Date | null;
   handoverInAt?: Date | null;
 }): Promise<BookingConflictCandidate | null> => {
@@ -142,6 +146,8 @@ export const findFleetVehicleBookingConflict = async ({
     rentalEnd,
     arrivalHour,
     arrivalMinute,
+    returnHour,
+    returnMinute,
     handoverOutAt,
     handoverInAt,
   });
@@ -179,6 +185,8 @@ export const findFleetVehicleBookingConflict = async ({
         select: {
           arrivalHour: true,
           arrivalMinute: true,
+          returnHour: true,
+          returnMinute: true,
         },
       },
       vehicleHandovers: {
@@ -214,6 +222,9 @@ export const findFleetVehicleBookingConflict = async ({
             arrivalHour: candidate.bookingDeliveryDetails?.arrivalHour ?? null,
             arrivalMinute:
               candidate.bookingDeliveryDetails?.arrivalMinute ?? null,
+            returnHour: candidate.bookingDeliveryDetails?.returnHour ?? null,
+            returnMinute:
+              candidate.bookingDeliveryDetails?.returnMinute ?? null,
             handoverOutAt: candidateHandoverOutAt,
             handoverInAt,
           });

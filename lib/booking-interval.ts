@@ -3,6 +3,8 @@ export type BookingIntervalInput = {
   rentalEnd?: Date | string | null;
   arrivalHour?: string | number | null;
   arrivalMinute?: string | number | null;
+  returnHour?: string | number | null;
+  returnMinute?: string | number | null;
   handoverOutAt?: Date | string | null;
   handoverInAt?: Date | string | null;
 };
@@ -127,8 +129,11 @@ export const buildBookingInterval = (
     toBoundedInteger(input.arrivalHour, 0, 23) ?? DEFAULT_PICKUP_HOUR;
   const pickupMinute =
     toBoundedInteger(input.arrivalMinute, 0, 59) ?? DEFAULT_PICKUP_MINUTE;
-  const returnHour = DEFAULT_RETURN_HOUR;
-  const returnMinute = DEFAULT_RETURN_MINUTE;
+  const parsedReturnHour = toBoundedInteger(input.returnHour, 0, 23);
+  const returnHour = parsedReturnHour ?? DEFAULT_RETURN_HOUR;
+  const returnMinute =
+    toBoundedInteger(input.returnMinute, 0, 59) ??
+    (parsedReturnHour == null ? DEFAULT_RETURN_MINUTE : 0);
 
   const handoverOutAt = toDateTime(input.handoverOutAt);
   const handoverInAt = toDateTime(input.handoverInAt);

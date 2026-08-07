@@ -133,6 +133,8 @@ export type BookingCalendarBooking = {
   rentalEnd?: string;
   arrivalHour?: string | null;
   arrivalMinute?: string | null;
+  returnHour?: string | null;
+  returnMinute?: string | null;
   handoverOutAt?: string | null;
   handoverInAt?: string | null;
   status?: string | null;

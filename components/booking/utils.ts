@@ -51,6 +51,8 @@ export const getBookingInterval = (
     rentalEnd: booking.rentalEnd,
     arrivalHour: booking.arrivalHour,
     arrivalMinute: booking.arrivalMinute,
+    returnHour: booking.returnHour,
+    returnMinute: booking.returnMinute,
     handoverOutAt: booking.handoverOutAt,
     handoverInAt: booking.handoverInAt,
   });

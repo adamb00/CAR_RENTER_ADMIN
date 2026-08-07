@@ -65,6 +65,8 @@ export const createTaskAction = async (data: TaskFormValues) => {
         rentalEnd: booking.rentalEnd,
         arrivalHour: delivery?.arrivalHour ?? null,
         arrivalMinute: delivery?.arrivalMinute ?? null,
+        returnHour: delivery?.returnHour ?? null,
+        returnMinute: delivery?.returnMinute ?? null,
         handoverOutAt: handoverOut?.handoverAt ?? null,
         handoverInAt: handoverIn?.handoverAt ?? null,
       });

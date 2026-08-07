@@ -135,6 +135,8 @@ export default async function CalendarPage() {
         rentalEnd: booking.rentalEnd,
         arrivalHour: booking.delivery?.arrivalHour ?? null,
         arrivalMinute: booking.delivery?.arrivalMinute ?? null,
+        returnHour: booking.delivery?.returnHour ?? null,
+        returnMinute: booking.delivery?.returnMinute ?? null,
         handoverOutAt: handoverTimes?.outAt ?? null,
         handoverInAt: handoverTimes?.inAt ?? null,
         status: booking.status ?? null,
